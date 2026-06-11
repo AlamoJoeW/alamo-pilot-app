@@ -62,6 +62,26 @@ export async function updateSite(recordId, action) {
   return res.json()
 }
 
+export async function submitAccessIssue(recordId, action, notes, file) {
+  const body = { recordId, action, notes }
+  if (file) {
+    body.fileBase64 = file.base64
+    body.fileName = file.name
+    body.fileMimeType = file.type
+  }
+  const res = await fetch(`${BASE}/api/access-issue`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || 'Failed to submit access issue')
+  }
+  return res.json()
+}
+
 export async function fetchEODSummary() {
   const res = await fetch(`${BASE}/api/submit-eod`, { headers: authHeaders() })
   if (!res.ok) throw new Error('Failed to fetch EOD')
