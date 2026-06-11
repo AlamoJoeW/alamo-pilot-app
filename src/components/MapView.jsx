@@ -41,6 +41,7 @@ export default function MapView({ sites, onSelect }) {
     if (mapInstance.current) return
 
     const L = window.L
+        if (!L) return
     const map = L.map(mapRef.current, {
       center: [32.7767, -96.7970], // Default: Dallas, TX
       zoom: 8,
