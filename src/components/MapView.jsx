@@ -4,7 +4,7 @@ const STATUS_COLORS = {
   collected: '#22c55e',
   partial: '#facc15',
   mob: '#f97316',
-  none: '#64748b',
+  none: '#ef4444',
   issue: '#ef4444',
 }
 
