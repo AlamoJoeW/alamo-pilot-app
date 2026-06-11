@@ -30,7 +30,16 @@ export default async function handler(req, res) {
       siteId: r.fields[FIELDS.SITE_ID] || '',
       fuzeId: r.fields[FIELDS.FUZE_ID] || '',
       collectionStatus: r.fields[FIELDS.COLLECTION_STATUS] || '',
-      siteIssue: (r.fields[FIELDS.SITE_ISSUE] || []).join(', '),
+      // Site Issue is a lookup of AI summaries from linked Access Issue records.
+      // Airtable returns an array of {state, value, isStale} objects — extract .value.
+      siteIssue: (() => {
+        const raw = r.fields[FIELDS.SITE_ISSUE]
+        if (!raw || !Array.isArray(raw)) return ''
+        return raw
+          .map(v => (v && typeof v === 'object') ? (v.value || '') : String(v || ''))
+          .filter(Boolean)
+          .join(' | ')
+      })(),
       pilotAssigned: r.fields[FIELDS.PILOT_ASSIGNED] || '',
       subProject: r.fields[FIELDS.SUB_PROJECT] || '',
       address: r.fields[FIELDS.ADDRESS] || '',
