@@ -63,7 +63,8 @@ export const SITE_FIELDS = Object.values(FIELDS).filter(id =>
 )
 
 export async function airtableGet(table, params = {}) {
-  const qs = new URLSearchParams()
+    const qs = new URLSearchParams()
+    qs.set('returnFieldsByFieldId', 'true')
   if (params.filterByFormula) qs.set('filterByFormula', params.filterByFormula)
   if (params.fields) params.fields.forEach(f => qs.append('fields[]', f))
   if (params.offset) qs.set('offset', params.offset)
