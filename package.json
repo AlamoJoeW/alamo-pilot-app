@@ -1,0 +1,22 @@
+{
+  "name": "alamo-pilot-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "idb": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.3.1",
+    "vite-plugin-pwa": "^0.20.1",
+    "workbox-window": "^7.1.0"
+  }
+}
