@@ -677,3 +677,136 @@ html, body, #root {
   margin-bottom: 16px;
   line-height: 1.5;
 }
+
+
+/* ========================================
+   Access Issue Modal
+   ======================================== */
+.access-modal {
+  padding: 24px 20px 20px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.modal-required-badge {
+  font-size: 11px;
+  font-weight: 600;
+  background: #7c2d12;
+  color: #fed7aa;
+  padding: 2px 8px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.modal-desc {
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.notes-textarea {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+  padding: 12px 14px;
+  resize: vertical;
+  margin-bottom: 18px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.notes-textarea:focus {
+  border-color: var(--accent);
+}
+.notes-textarea::placeholder {
+  color: var(--text2);
+}
+
+.file-pick-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 12px;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  color: var(--text2);
+  font-size: 15px;
+  cursor: pointer;
+  margin-bottom: 24px;
+  transition: border-color 0.15s, color 0.15s;
+}
+.file-pick-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.file-pick-btn.file-attached {
+  border-color: var(--green);
+  border-style: solid;
+  color: var(--green);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-modal-cancel {
+  flex: 1;
+  padding: 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text2);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-modal-cancel:disabled {
+  opacity: 0.5;
+}
+
+.btn-modal-confirm {
+  flex: 2;
+  padding: 14px;
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-modal-confirm:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
