@@ -87,3 +87,17 @@ export async function fetchEODSummary() {
   if (!res.ok) throw new Error('Failed to fetch EOD')
   return res.json()
 }
+
+export async function submitEOD(collectedIds, partialIds, mobIds) {
+  const res = await fetch(`${BASE}/api/submit-eod`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ collectedIds, partialIds, mobIds }),
+  })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || 'EOD submission failed')
+  }
+  return res.json()
+}
