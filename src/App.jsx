@@ -7,7 +7,7 @@ import {
   getPilotInfo,
   fetchSites,
   updateSite,
-  fetchEODSummary,
+  submitEOD,
   logout,
 } from './utils/api'
 import {
@@ -33,6 +33,7 @@ export default function App() {
   const [pendingCount, setPendingCount] = useState(0)
   const [eodSummary, setEodSummary] = useState(null)
   const [showEOD, setShowEOD] = useState(false)
+  const [eodSubmitting, setEodSubmitting] = useState(false)
   const [syncedAt, setSyncedAt] = useState(null)
 
   // Online/offline detection
@@ -154,13 +155,21 @@ export default function App() {
   }, [isOnline, selectedSite])
 
   async function handleEOD() {
+    if (eodSubmitting) return
+    setEodSubmitting(true)
     try {
-      const summary = await fetchEODSummary()
+      const collectedIds = sites.filter(s => s.collectedApp).map(s => s.id)
+      const partialIds = sites.filter(s => s.partialCollection).map(s => s.id)
+      const mobIds = sites.filter(s => s.mobFee).map(s => s.id)
+      const summary = await submitEOD(collectedIds, partialIds, mobIds)
       setEodSummary(summary)
       setShowEOD(true)
-    } catch {
+    } catch (err) {
+      if (err.message === 'AUTH_EXPIRED') { handleLogout(); return }
+      setEodSummary({ error: err.message || 'Submission failed' })
       setShowEOD(true)
-      setEodSummary(null)
+    } finally {
+      setEodSubmitting(false)
     }
   }
 
@@ -254,8 +263,8 @@ export default function App() {
 
       {/* Submit EOD button */}
       {doneCount > 0 && (
-        <button className="eod-btn" onClick={handleEOD}>
-          Submit EOD ({doneCount} sites)
+        <button className="eod-btn" onClick={handleEOD} disabled={eodSubmitting}>
+          {eodSubmitting ? 'Submitting…' : `Submit EOD (${doneCount} sites)`}
         </button>
       )}
 
@@ -275,7 +284,9 @@ export default function App() {
         <div className="modal-overlay" onClick={() => setShowEOD(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h2>End of Day Report</h2>
-            {eodSummary ? (
+            {eodSummary?.error ? (
+              <p style={{ color: '#ef4444' }}>Error: {eodSummary.error}</p>
+            ) : eodSummary ? (
               <>
                 <div className="eod-summary">
                   <div className="eod-row">
@@ -292,21 +303,11 @@ export default function App() {
                   </div>
                 </div>
                 <p className="eod-note">
-                  Your EOD report is saved in Airtable. Your supervisor can review it there.
+                  EOD report submitted to Airtable. Your supervisor can review it there.
                 </p>
-                {eodSummary.airtableUrl && (
-                  <a
-                    href={eodSummary.airtableUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn-secondary"
-                  >
-                    View in Airtable
-                  </a>
-                )}
               </>
             ) : (
-              <p>Loading EOD data…</p>
+              <p>Submitting…</p>
             )}
             <button className="btn-primary" onClick={() => setShowEOD(false)}>
               Done
