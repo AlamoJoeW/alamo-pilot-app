@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Login from './components/Login'
 import MapView from './components/MapView'
+import RouteView from './components/RouteView'
 import SiteList from './components/SiteList'
 import SiteDetail from './components/SiteDetail'
 import Preflight from './components/Preflight'
@@ -41,7 +42,7 @@ function TravelDayScreen({ pilot, onLogout }) {
 export default function App() {
   const [pilot, setPilot] = useState(null)
   const [sites, setSites] = useState([])
-  const [view, setView] = useState('map')          // 'map' | 'list'
+  const [view, setView] = useState('map')          // 'map' | 'route' | 'list'
   const [filter, setFilter] = useState('all')
   const [selectedSite, setSelectedSite] = useState(null)
   const [syncing, setSyncing] = useState(false)
@@ -59,7 +60,6 @@ export default function App() {
   const [preflightTravelDay, setPreflightTravelDay] = useState(false)
   const [preflightId, setPreflightId] = useState(null)
 
-  // Online/offline detection
   useEffect(() => {
     const on = () => setIsOnline(true)
     const off = () => setIsOnline(false)
@@ -68,28 +68,18 @@ export default function App() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
 
-  // Check auth on mount
   useEffect(() => {
     const info = getPilotInfo()
-    if (info) {
-      setPilot(info)
-      loadFromCache()
-      sync()
-    }
+    if (info) { setPilot(info); loadFromCache(); sync() }
   }, [])
 
-  // Flush pending updates when coming online
   useEffect(() => {
-    if (isOnline && pilot) {
-      flushPending()
-    }
+    if (isOnline && pilot) flushPending()
   }, [isOnline, pilot])
 
   async function loadFromCache() {
     const cached = await getSites()
-    if (cached.length > 0) {
-      setSites(cached)
-    }
+    if (cached.length > 0) setSites(cached)
     const at = await getMeta('syncedAt')
     if (at) setSyncedAt(at)
     const pending = await getPendingUpdates()
@@ -98,100 +88,57 @@ export default function App() {
 
   async function sync() {
     if (syncing) return
-    setSyncing(true)
-    setSyncError('')
+    setSyncing(true); setSyncError('')
     let authExpired = false
     try {
       const data = await fetchSites()
-      await saveSites(data.sites)
-      setSites(data.sites)
-      setSyncedAt(data.syncedAt)
+      await saveSites(data.sites); setSites(data.sites); setSyncedAt(data.syncedAt)
       await flushPending()
     } catch (err) {
-      if (err.message === 'AUTH_EXPIRED') {
-        handleLogout()
-        authExpired = true
-      } else {
-        setSyncError('Sync failed â using cached data')
-      }
-    } finally {
-      setSyncing(false)
-    }
-
-    // Check preflight status (runs even if site fetch failed, skips if auth expired)
+      if (err.message === 'AUTH_EXPIRED') { handleLogout(); authExpired = true }
+      else setSyncError('Sync failed â using cached data')
+    } finally { setSyncing(false) }
     if (!authExpired && !preflightChecked) {
       try {
         const pf = await checkPreflight()
-        setPreflightExists(pf.exists)
-        setPreflightTravelDay(pf.travelDay || false)
-        setPreflightId(pf.preflightId || null)
-      } catch {
-        // Non-fatal â default to showing the form so pilot can submit
-        setPreflightExists(false)
-      } finally {
-        setPreflightChecked(true)
-      }
+        setPreflightExists(pf.exists); setPreflightTravelDay(pf.travelDay || false); setPreflightId(pf.preflightId || null)
+      } catch { setPreflightExists(false) }
+      finally { setPreflightChecked(true) }
     }
   }
 
   async function flushPending() {
     const pending = await getPendingUpdates()
-    if (pending.length === 0) return
-
+    if (!pending.length) return
     let flushed = 0
     for (const { key, value } of pending) {
-      try {
-        await updateSite(value.recordId, value.action)
-        await deletePendingUpdate(key)
-        flushed++
-      } catch {
-        break // Stop on first failure (network issue)
-      }
+      try { await updateSite(value.recordId, value.action); await deletePendingUpdate(key); flushed++ }
+      catch { break }
     }
-
-    const remaining = await getPendingUpdates()
-    setPendingCount(remaining.length)
-
+    setPendingCount((await getPendingUpdates()).length)
     if (flushed > 0) {
-      // Re-sync to get fresh data
       const data = await fetchSites().catch(() => null)
-      if (data) {
-        await saveSites(data.sites)
-        setSites(data.sites)
-      }
+      if (data) { await saveSites(data.sites); setSites(data.sites) }
     }
   }
 
   const handleUpdate = useCallback(async (recordId, action) => {
-    // Optimistic local update
     const changes = {
       collectedApp: action === 'collected',
       partialCollection: action === 'partial',
       mobFee: action === 'mob',
     }
     if (action === 'uncollect') {
-      changes.collectedApp = false
-      changes.partialCollection = false
-      changes.mobFee = false
+      changes.collectedApp = false; changes.partialCollection = false; changes.mobFee = false
     }
-
     await updateSiteLocally(recordId, changes)
     setSites(prev => prev.map(s => s.id === recordId ? { ...s, ...changes } : s))
-    if (selectedSite?.id === recordId) {
-      setSelectedSite(prev => ({ ...prev, ...changes }))
-    }
-
+    if (selectedSite?.id === recordId) setSelectedSite(prev => ({ ...prev, ...changes }))
     if (isOnline) {
-      try {
-        await updateSite(recordId, action)
-      } catch (err) {
-        // If network fails, queue it
-        await queueUpdate({ recordId, action })
-        setPendingCount(n => n + 1)
-      }
+      try { await updateSite(recordId, action) }
+      catch { await queueUpdate({ recordId, action }); setPendingCount(n => n + 1) }
     } else {
-      await queueUpdate({ recordId, action })
-      setPendingCount(n => n + 1)
+      await queueUpdate({ recordId, action }); setPendingCount(n => n + 1)
     }
   }, [isOnline, selectedSite])
 
@@ -202,8 +149,6 @@ export default function App() {
       const collectedIds = sites.filter(s => s.collectedApp).map(s => s.id)
       const partialIds = sites.filter(s => s.partialCollection).map(s => s.id)
       const mobIds = sites.filter(s => s.mobFee).map(s => s.id)
-
-      // Capture end-of-day GPS (optional, non-blocking)
       let endLat = null, endLng = null
       if (navigator.geolocation) {
         await new Promise(resolve => {
@@ -213,68 +158,33 @@ export default function App() {
           )
         })
       }
-
       const summary = await submitEOD(collectedIds, partialIds, mobIds, endLat, endLng, preflightId)
-      setEodSummary(summary)
-      setShowEOD(true)
+      setEodSummary(summary); setShowEOD(true)
     } catch (err) {
       if (err.message === 'AUTH_EXPIRED') { handleLogout(); return }
-      setEodSummary({ error: err.message || 'Submission failed' })
-      setShowEOD(true)
-    } finally {
-      setEodSubmitting(false)
-    }
+      setEodSummary({ error: err.message || 'Submission failed' }); setShowEOD(true)
+    } finally { setEodSubmitting(false) }
   }
 
   function handleLogout() {
-    logout()
-    clearAll()
-    setPilot(null)
-    setSites([])
-    setSelectedSite(null)
-    setPreflightChecked(false)
-    setPreflightExists(false)
-    setPreflightTravelDay(false)
-    setPreflightId(null)
+    logout(); clearAll()
+    setPilot(null); setSites([]); setSelectedSite(null)
+    setPreflightChecked(false); setPreflightExists(false)
+    setPreflightTravelDay(false); setPreflightId(null)
   }
 
   function handleLogin(data) {
     const info = getPilotInfo()
-    setPilot(info || data)
-    sync()
+    setPilot(info || data); sync()
   }
 
-  // ââ Render guards âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  if (!pilot) return <Login onLogin={handleLogin} />
+  if (!preflightChecked) return <div className="pf-loading">Checking preflightâ¦</div>
+  if (!preflightExists) return (
+    <Preflight pilot={pilot} onComplete={(id) => { setPreflightId(id); setPreflightExists(true) }} />
+  )
+  if (preflightTravelDay) return <TravelDayScreen pilot={pilot} onLogout={handleLogout} />
 
-  // No auth â Login
-  if (!pilot) {
-    return <Login onLogin={handleLogin} />
-  }
-
-  // Auth OK but preflight not yet checked â brief loading state
-  if (!preflightChecked) {
-    return <div className="pf-loading">Checking preflightâ¦</div>
-  }
-
-  // Auth OK + preflight not done â show Preflight form
-  if (!preflightExists) {
-    return (
-      <Preflight
-        pilot={pilot}
-        onComplete={(id) => {
-          setPreflightId(id)
-          setPreflightExists(true)
-        }}
-      />
-    )
-  }
-
-  // Auth OK + travel day â Travel Day screen (no route/map)
-  if (preflightTravelDay) {
-    return <TravelDayScreen pilot={pilot} onLogout={handleLogout} />
-  }
-
-  // Normal flight day â map/list/EOD
   const collectedCount = sites.filter(s => s.collectedApp).length
   const partialCount = sites.filter(s => s.partialCollection).length
   const mobCount = sites.filter(s => s.mobFee).length
@@ -282,7 +192,6 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Top bar */}
       <header className="top-bar">
         <div className="top-bar-left">
           <span className="pilot-name">{pilot.firstName || pilot.displayName}</span>
@@ -290,112 +199,57 @@ export default function App() {
           {pendingCount > 0 && <span className="pending-pill">{pendingCount} pending</span>}
         </div>
         <div className="top-bar-right">
-          <button className="icon-btn" onClick={sync} disabled={syncing} title="Sync">
-            {syncing ? 'â³' : 'â³'}
-          </button>
+          <button className="icon-btn" onClick={sync} disabled={syncing} title="Sync">{syncing ? 'â³' : 'â³'}</button>
           <button className="icon-btn" onClick={handleLogout} title="Log out">â</button>
         </div>
       </header>
-
       {syncError && <div className="sync-error">{syncError}</div>}
-
-      {/* Progress bar */}
       <div className="progress-bar">
         <div className="progress-stats">
           <span>{doneCount} / {sites.length} sites</span>
-          <span style={{ color: '#22c55e' }}>{collectedCount} collected</span>
-          {partialCount > 0 && <span style={{ color: '#facc15' }}>{partialCount} partial</span>}
-          {mobCount > 0 && <span style={{ color: '#f97316' }}>{mobCount} MOB</span>}
+          <span style={{color:'#22c55e'}}>{collectedCount} collected</span>
+          {partialCount > 0 && <span style={{color:'#facc15'}}>{partialCount} partial</span>}
+          {mobCount > 0 && <span style={{color:'#f97316'}}>{mobCount} MOB</span>}
         </div>
         <div className="progress-track">
-          <div
-            className="progress-fill"
-            style={{ width: sites.length > 0 ? `${(doneCount / sites.length) * 100}%` : '0%' }}
-          />
+          <div className="progress-fill" style={{width:sites.length>0?`${(doneCount/sites.length)*100}%`:'0%'}} />
         </div>
       </div>
-
-      {/* View toggle */}
       <div className="view-toggle">
-        <button
-          className={`toggle-btn ${view === 'map' ? 'active' : ''}`}
-          onClick={() => setView('map')}
-        >
-          Map
-        </button>
-        <button
-          className={`toggle-btn ${view === 'list' ? 'active' : ''}`}
-          onClick={() => setView('list')}
-        >
-          List
-        </button>
+        <button className={`toggle-btn ${view==='map'?'active':''}`} onClick={()=>setView('map')}>Map</button>
+        <button className={`toggle-btn ${view==='route'?'active':''}`} onClick={()=>setView('route')}>Route</button>
+        <button className={`toggle-btn ${view==='list'?'active':''}`} onClick={()=>setView('list')}>List</button>
       </div>
-
-      {/* Main content */}
       <div className="main-content">
-        {view === 'map' ? (
-          <MapView sites={sites} onSelect={setSelectedSite} />
-        ) : (
-          <SiteList
-            sites={sites}
-            onSelect={setSelectedSite}
-            filter={filter}
-            onFilterChange={setFilter}
-          />
-        )}
+        {view==='map' && <MapView sites={sites} onSelect={setSelectedSite} />}
+        {view==='route' && <RouteView sites={sites} />}
+        {view==='list' && <SiteList sites={sites} onSelect={setSelectedSite} filter={filter} onFilterChange={setFilter} />}
       </div>
-
-      {/* Submit EOD button */}
       {doneCount > 0 && (
         <button className="eod-btn" onClick={handleEOD} disabled={eodSubmitting}>
           {eodSubmitting ? 'Submittingâ¦' : `Submit EOD (${doneCount} sites)`}
         </button>
       )}
-
-      {/* Site detail sheet */}
       {selectedSite && (
-        <SiteDetail
-          site={selectedSite}
-          onClose={() => setSelectedSite(null)}
-          onUpdate={handleUpdate}
-          isOnline={isOnline}
-          pendingCount={pendingCount}
-        />
+        <SiteDetail site={selectedSite} onClose={() => setSelectedSite(null)} onUpdate={handleUpdate} isOnline={isOnline} pendingCount={pendingCount} />
       )}
-
-      {/* EOD confirmation modal */}
       {showEOD && (
         <div className="modal-overlay" onClick={() => setShowEOD(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h2>End of Day Report</h2>
             {eodSummary?.error ? (
-              <p style={{ color: '#ef4444' }}>Error: {eodSummary.error}</p>
+              <p style={{color:'#ef4444'}}>Error: {eodSummary.error}</p>
             ) : eodSummary ? (
               <>
                 <div className="eod-summary">
-                  <div className="eod-row">
-                    <span>Full Collections</span>
-                    <strong style={{ color: '#22c55e' }}>{eodSummary.fullCount}</strong>
-                  </div>
-                  <div className="eod-row">
-                    <span>Partial Collections</span>
-                    <strong style={{ color: '#facc15' }}>{eodSummary.partialCount}</strong>
-                  </div>
-                  <div className="eod-row">
-                    <span>MOB Fees</span>
-                    <strong style={{ color: '#f97316' }}>{eodSummary.mobCount}</strong>
-                  </div>
+                  <div className="eod-row"><span>Full Collections</span><strong style={{color:'#22c55e'}}>{eodSummary.fullCount}</strong></div>
+                  <div className="eod-row"><span>Partial Collections</span><strong style={{color:'#facc15'}}>{eodSummary.partialCount}</strong></div>
+                  <div className="eod-row"><span>MOB Fees</span><strong style={{color:'#f97316'}}>{eodSummary.mobCount}</strong></div>
                 </div>
-                <p className="eod-note">
-                  EOD report submitted to Airtable. Your supervisor can review it there.
-                </p>
+                <p className="eod-note">EOD report submitted to Airtable. Your supervisor can review it there.</p>
               </>
-            ) : (
-              <p>Submittingâ¦</p>
-            )}
-            <button className="btn-primary" onClick={() => setShowEOD(false)}>
-              Done
-            </button>
+            ) : <p>Submittingâ¦</p>}
+            <button className="btn-primary" onClick={() => setShowEOD(false)}>Done</button>
           </div>
         </div>
       )}
