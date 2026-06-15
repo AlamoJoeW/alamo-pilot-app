@@ -810,3 +810,54 @@ html, body, #root {
   opacity: 0.4;
   cursor: default;
 }
+
+
+/* ========================================
+   Checkbox Fields (Access Issue Modal)
+   ======================================== */
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface2);
+  border-radius: 10px;
+  padding: 6px 4px;
+  margin-bottom: 18px;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+
+.checkbox-field:active {
+  background: rgba(255,255,255,0.05);
+}
+
+.checkbox-field input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkbox-field span {
+  font-size: 15px;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.checkbox-field.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.checkbox-field.disabled input {
+  cursor: not-allowed;
+}
