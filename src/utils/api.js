@@ -62,13 +62,15 @@ export async function updateSite(recordId, action) {
   return res.json()
 }
 
-export async function submitAccessIssue(recordId, action, notes, file) {
+export async function submitAccessIssue(recordId, action, notes, file, captureTypes, issueFlags) {
   const body = { recordId, action, notes }
   if (file) {
     body.fileBase64 = file.base64
     body.fileName = file.name
     body.fileMimeType = file.type
   }
+  if (captureTypes) body.captureTypes = captureTypes
+  if (issueFlags) body.issueFlags = issueFlags
   const res = await fetch(`${BASE}/api/access-issue`, {
     method: 'POST',
     headers: authHeaders(),
