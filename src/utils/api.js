@@ -1,4 +1,4 @@
-const BASE = ''  // Same origin — Vercel serves both
+const BASE = ''  // Same origin â Vercel serves both
 
 function getToken() {
   return localStorage.getItem('alamo_token')
@@ -70,7 +70,7 @@ export async function submitAccessIssue(recordId, action, notes, file, captureTy
     body.fileMimeType = file.type
   }
   if (captureTypes) body.captureTypes = captureTypes
-  if (issueFlags) body.issueFlags = issueFlags
+  if (issueFlags)   body.issueFlags   = issueFlags
   const res = await fetch(`${BASE}/api/access-issue`, {
     method: 'POST',
     headers: authHeaders(),
@@ -90,16 +90,63 @@ export async function fetchEODSummary() {
   return res.json()
 }
 
-export async function submitEOD(collectedIds, partialIds, mobIds) {
+export async function submitEOD(
+  collectedIds,
+  partialIds,
+  mobIds,
+  endLat = null,
+  endLng = null,
+  preflightId = null
+) {
   const res = await fetch(`${BASE}/api/submit-eod`, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ collectedIds, partialIds, mobIds }),
+    body: JSON.stringify({ collectedIds, partialIds, mobIds, endLat, endLng, preflightId }),
   })
   if (!res.ok) {
     if (res.status === 401) throw new Error('AUTH_EXPIRED')
     const data = await res.json().catch(() => ({}))
     throw new Error(data.error || 'EOD submission failed')
   }
+  return res.json()
+}
+
+// ââ Preflight âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+export async function checkPreflight() {
+  const res = await fetch(`${BASE}/api/preflight`, { headers: authHeaders() })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  return res.json()
+}
+
+export async function submitPreflight(data) {
+  const res = await fetch(`${BASE}/api/preflight`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  return res.json()
+}
+
+// ââ Aircraft & Projects ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+export async function fetchAircraft() {
+  const res = await fetch(`${BASE}/api/aircraft`, { headers: authHeaders() })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  return res.json()
+}
+
+export async function fetchProjects() {
+  const res = await fetch(`${BASE}/api/projects`, { headers: authHeaders() })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  return res.json()
+}
+
+// ââ Daily Route ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+export async function fetchDailyRoute() {
+  const res = await fetch(`${BASE}/api/daily-route`, { headers: authHeaders() })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
   return res.json()
 }
