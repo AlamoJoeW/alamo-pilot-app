@@ -3,12 +3,14 @@ import Login from './components/Login'
 import MapView from './components/MapView'
 import SiteList from './components/SiteList'
 import SiteDetail from './components/SiteDetail'
+import Preflight from './components/Preflight'
 import {
   getPilotInfo,
   fetchSites,
   updateSite,
   submitEOD,
   logout,
+  checkPreflight,
 } from './utils/api'
 import {
   saveSites,
@@ -20,6 +22,21 @@ import {
   getMeta,
   clearAll,
 } from './utils/db'
+
+function TravelDayScreen({ pilot, onLogout }) {
+  return (
+    <div className="preflight-screen" style={{ justifyContent: 'center', alignItems: 'center' }}>
+      <div style={{ textAlign: 'center', padding: 32 }}>
+        <div style={{ fontSize: 64, marginBottom: 16 }}>ð</div>
+        <h2 style={{ marginBottom: 8 }}>Travel Day</h2>
+        <p style={{ color: 'var(--text2)', marginBottom: 32 }}>
+          No flight operations scheduled. Safe travels, {pilot?.firstName}!
+        </p>
+        <button className="btn-secondary" onClick={onLogout}>Log Out</button>
+      </div>
+    </div>
+  )
+}
 
 export default function App() {
   const [pilot, setPilot] = useState(null)
@@ -36,6 +53,12 @@ export default function App() {
   const [eodSubmitting, setEodSubmitting] = useState(false)
   const [syncedAt, setSyncedAt] = useState(null)
 
+  // Preflight state
+  const [preflightChecked, setPreflightChecked] = useState(false)
+  const [preflightExists, setPreflightExists] = useState(false)
+  const [preflightTravelDay, setPreflightTravelDay] = useState(false)
+  const [preflightId, setPreflightId] = useState(null)
+
   // Online/offline detection
   useEffect(() => {
     const on = () => setIsOnline(true)
@@ -51,6 +74,7 @@ export default function App() {
     if (info) {
       setPilot(info)
       loadFromCache()
+      sync()
     }
   }, [])
 
@@ -76,6 +100,7 @@ export default function App() {
     if (syncing) return
     setSyncing(true)
     setSyncError('')
+    let authExpired = false
     try {
       const data = await fetchSites()
       await saveSites(data.sites)
@@ -85,11 +110,27 @@ export default function App() {
     } catch (err) {
       if (err.message === 'AUTH_EXPIRED') {
         handleLogout()
-        return
+        authExpired = true
+      } else {
+        setSyncError('Sync failed â using cached data')
       }
-      setSyncError('Sync failed — using cached data')
     } finally {
       setSyncing(false)
+    }
+
+    // Check preflight status (runs even if site fetch failed, skips if auth expired)
+    if (!authExpired && !preflightChecked) {
+      try {
+        const pf = await checkPreflight()
+        setPreflightExists(pf.exists)
+        setPreflightTravelDay(pf.travelDay || false)
+        setPreflightId(pf.preflightId || null)
+      } catch {
+        // Non-fatal â default to showing the form so pilot can submit
+        setPreflightExists(false)
+      } finally {
+        setPreflightChecked(true)
+      }
     }
   }
 
@@ -161,7 +202,19 @@ export default function App() {
       const collectedIds = sites.filter(s => s.collectedApp).map(s => s.id)
       const partialIds = sites.filter(s => s.partialCollection).map(s => s.id)
       const mobIds = sites.filter(s => s.mobFee).map(s => s.id)
-      const summary = await submitEOD(collectedIds, partialIds, mobIds)
+
+      // Capture end-of-day GPS (optional, non-blocking)
+      let endLat = null, endLng = null
+      if (navigator.geolocation) {
+        await new Promise(resolve => {
+          navigator.geolocation.getCurrentPosition(
+            pos => { endLat = pos.coords.latitude; endLng = pos.coords.longitude; resolve() },
+            () => resolve()
+          )
+        })
+      }
+
+      const summary = await submitEOD(collectedIds, partialIds, mobIds, endLat, endLng, preflightId)
       setEodSummary(summary)
       setShowEOD(true)
     } catch (err) {
@@ -179,6 +232,10 @@ export default function App() {
     setPilot(null)
     setSites([])
     setSelectedSite(null)
+    setPreflightChecked(false)
+    setPreflightExists(false)
+    setPreflightTravelDay(false)
+    setPreflightId(null)
   }
 
   function handleLogin(data) {
@@ -187,10 +244,37 @@ export default function App() {
     sync()
   }
 
+  // ââ Render guards âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+  // No auth â Login
   if (!pilot) {
     return <Login onLogin={handleLogin} />
   }
 
+  // Auth OK but preflight not yet checked â brief loading state
+  if (!preflightChecked) {
+    return <div className="pf-loading">Checking preflightâ¦</div>
+  }
+
+  // Auth OK + preflight not done â show Preflight form
+  if (!preflightExists) {
+    return (
+      <Preflight
+        pilot={pilot}
+        onComplete={(id) => {
+          setPreflightId(id)
+          setPreflightExists(true)
+        }}
+      />
+    )
+  }
+
+  // Auth OK + travel day â Travel Day screen (no route/map)
+  if (preflightTravelDay) {
+    return <TravelDayScreen pilot={pilot} onLogout={handleLogout} />
+  }
+
+  // Normal flight day â map/list/EOD
   const collectedCount = sites.filter(s => s.collectedApp).length
   const partialCount = sites.filter(s => s.partialCollection).length
   const mobCount = sites.filter(s => s.mobFee).length
@@ -207,9 +291,9 @@ export default function App() {
         </div>
         <div className="top-bar-right">
           <button className="icon-btn" onClick={sync} disabled={syncing} title="Sync">
-            {syncing ? '⏳' : '⟳'}
+            {syncing ? 'â³' : 'â³'}
           </button>
-          <button className="icon-btn" onClick={handleLogout} title="Log out">⎋</button>
+          <button className="icon-btn" onClick={handleLogout} title="Log out">â</button>
         </div>
       </header>
 
@@ -264,7 +348,7 @@ export default function App() {
       {/* Submit EOD button */}
       {doneCount > 0 && (
         <button className="eod-btn" onClick={handleEOD} disabled={eodSubmitting}>
-          {eodSubmitting ? 'Submitting…' : `Submit EOD (${doneCount} sites)`}
+          {eodSubmitting ? 'Submittingâ¦' : `Submit EOD (${doneCount} sites)`}
         </button>
       )}
 
@@ -307,7 +391,7 @@ export default function App() {
                 </p>
               </>
             ) : (
-              <p>Submitting…</p>
+              <p>Submittingâ¦</p>
             )}
             <button className="btn-primary" onClick={() => setShowEOD(false)}>
               Done
