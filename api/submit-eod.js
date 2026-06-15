@@ -1,83 +1,76 @@
 import jwt from 'jsonwebtoken'
-import { airtableGet, airtablePost, TABLES, FIELDS } from './_airtable.js'
+import { airtableGetAll, airtablePost, airtablePatch, TABLES, FIELDS } from './_airtable.js'
+
+// Preflight table constant (not yet in _airtable.js TABLES â add when merging)
+const PREFLIGHT_TABLE = 'tbl3XS1n9edeDuLOn'
 
 function verifyToken(req) {
   const auth = req.headers.authorization || ''
   return jwt.verify(auth.replace('Bearer ', ''), process.env.JWT_SECRET)
 }
 
-export default async function handler(req, res) {
-  // GET — return today's EOD summary if one exists
-  if (req.method === 'GET') {
-    try {
-      const pilot = verifyToken(req)
-      const today = new Date().toISOString().split('T')[0]
-      const formula = `AND({${FIELDS.EOD_DATE}}="${today}", FIND("${pilot.pilotRecordId}", ARRAYJOIN(${FIELDS.EOD_PILOT})))`
-      const data = await airtableGet(TABLES.EOD_REPORTS, {
-        filterByFormula: formula,
-        fields: [FIELDS.EOD_DATE, FIELDS.EOD_FULL_COLLECTION, FIELDS.EOD_PARTIAL_COLLECTION, FIELDS.EOD_MOBILIZATION],
-        pageSize: 1,
-      })
-      const eod = data.records?.[0]
-      if (!eod) return res.json({ eodId: null, date: today, submitted: false })
-      res.json({
-        eodId: eod.id,
-        date: today,
-        submitted: true,
-        fullCount: (eod.fields[FIELDS.EOD_FULL_COLLECTION] || []).length,
-        partialCount: (eod.fields[FIELDS.EOD_PARTIAL_COLLECTION] || []).length,
-        mobCount: (eod.fields[FIELDS.EOD_MOBILIZATION] || []).length,
-      })
-    } catch (err) {
-      console.error('EOD GET error:', err)
-      if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-        return res.status(401).json({ error: 'Unauthorized' })
-      }
-      res.status(500).json({ error: 'Server error' })
-    }
-    return
-  }
+function today() {
+  return new Date().toISOString().slice(0, 10)
+}
 
-  // POST — create a new EOD record with today's collected sites
-  if (req.method === 'POST') {
-    try {
-      const pilot = verifyToken(req)
-      const today = new Date().toISOString().split('T')[0]
-      const { collectedIds = [], partialIds = [], mobIds = [] } = req.body || {}
+export default async function handler(req, res) {
+  try {
+    const pilot = verifyToken(req)
+
+    // GET â check if pilot already submitted EOD today
+    if (req.method === 'GET') {
+      const filter = `AND({${FIELDS.EOD_DATE}}='${today()}', FIND('${pilot.pilotRecordId}', ARRAYJOIN({${FIELDS.EOD_PILOT}})))`
+      const records = await airtableGetAll(TABLES.EOD_REPORTS, filter, [
+        FIELDS.EOD_DATE,
+        FIELDS.EOD_PILOT,
+        FIELDS.EOD_FULL_COLLECTION,
+        FIELDS.EOD_PARTIAL_COLLECTION,
+        FIELDS.EOD_MOBILIZATION,
+      ])
+      if (!records.length) return res.json({ exists: false })
+      const rec = records[0]
+      return res.json({
+        exists: true,
+        eodId: rec.id,
+        collected: rec.fields[FIELDS.EOD_FULL_COLLECTION] || [],
+        partial: rec.fields[FIELDS.EOD_PARTIAL_COLLECTION] || [],
+        mob: rec.fields[FIELDS.EOD_MOBILIZATION] || [],
+      })
+    }
+
+    // POST â submit EOD
+    if (req.method === 'POST') {
+      const { collectedIds = [], partialIds = [], mobIds = [], endLat, endLng, preflightId } = req.body
 
       const fields = {
-        [FIELDS.EOD_DATE]: today,
+        [FIELDS.EOD_DATE]:  today(),
         [FIELDS.EOD_PILOT]: [{ id: pilot.pilotRecordId }],
       }
-      if (collectedIds.length > 0) {
-        fields[FIELDS.EOD_FULL_COLLECTION] = collectedIds.map(id => ({ id }))
-      }
-      if (partialIds.length > 0) {
-        fields[FIELDS.EOD_PARTIAL_COLLECTION] = partialIds.map(id => ({ id }))
-      }
-      if (mobIds.length > 0) {
-        fields[FIELDS.EOD_MOBILIZATION] = mobIds.map(id => ({ id }))
-      }
+
+      if (collectedIds.length) fields[FIELDS.EOD_FULL_COLLECTION] = collectedIds.map(id => ({ id }))
+      if (partialIds.length)   fields[FIELDS.EOD_PARTIAL_COLLECTION]   = partialIds.map(id => ({ id }))
+      if (mobIds.length)       fields[FIELDS.EOD_MOBILIZATION]       = mobIds.map(id => ({ id }))
+      if (endLat != null)      fields[FIELDS.EOD_END_LAT]   = endLat
+      if (endLng != null)      fields[FIELDS.EOD_END_LNG]   = endLng
 
       const result = await airtablePost(TABLES.EOD_REPORTS, fields)
 
-      res.json({
-        success: true,
-        eodId: result.id,
-        date: today,
-        fullCount: collectedIds.length,
-        partialCount: partialIds.length,
-        mobCount: mobIds.length,
-      })
-    } catch (err) {
-      console.error('EOD POST error:', err)
-      if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-        return res.status(401).json({ error: 'Unauthorized' })
+      // Link EOD back to the preflight record if provided
+      if (preflightId) {
+        await airtablePatch(PREFLIGHT_TABLE, preflightId, {
+          [FIELDS.PREFLIGHT_EOD_LINK]: [{ id: result.id }],
+        })
       }
-      res.status(500).json({ error: 'Server error' })
-    }
-    return
-  }
 
-  res.status(405).end()
+      return res.json({ success: true, eodId: result.id })
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' })
+  } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+    console.error('submit-eod-v2 error:', err)
+    return res.status(500).json({ error: err.message || 'Internal server error' })
+  }
 }
