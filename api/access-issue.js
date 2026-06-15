@@ -11,6 +11,16 @@ const AI_FIELDS = {
   MOBILIZATION_FEE: 'fldqsqKlvsAShtf8h',
   PARTIAL_COLLECTION: 'fldb70YGgOwLjJcpd',
   NOTES: 'fldNhmvNbLAGUkfMP',
+  // Capture types (pilot-facing, shown for Partial)
+  FLIGHT_CAPTURED: 'fldC55GX0ONdDu5Vg',
+  COMPOUND_360_CAPTURED: 'fldV4pIIueFNK28Uw',
+  CIVIL_CAPTURED: 'fldj57JrZyqCcaPep',
+  SHELTER_360_CAPTURED: 'fldnXBtszMmeI9wbP',
+  BIRD_SITE: 'fld6aOzBEUMwRT7Yi',
+  // Issue flags (pilot-facing, shown for both Partial and MOB)
+  FURTHER_GUIDANCE_REQUESTED: 'fld9gnlzaducvJmn1',
+  FUZE_ID_ISSUE: 'fld4tIgGv2IBkxHGw',
+  WILL_NOT_RETURN: 'fldXXGjJCDMmLLGPL',
 }
 
 export const config = {
@@ -29,7 +39,7 @@ export default async function handler(req, res) {
 
   try {
     const pilot = verifyToken(req)
-    const { recordId, action, notes, fileBase64, fileName, fileMimeType } = req.body || {}
+    const { recordId, action, notes, fileBase64, fileName, fileMimeType, captureTypes, issueFlags } = req.body || {}
 
     if (!recordId || !action || !notes?.trim()) {
       return res.status(400).json({ error: 'recordId, action, and notes are required' })
@@ -49,6 +59,22 @@ export default async function handler(req, res) {
       fields[AI_FIELDS.PARTIAL_COLLECTION] = true
     } else if (action === 'mob') {
       fields[AI_FIELDS.MOBILIZATION_FEE] = true
+    }
+
+    // Capture types — shown only for Partial in the pilot app
+    if (captureTypes) {
+      if (captureTypes.flightCaptured) fields[AI_FIELDS.FLIGHT_CAPTURED] = true
+      if (captureTypes.compound360Captured) fields[AI_FIELDS.COMPOUND_360_CAPTURED] = true
+      if (captureTypes.civilCaptured) fields[AI_FIELDS.CIVIL_CAPTURED] = true
+      if (captureTypes.shelter360Captured) fields[AI_FIELDS.SHELTER_360_CAPTURED] = true
+      if (captureTypes.birdSite) fields[AI_FIELDS.BIRD_SITE] = true
+    }
+
+    // Issue flags — shown for both Partial and MOB in the pilot app
+    if (issueFlags) {
+      if (issueFlags.furtherGuidanceRequested) fields[AI_FIELDS.FURTHER_GUIDANCE_REQUESTED] = true
+      if (issueFlags.fuzeIdIssue) fields[AI_FIELDS.FUZE_ID_ISSUE] = true
+      if (issueFlags.willNotReturn) fields[AI_FIELDS.WILL_NOT_RETURN] = true
     }
 
     const newRecord = await airtablePost(ACCESS_ISSUES_TABLE, fields)
