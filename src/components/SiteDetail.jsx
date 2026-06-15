@@ -34,11 +34,46 @@ function fileToBase64(file) {
   })
 }
 
+function CheckboxField({ label, checked, onChange, disabled }) {
+  return (
+    <label className={`checkbox-field${disabled ? ' disabled' : ''}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={e => onChange(e.target.checked)}
+        disabled={disabled}
+      />
+      <span>{label}</span>
+    </label>
+  )
+}
+
 function AccessIssueModal({ action, onSubmit, onCancel, submitting }) {
   const [notes, setNotes] = useState('')
   const [file, setFile] = useState(null)
   const [fileLoading, setFileLoading] = useState(false)
+  const [captureTypes, setCaptureTypes] = useState({
+    flightCaptured: false,
+    compound360Captured: false,
+    civilCaptured: false,
+    shelter360Captured: false,
+    birdSite: false,
+  })
+  const [issueFlags, setIssueFlags] = useState({
+    furtherGuidanceRequested: false,
+    fuzeIdIssue: false,
+    willNotReturn: false,
+  })
+
   const label = action === 'partial' ? 'Partial Collection' : 'MOB Fee'
+
+  function toggleCapture(key, val) {
+    setCaptureTypes(prev => ({ ...prev, [key]: val }))
+  }
+
+  function toggleFlag(key, val) {
+    setIssueFlags(prev => ({ ...prev, [key]: val }))
+  }
 
   async function handleFileChange(e) {
     const f = e.target.files[0]
@@ -65,16 +100,36 @@ function AccessIssueModal({ action, onSubmit, onCancel, submitting }) {
           Describe why this site couldn't be fully collected. Attach the access issues form if available.
         </p>
 
-        <label className="field-label">Reason *</label>
+        {action === 'partial' && (
+          <>
+            <label className="field-label">What was captured?</label>
+            <div className="checkbox-group">
+              <CheckboxField label="Flight" checked={captureTypes.flightCaptured} onChange={v => toggleCapture('flightCaptured', v)} disabled={submitting} />
+              <CheckboxField label="Compound 360" checked={captureTypes.compound360Captured} onChange={v => toggleCapture('compound360Captured', v)} disabled={submitting} />
+              <CheckboxField label="Civil" checked={captureTypes.civilCaptured} onChange={v => toggleCapture('civilCaptured', v)} disabled={submitting} />
+              <CheckboxField label="Shelter 360" checked={captureTypes.shelter360Captured} onChange={v => toggleCapture('shelter360Captured', v)} disabled={submitting} />
+              <CheckboxField label="Bird Site" checked={captureTypes.birdSite} onChange={v => toggleCapture('birdSite', v)} disabled={submitting} />
+            </div>
+          </>
+        )}
+
+        <label className="field-label">Notes *</label>
         <textarea
           className="notes-textarea"
-          placeholder="e.g. Gate was locked, no access code on file..."
+          placeholder={action === 'partial' ? 'e.g. Ground only — gate was locked...' : 'e.g. Gate was locked, no access code on file...'}
           value={notes}
           onChange={e => setNotes(e.target.value)}
           rows={4}
           autoFocus
           disabled={submitting}
         />
+
+        <label className="field-label">Additional flags</label>
+        <div className="checkbox-group">
+          <CheckboxField label="Further Guidance Requested" checked={issueFlags.furtherGuidanceRequested} onChange={v => toggleFlag('furtherGuidanceRequested', v)} disabled={submitting} />
+          <CheckboxField label="FUZE ID Issue" checked={issueFlags.fuzeIdIssue} onChange={v => toggleFlag('fuzeIdIssue', v)} disabled={submitting} />
+          <CheckboxField label="Will Not Return for Flight" checked={issueFlags.willNotReturn} onChange={v => toggleFlag('willNotReturn', v)} disabled={submitting} />
+        </div>
 
         <label className="field-label">Attachment (optional)</label>
         <label className={`file-pick-btn ${file ? 'file-attached' : ''}`}>
@@ -94,7 +149,7 @@ function AccessIssueModal({ action, onSubmit, onCancel, submitting }) {
           </button>
           <button
             className="btn-modal-confirm"
-            onClick={() => onSubmit(notes, file)}
+            onClick={() => onSubmit(notes, file, captureTypes, issueFlags)}
             disabled={!notes.trim() || submitting || fileLoading}
           >
             {submitting ? 'Submitting...' : `Submit ${label}`}
@@ -108,7 +163,7 @@ function AccessIssueModal({ action, onSubmit, onCancel, submitting }) {
 export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingCount }) {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState('')
-  const [showAccessModal, setShowAccessModal] = useState(null) // null | 'partial' | 'mob'
+  const [showAccessModal, setShowAccessModal] = useState(null)
   const status = getSiteStatus(site)
   const statusStyle = STATUS_LABELS[status]
 
@@ -116,7 +171,6 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
     if (loading) return
     const newAction = action === status ? 'uncollect' : action
 
-    // Partial and MOB require online + access issue form
     if (newAction === 'partial' || newAction === 'mob') {
       if (!isOnline) {
         setToast('Must be online to submit Partial or MOB Fee')
@@ -140,11 +194,11 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
     }
   }
 
-  async function handleAccessIssueSubmit(notes, file) {
+  async function handleAccessIssueSubmit(notes, file, captureTypes, issueFlags) {
     const action = showAccessModal
     setLoading(true)
     try {
-      await submitAccessIssue(site.id, action, notes, file)
+      await submitAccessIssue(site.id, action, notes, file, captureTypes, issueFlags)
       await onUpdate(site.id, action)
       setShowAccessModal(null)
       const label = action === 'partial' ? 'Partial' : 'MOB Fee'
@@ -193,7 +247,7 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           <InfoRow label="Zip" value={site.zip} />
           <InfoRow label="Structure Type" value={site.siteStructureType} />
           <InfoRow label="Structure Owner" value={site.siteStructureOwner} />
-          <InfoRow label="Height (ft)" value={site.structureHeight} />
+          <InfoRow label="Structural Height (ft)" value={site.structureHeight} />
           <InfoRow label="Airport" value={site.airport} />
           <InfoRow label="Airspace" value={site.airspace} />
           <InfoRow label="Latitude" value={site.lat} />
