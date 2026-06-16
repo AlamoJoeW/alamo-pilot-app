@@ -63,7 +63,8 @@ export default async function handler(req, res) {
       // Filter by date only; match pilot client-side using record IDs.
       // ARRAYJOIN on a linked field returns display names, not record IDs,
       // so FIND(pilotRecordId, ARRAYJOIN(...)) never matches.
-      const filter = `{${F.DATE}}='${today()}'`
+      // DATE is a date-type field -- use IS_SAME for reliable comparison
+      const filter = `IS_SAME({${F.DATE}}, TODAY(), 'day')`
       const records = await airtableGetAll(PREFLIGHT_TABLE, filter, [F.DATE, F.PILOT, F.TRAVEL_DAY, F.GO_NOGO])
       const rec = records.find(r => (r.fields[F.PILOT] || []).includes(pilot.pilotRecordId))
       if (!rec) return res.json({ exists: false })
