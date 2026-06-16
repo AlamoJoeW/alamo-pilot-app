@@ -25,7 +25,19 @@ export default function Login({ onLogin }) {
     <div className="login-screen">
       <div className="login-card">
         <div className="login-logo">
-          <span className="logo-icon">✈</span>
+          <span className="logo-icon">
+            <svg width="52" height="52" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="11" y="11" width="6" height="6" rx="1" fill="currentColor"/>
+              <line x1="11" y1="11" x2="5" y2="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="17" y1="11" x2="23" y2="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="11" y1="17" x2="5" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="17" y1="17" x2="23" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <circle cx="5" cy="5" r="3" stroke="currentColor" strokeWidth="1.5"/>
+              <circle cx="23" cy="5" r="3" stroke="currentColor" strokeWidth="1.5"/>
+              <circle cx="5" cy="23" r="3" stroke="currentColor" strokeWidth="1.5"/>
+              <circle cx="23" cy="23" r="3" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
+          </span>
           <h1>Alamo Airborne</h1>
           <p>Pilot App</p>
         </div>
