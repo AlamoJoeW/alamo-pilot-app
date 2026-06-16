@@ -54,6 +54,7 @@ export default function MapView({ sites, onSelect }) {
     }).addTo(map)
 
     mapInstance.current = map
+    setTimeout(() => map.invalidateSize(), 200)
 
     return () => {
       map.remove()
