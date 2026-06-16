@@ -99,7 +99,8 @@ export default function MapView({ sites, onSelect }) {
     markersRef.current = []
 
     // Filter sites with valid coords
-    const mapped = sites.filter(s => s.lat && s.lng)
+    // Hide fully collected sites — partials and MOB fees remain visible
+    const mapped = sites.filter(s => s.lat && s.lng && !s.collectedApp)
 
     mapped.forEach(site => {
       const status = getSiteStatus(site)
