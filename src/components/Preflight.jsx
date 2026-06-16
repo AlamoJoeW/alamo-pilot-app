@@ -342,7 +342,19 @@ export default function Preflight({ pilot, onComplete }) {
       {/* Header */}
       <div className="pf-header">
         <div className="pf-header-title">
-          <span className="pf-icon">✈️</span>
+          <span className="pf-icon">
+            <svg width="26" height="26" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style={{verticalAlign:'middle'}}>
+              <rect x="11" y="11" width="6" height="6" rx="1" fill="currentColor"/>
+              <line x1="11" y1="11" x2="5" y2="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="17" y1="11" x2="23" y2="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="11" y1="17" x2="5" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="17" y1="17" x2="23" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <circle cx="5" cy="5" r="3" stroke="currentColor" strokeWidth="1.5"/>
+              <circle cx="23" cy="5" r="3" stroke="currentColor" strokeWidth="1.5"/>
+              <circle cx="5" cy="23" r="3" stroke="currentColor" strokeWidth="1.5"/>
+              <circle cx="23" cy="23" r="3" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
+          </span>
           <div>
             <h1 className="pf-title">Daily Preflight</h1>
             <p className="pf-subtitle">
