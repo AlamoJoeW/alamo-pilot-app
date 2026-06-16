@@ -60,10 +60,13 @@ export default async function handler(req, res) {
     const pilot = verifyToken(req)
 
     if (req.method === 'GET') {
-      const filter = `AND({${F.DATE}}='${today()}', FIND('${pilot.pilotRecordId}', ARRAYJOIN({${F.PILOT}})))`
+      // Filter by date only; match pilot client-side using record IDs.
+      // ARRAYJOIN on a linked field returns display names, not record IDs,
+      // so FIND(pilotRecordId, ARRAYJOIN(...)) never matches.
+      const filter = `{${F.DATE}}='${today()}'`
       const records = await airtableGetAll(PREFLIGHT_TABLE, filter, [F.DATE, F.PILOT, F.TRAVEL_DAY, F.GO_NOGO])
-      if (!records.length) return res.json({ exists: false })
-      const rec = records[0]
+      const rec = records.find(r => (r.fields[F.PILOT] || []).includes(pilot.pilotRecordId))
+      if (!rec) return res.json({ exists: false })
       return res.json({
         exists: true,
         preflightId: rec.id,
