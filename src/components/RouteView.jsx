@@ -85,7 +85,6 @@ export default function RouteView({ sites = [] }) {
   if (error)   return <div className="route-state route-state-error">{error}</div>
   if (!route.length) return (
     <div className="route-state">
-      <div style={{fontSize:48,marginBottom:12}}>ðºï¸</div>
       <p style={{fontWeight:600}}>No route assigned yet.</p>
       <p style={{color:'var(--text2)',fontSize:14,marginTop:4}}>
         Routes are generated at 8:30 AM each morning.
