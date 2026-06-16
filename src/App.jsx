@@ -199,8 +199,8 @@ export default function App() {
           {pendingCount > 0 && <span className="pending-pill">{pendingCount} pending</span>}
         </div>
         <div className="top-bar-right">
-          <button className="icon-btn" onClick={sync} disabled={syncing} title="Sync">{syncing ? 'â³' : 'â³'}</button>
-          <button className="icon-btn" onClick={handleLogout} title="Log out">â</button>
+          <button className="icon-btn" onClick={sync} disabled={syncing} title="Sync">{syncing ? 'Syncing…' : 'Sync'}</button>
+          <button className="icon-btn" onClick={handleLogout} title="Log out">Sign Out</button>
         </div>
       </header>
       {syncError && <div className="sync-error">{syncError}</div>}
