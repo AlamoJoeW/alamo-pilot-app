@@ -77,10 +77,10 @@ export default async function handler(req, res) {
       const fields = {}
 
       fields[F.DATE]   = today()
-      fields[F.PILOT]  = [{ id: pilot.pilotRecordId }]
+      fields[F.PILOT]  = [pilot.pilotRecordId]
 
-      if (b.projectId)        fields[F.PROJECT]      = [{ id: b.projectId }]
-      if (b.aircraftId)       fields[F.AIRCRAFT]     = [{ id: b.aircraftId }]
+      if (b.projectId)        fields[F.PROJECT]      = [b.projectId]
+      if (b.aircraftId)       fields[F.AIRCRAFT]     = [b.aircraftId]
       if (b.travelDay != null) fields[F.TRAVEL_DAY]  = !!b.travelDay
       if (b.travelingTo)      fields[F.TRAVELING_TO] = b.travelingTo
       if (b.visualObserver != null) fields[F.VISUAL_OBS] = !!b.visualObserver
@@ -115,7 +115,7 @@ export default async function handler(req, res) {
       if (b.startLng != null) fields[F.START_LNG]    = b.startLng
 
       const emergId = process.env.EMERGENCY_CONTACT_RECORD_ID
-      if (emergId) fields[F.EMERG_CONTACT] = [{ id: emergId }]
+      if (emergId) fields[F.EMERG_CONTACT] = [emergId]
 
       const result = await airtablePost(PREFLIGHT_TABLE, fields)
       return res.json({ success: true, preflightId: result.id })
