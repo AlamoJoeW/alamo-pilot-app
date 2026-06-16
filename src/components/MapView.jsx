@@ -35,30 +35,56 @@ export default function MapView({ sites, onSelect }) {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
   const markersRef = useRef([])
+  const cleanupRef = useRef(null)
 
   // Initialize map once
   useEffect(() => {
     if (mapInstance.current) return
 
-    const L = window.L
-        if (!L) return
-    const map = L.map(mapRef.current, {
-      center: [32.7767, -96.7970], // Default: Dallas, TX
-      zoom: 8,
-      zoomControl: true,
-    })
+    let cancelled = false
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19,
-    }).addTo(map)
+    const tryInit = () => {
+      if (cancelled) return
+      const L = window.L
+      if (!L) {
+        // Leaflet CDN not loaded yet — retry
+        setTimeout(tryInit, 200)
+        return
+      }
 
-    mapInstance.current = map
-    setTimeout(() => map.invalidateSize(), 200)
+      const map = L.map(mapRef.current, {
+        center: [32.7767, -96.7970], // Default: Dallas, TX
+        zoom: 8,
+        zoomControl: true,
+      })
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(map)
+
+      mapInstance.current = map
+
+      // Leaflet measures the container at mount time; the flex layout may not
+      // have settled yet. Delay gives the browser time to finish layout.
+      const sizeTimer = setTimeout(() => { if (!cancelled) map.invalidateSize() }, 500)
+
+      const onResize = () => map.invalidateSize()
+      window.addEventListener('resize', onResize)
+
+      cleanupRef.current = () => {
+        clearTimeout(sizeTimer)
+        window.removeEventListener('resize', onResize)
+        map.remove()
+        mapInstance.current = null
+      }
+    }
+
+    tryInit()
 
     return () => {
-      map.remove()
-      mapInstance.current = null
+      cancelled = true
+      cleanupRef.current?.()
     }
   }, [])
 
