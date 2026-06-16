@@ -9,9 +9,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Email and password required' })
   }
 
+  const cleanEmail = email.trim().toLowerCase()
+  const cleanPassword = password.trim()
+
   try {
     // Find pilot by email
-    const formula = `LOWER({${FIELDS.PILOT_EMAIL}})="${email.trim().toLowerCase()}"`
+    const formula = `LOWER({${FIELDS.PILOT_EMAIL}})="${cleanEmail}"`
+    console.log('Login attempt for:', cleanEmail)
+    console.log('Formula:', formula)
+
     const data = await airtableGet(TABLES.PILOTS, {
       filterByFormula: formula,
       fields: [
@@ -23,13 +29,18 @@ export default async function handler(req, res) {
       pageSize: 1,
     })
 
+    console.log('Records found:', data.records?.length)
+
     const pilot = data.records?.[0]
     if (!pilot) {
+      console.log('No pilot record found for:', cleanEmail)
       return res.status(401).json({ error: 'Invalid email or password' })
     }
 
     const stored = pilot.fields[FIELDS.PILOT_PASSWORD]
-    if (!stored || stored.trim() !== password.trim()) {
+    console.log('Stored PW exists:', !!stored, '| Match:', stored?.trim() === cleanPassword)
+
+    if (!stored || stored.trim() !== cleanPassword) {
       return res.status(401).json({ error: 'Invalid email or password' })
     }
 
@@ -40,7 +51,7 @@ export default async function handler(req, res) {
     const token = jwt.sign(
       {
         pilotRecordId: pilot.id,
-        email: email.trim().toLowerCase(),
+        email: cleanEmail,
         firstName,
         displayName,
       },
