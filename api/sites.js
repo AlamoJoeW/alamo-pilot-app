@@ -19,10 +19,15 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Pilot name not found in token' })
     }
 
-    // Fetch all sites assigned to this pilot
-    // Pilot assigned is a plain text field matching first name
+    // Fetch remaining sites for this pilot using the "google maps Remaining" view,
+    // which is filtered daily to exclude already-collected sites.
     const formula = `{${FIELDS.PILOT_ASSIGNED}}="${firstName}"`
-    const records = await airtableGetAll(TABLES.COLLECTION_ASSETS, formula, SITE_FIELDS)
+    const records = await airtableGetAll(
+      TABLES.COLLECTION_ASSETS,
+      formula,
+      SITE_FIELDS,
+      'google maps Remaining'
+    )
 
     // Normalize records for the app
     const sites = records.map(r => ({
