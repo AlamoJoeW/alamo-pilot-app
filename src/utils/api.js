@@ -82,20 +82,6 @@ export async function submitAccessIssue(recordId, action, notes, file) {
   return res.json()
 }
 
-export async function changePassword(currentPassword, newPassword) {
-  const res = await fetch(`${BASE}/api/change-password`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ currentPassword, newPassword }),
-  })
-  if (!res.ok) {
-    if (res.status === 401) throw new Error('AUTH_EXPIRED')
-    const data = await res.json().catch(() => ({}))
-    throw new Error(data.error || 'Failed to change password')
-  }
-  return res.json()
-}
-
 export async function fetchEODSummary() {
   const res = await fetch(`${BASE}/api/submit-eod`, { headers: authHeaders() })
   if (!res.ok) throw new Error('Failed to fetch EOD')
@@ -114,4 +100,18 @@ export async function submitEOD(collectedIds, partialIds, mobIds, projectId) {
     throw new Error(data.error || 'EOD submission failed')
   }
   return res.json()
+}
+
+export async function changePassword(currentPassword, newPassword) {
+  const res = await fetch(`${BASE}/api/change-password`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ currentPassword, newPassword }),
+  })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || 'Failed to change password')
   }
+  return res.json()
+}
