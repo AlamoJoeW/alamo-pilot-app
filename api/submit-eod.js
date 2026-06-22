@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     try {
       const pilot = verifyToken(req)
       const today = new Date().toISOString().split('T')[0]
-      const formula = `AND({${FIELDS.EOD_DATE}}="${today}", FIND("${pilot.pilotRecordId}", ARRAYJOIN(${FIELDS.EOD_PILOT})))`
+      const formula = `AND({${FIELDS.EOD_DATE}}="${today}", FIND("${pilot.pilotRecordId}", ARRAYJOIN({${FIELDS.EOD_PILOT}})))`
       const data = await airtableGet(TABLES.EOD_REPORTS, {
         filterByFormula: formula,
         fields: [FIELDS.EOD_DATE, FIELDS.EOD_FULL_COLLECTION, FIELDS.EOD_PARTIAL_COLLECTION, FIELDS.EOD_MOBILIZATION],
@@ -33,41 +33,47 @@ export default async function handler(req, res) {
       if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
         return res.status(401).json({ error: 'Unauthorized' })
       }
-      res.status(500).json({ error: 'Server error' })
+      res.status(500).json({ error: err.message || 'Server error' })
     }
     return
   }
 
-  // POST — create a new EOD record
+  // POST — create a new EOD record with today's collected sites
   if (req.method === 'POST') {
     try {
       const pilot = verifyToken(req)
       const today = new Date().toISOString().split('T')[0]
       const { collectedIds = [], partialIds = [], mobIds = [], projectId } = req.body || {}
 
-      // Defensive: handle legacy JWTs where pilotRecordId may be a full record object
-      const pilotId = typeof pilot.pilotRecordId === 'string'
-        ? pilot.pilotRecordId
-        : (pilot.pilotRecordId?.id || '')
+      if (!pilot.pilotRecordId || typeof pilot.pilotRecordId !== 'string') {
+        return res.status(400).json({ error: 'Pilot record ID missing from token. Please log out and log back in.' })
+      }
+
+      const isValidId = id => typeof id === 'string' && id.startsWith('rec') && id.length === 17
+      const invalidIds = [...collectedIds, ...partialIds, ...mobIds].filter(id => !isValidId(id))
+      if (invalidIds.length > 0) {
+        return res.status(400).json({ error: `Invalid site record ID(s): ${invalidIds.join(', ')}` })
+      }
 
       const fields = {
         [FIELDS.EOD_DATE]: today,
-        [FIELDS.EOD_PILOT]: [{ id: pilotId }],
+        [FIELDS.EOD_PILOT]: [{ id: pilot.pilotRecordId }],
       }
       if (collectedIds.length > 0) {
-        fields[FIELDS.EOD_FULL_COLLECTION] = collectedIds.map(id => ({ id: String(id) }))
+        fields[FIELDS.EOD_FULL_COLLECTION] = collectedIds.map(id => ({ id }))
       }
       if (partialIds.length > 0) {
-        fields[FIELDS.EOD_PARTIAL_COLLECTION] = partialIds.map(id => ({ id: String(id) }))
+        fields[FIELDS.EOD_PARTIAL_COLLECTION] = partialIds.map(id => ({ id }))
       }
       if (mobIds.length > 0) {
-        fields[FIELDS.EOD_MOBILIZATION] = mobIds.map(id => ({ id: String(id) }))
+        fields[FIELDS.EOD_MOBILIZATION] = mobIds.map(id => ({ id }))
       }
-      if (projectId) {
-        fields[FIELDS.EOD_PROJECT] = [{ id: String(projectId) }]
+      if (projectId && isValidId(projectId)) {
+        fields[FIELDS.EOD_PROJECT] = [{ id: projectId }]
       }
 
       const result = await airtablePost(TABLES.EOD_REPORTS, fields)
+
       res.json({
         success: true,
         eodId: result.id,
@@ -81,7 +87,7 @@ export default async function handler(req, res) {
       if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
         return res.status(401).json({ error: 'Unauthorized' })
       }
-      res.status(500).json({ error: 'Server error' })
+      res.status(500).json({ error: err.message || 'EOD submission failed — check server logs' })
     }
     return
   }
