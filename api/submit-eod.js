@@ -45,31 +45,34 @@ export default async function handler(req, res) {
       const today = new Date().toISOString().split('T')[0]
       const { collectedIds = [], partialIds = [], mobIds = [], projectId } = req.body || {}
 
+      // Validate pilot record ID
       if (!pilot.pilotRecordId || typeof pilot.pilotRecordId !== 'string') {
         return res.status(400).json({ error: 'Pilot record ID missing from token. Please log out and log back in.' })
       }
 
+      // Validate all site record IDs
       const isValidId = id => typeof id === 'string' && id.startsWith('rec') && id.length === 17
       const invalidIds = [...collectedIds, ...partialIds, ...mobIds].filter(id => !isValidId(id))
       if (invalidIds.length > 0) {
         return res.status(400).json({ error: `Invalid site record ID(s): ${invalidIds.join(', ')}` })
       }
 
+      // Airtable linked record fields accept plain record ID strings, not {id:} objects
       const fields = {
         [FIELDS.EOD_DATE]: today,
-        [FIELDS.EOD_PILOT]: [{ id: pilot.pilotRecordId }],
+        [FIELDS.EOD_PILOT]: [pilot.pilotRecordId],
       }
       if (collectedIds.length > 0) {
-        fields[FIELDS.EOD_FULL_COLLECTION] = collectedIds.map(id => ({ id }))
+        fields[FIELDS.EOD_FULL_COLLECTION] = collectedIds
       }
       if (partialIds.length > 0) {
-        fields[FIELDS.EOD_PARTIAL_COLLECTION] = partialIds.map(id => ({ id }))
+        fields[FIELDS.EOD_PARTIAL_COLLECTION] = partialIds
       }
       if (mobIds.length > 0) {
-        fields[FIELDS.EOD_MOBILIZATION] = mobIds.map(id => ({ id }))
+        fields[FIELDS.EOD_MOBILIZATION] = mobIds
       }
       if (projectId && isValidId(projectId)) {
-        fields[FIELDS.EOD_PROJECT] = [{ id: projectId }]
+        fields[FIELDS.EOD_PROJECT] = [projectId]
       }
 
       const result = await airtablePost(TABLES.EOD_REPORTS, fields)
