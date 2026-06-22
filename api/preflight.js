@@ -60,12 +60,18 @@ export default async function handler(req, res) {
     const pilot = verifyToken(req)
 
     if (req.method === 'GET') {
-      // Filter by date only; match pilot client-side using record IDs.
-      // ARRAYJOIN on a linked field returns display names, not record IDs,
+      // Filter by today's date string (same approach as submit-eod.js).
+      // IS_SAME/TODAY() was unreliable — timezone mismatch between Airtable base
+      // and UTC server clock could cause it to return no records.
+      // Match pilot client-side: ARRAYJOIN returns display names, not record IDs,
       // so FIND(pilotRecordId, ARRAYJOIN(...)) never matches.
-      // DATE is a date-type field -- use IS_SAME for reliable comparison
-      const filter = `IS_SAME({${F.DATE}}, TODAY(), 'day')`
+      const todayStr = today()
+      const filter = `{${F.DATE}}='${todayStr}'`
       const records = await airtableGetAll(PREFLIGHT_TABLE, filter, [F.DATE, F.PILOT, F.TRAVEL_DAY, F.GO_NOGO])
+      console.log(`[preflight GET] date=${todayStr} pilotRecordId=${pilot.pilotRecordId} recordsFound=${records.length}`)
+      if (records.length > 0) {
+        console.log('[preflight GET] pilot fields:', records.map(r => r.fields[F.PILOT]))
+      }
       const rec = records.find(r => (r.fields[F.PILOT] || []).includes(pilot.pilotRecordId))
       if (!rec) return res.json({ exists: false })
       return res.json({
