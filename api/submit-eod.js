@@ -57,18 +57,19 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: `Invalid site record ID(s): ${invalidIds.join(', ')}` })
       }
 
+      // Airtable linked record fields accept plain record ID strings, not {id:} objects
       const fields = {
         [FIELDS.EOD_DATE]: today,
-        [FIELDS.EOD_PILOT]: [{ id: pilot.pilotRecordId }],
+        [FIELDS.EOD_PILOT]: [pilot.pilotRecordId],
       }
       if (collectedIds.length > 0) {
-        fields[FIELDS.EOD_FULL_COLLECTION] = collectedIds.map(id => ({ id }))
+        fields[FIELDS.EOD_FULL_COLLECTION] = collectedIds
       }
       if (partialIds.length > 0) {
-        fields[FIELDS.EOD_PARTIAL_COLLECTION] = partialIds.map(id => ({ id }))
+        fields[FIELDS.EOD_PARTIAL_COLLECTION] = partialIds
       }
       if (mobIds.length > 0) {
-        fields[FIELDS.EOD_MOBILIZATION] = mobIds.map(id => ({ id }))
+        fields[FIELDS.EOD_MOBILIZATION] = mobIds
       }
       if (fullCount != null && !isNaN(Number(fullCount))) {
         fields[FIELDS.EOD_FULL_COUNT] = Number(fullCount)
@@ -76,9 +77,8 @@ export default async function handler(req, res) {
       if (partialCount != null && !isNaN(Number(partialCount))) {
         fields[FIELDS.EOD_PARTIAL_COUNT] = Number(partialCount)
       }
-      // Only include projectId if it looks like a valid Airtable record ID
       if (projectId && isValidId(projectId)) {
-        fields[FIELDS.EOD_PROJECT] = [{ id: projectId }]
+        fields[FIELDS.EOD_PROJECT] = [projectId]
       }
 
       const result = await airtablePost(TABLES.EOD_REPORTS, fields)

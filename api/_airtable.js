@@ -48,6 +48,7 @@ export const FIELDS = {
   EOD_MOBILIZATION:  'fldEv1OCPrpOhjMqs',
   EOD_FULL_COUNT:    'fldpCI0Ma5rrmX9MC',
   EOD_PARTIAL_COUNT: 'fld2CPBKoJiPbjKPn',
+  EOD_PROJECT:       'fldvdVxx1eamdRkyM',
 }
 
 // All site fields to fetch for the app
@@ -65,7 +66,8 @@ export const SITE_FIELDS = Object.values(FIELDS).filter(id =>
 )
 
 export async function airtableGet(table, params = {}) {
-  const qs = new URLSearchParams()
+    const qs = new URLSearchParams()
+    qs.set('returnFieldsByFieldId', 'true')
   if (params.filterByFormula) qs.set('filterByFormula', params.filterByFormula)
   if (params.fields) params.fields.forEach(f => qs.append('fields[]', f))
   if (params.offset) qs.set('offset', params.offset)
@@ -127,4 +129,4 @@ export async function airtableGetAll(table, filterByFormula, fields) {
     offset = data.offset || null
   } while (offset)
   return records
-}
+                          }

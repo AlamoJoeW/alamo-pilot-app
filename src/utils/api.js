@@ -62,19 +62,56 @@ export async function updateSite(recordId, action) {
   return res.json()
 }
 
+export async function submitAccessIssue(recordId, action, notes, file) {
+  const body = { recordId, action, notes }
+  if (file) {
+    body.fileBase64 = file.base64
+    body.fileName = file.name
+    body.fileMimeType = file.type
+  }
+  const res = await fetch(`${BASE}/api/access-issue`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || 'Failed to submit access issue')
+  }
+  return res.json()
+}
+
 export async function fetchEODSummary() {
   const res = await fetch(`${BASE}/api/submit-eod`, { headers: authHeaders() })
   if (!res.ok) throw new Error('Failed to fetch EOD')
   return res.json()
 }
 
-export async function submitEOD({ collectedIds, partialIds, mobIds, fullCount, partialCount }) {
+export async function submitEOD({ collectedIds, partialIds, mobIds, projectId, fullCount, partialCount }) {
   const res = await fetch(`${BASE}/api/submit-eod`, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ collectedIds, partialIds, mobIds, fullCount, partialCount }),
+    body: JSON.stringify({ collectedIds, partialIds, mobIds, projectId, fullCount, partialCount }),
   })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || 'EOD submission failed')
-  return data
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || 'EOD submission failed')
+  }
+  return res.json()
+}
+
+export async function changePassword(currentPassword, newPassword) {
+  const res = await fetch(`${BASE}/api/change-password`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ currentPassword, newPassword }),
+  })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || 'Failed to change password')
+  }
+  return res.json()
 }

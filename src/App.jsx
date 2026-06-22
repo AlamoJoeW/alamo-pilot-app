@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import Login from './components/Login'
+import Preflight from './components/Preflight'
 import MapView from './components/MapView'
 import SiteList from './components/SiteList'
 import SiteDetail from './components/SiteDetail'
+import ChangePassword from './components/ChangePassword'
 import {
   getPilotInfo,
   fetchSites,
@@ -24,8 +26,10 @@ import {
 
 export default function App() {
   const [pilot, setPilot] = useState(null)
+  const [preflightDone, setPreflightDone] = useState(false)
+  const [projectId, setProjectId] = useState('')
   const [sites, setSites] = useState([])
-  const [view, setView] = useState('map')          // 'map' | 'list'
+  const [view, setView] = useState('map')
   const [filter, setFilter] = useState('all')
   const [selectedSite, setSelectedSite] = useState(null)
   const [syncing, setSyncing] = useState(false)
@@ -39,6 +43,8 @@ export default function App() {
   const [eodSubmitting, setEodSubmitting] = useState(false)
   const [eodError, setEodError] = useState('')
   const [syncedAt, setSyncedAt] = useState(null)
+  const [eodQueue, setEodQueue] = useState(new Set())
+  const [showChangePassword, setShowChangePassword] = useState(false)
 
   // Online/offline detection
   useEffect(() => {
@@ -49,27 +55,31 @@ export default function App() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
 
-  // Check auth on mount
+  // Check auth + preflight on mount
   useEffect(() => {
     const info = getPilotInfo()
     if (info) {
       setPilot(info)
+      const today = new Date().toISOString().split('T')[0]
+      const pfDate = localStorage.getItem('alamo_preflight_date')
+      if (pfDate === today) {
+        setPreflightDone(true)
+        setProjectId(localStorage.getItem('alamo_project_id') || '')
+      }
       loadFromCache()
     }
   }, [])
 
-  // Flush pending updates when coming online
+  // Flush pending when coming online (only after preflight)
   useEffect(() => {
-    if (isOnline && pilot) {
+    if (isOnline && pilot && preflightDone) {
       flushPending()
     }
-  }, [isOnline, pilot])
+  }, [isOnline, pilot, preflightDone])
 
   async function loadFromCache() {
     const cached = await getSites()
-    if (cached.length > 0) {
-      setSites(cached)
-    }
+    if (cached.length > 0) setSites(cached)
     const at = await getMeta('syncedAt')
     if (at) setSyncedAt(at)
     const pending = await getPendingUpdates()
@@ -87,10 +97,7 @@ export default function App() {
       setSyncedAt(data.syncedAt)
       await flushPending()
     } catch (err) {
-      if (err.message === 'AUTH_EXPIRED') {
-        handleLogout()
-        return
-      }
+      if (err.message === 'AUTH_EXPIRED') { handleLogout(); return }
       setSyncError('Sync failed — using cached data')
     } finally {
       setSyncing(false)
@@ -100,7 +107,6 @@ export default function App() {
   async function flushPending() {
     const pending = await getPendingUpdates()
     if (pending.length === 0) return
-
     let flushed = 0
     for (const { key, value } of pending) {
       try {
@@ -108,15 +114,12 @@ export default function App() {
         await deletePendingUpdate(key)
         flushed++
       } catch {
-        break // Stop on first failure (network issue)
+        break
       }
     }
-
     const remaining = await getPendingUpdates()
     setPendingCount(remaining.length)
-
     if (flushed > 0) {
-      // Re-sync to get fresh data
       const data = await fetchSites().catch(() => null)
       if (data) {
         await saveSites(data.sites)
@@ -126,7 +129,6 @@ export default function App() {
   }
 
   const handleUpdate = useCallback(async (recordId, action) => {
-    // Optimistic local update
     const changes = {
       collectedApp: action === 'collected',
       partialCollection: action === 'partial',
@@ -136,6 +138,8 @@ export default function App() {
       changes.collectedApp = false
       changes.partialCollection = false
       changes.mobFee = false
+      // Remove from EOD queue when site is uncollected
+      setEodQueue(prev => { const n = new Set(prev); n.delete(recordId); return n })
     }
 
     await updateSiteLocally(recordId, changes)
@@ -147,8 +151,7 @@ export default function App() {
     if (isOnline) {
       try {
         await updateSite(recordId, action)
-      } catch (err) {
-        // If network fails, queue it
+      } catch {
         await queueUpdate({ recordId, action })
         setPendingCount(n => n + 1)
       }
@@ -158,16 +161,20 @@ export default function App() {
     }
   }, [isOnline, selectedSite])
 
+  const handleEodToggle = useCallback((recordId) => {
+    setEodQueue(prev => {
+      const next = new Set(prev)
+      if (next.has(recordId)) next.delete(recordId)
+      else next.add(recordId)
+      return next
+    })
+  }, [])
+
   async function handleEOD() {
     setEodFullCount('')
     setEodPartialCount('')
     setEodError('')
-    try {
-      const summary = await fetchEODSummary()
-      setEodSummary(summary)
-    } catch {
-      setEodSummary(null)
-    }
+    setEodSummary(null)
     setShowEOD(true)
   }
 
@@ -175,18 +182,22 @@ export default function App() {
     setEodSubmitting(true)
     setEodError('')
     try {
-      const collectedIds = sites.filter(s => s.collectedApp).map(s => s.id)
-      const partialIds   = sites.filter(s => s.partialCollection).map(s => s.id)
-      const mobIds       = sites.filter(s => s.mobFee).map(s => s.id)
+      const queuedSites = sites.filter(s => eodQueue.has(s.id))
+      const collectedIds = queuedSites.filter(s => s.collectedApp).map(s => s.id)
+      const partialIds   = queuedSites.filter(s => s.partialCollection).map(s => s.id)
+      const mobIds       = queuedSites.filter(s => s.mobFee).map(s => s.id)
       const result = await submitEOD({
         collectedIds,
         partialIds,
         mobIds,
+        projectId,
         fullCount:    eodFullCount !== '' ? Number(eodFullCount) : undefined,
         partialCount: eodPartialCount !== '' ? Number(eodPartialCount) : undefined,
       })
       setEodSummary(result)
+      setEodQueue(new Set())
     } catch (err) {
+      if (err.message === 'AUTH_EXPIRED') { handleLogout(); return }
       setEodError(err.message || 'Submission failed')
     } finally {
       setEodSubmitting(false)
@@ -199,17 +210,37 @@ export default function App() {
     setPilot(null)
     setSites([])
     setSelectedSite(null)
+    setPreflightDone(false)
+    setProjectId('')
+    setEodQueue(new Set())
+    localStorage.removeItem('alamo_preflight_date')
+    localStorage.removeItem('alamo_project_id')
   }
 
   function handleLogin(data) {
     const info = getPilotInfo()
     setPilot(info || data)
+    const today = new Date().toISOString().split('T')[0]
+    const pfDate = localStorage.getItem('alamo_preflight_date')
+    if (pfDate === today) {
+      setPreflightDone(true)
+      setProjectId(localStorage.getItem('alamo_project_id') || '')
+      sync()
+    }
+  }
+
+  function handlePreflightComplete(preflightId, projId) {
+    setPreflightDone(true)
+    setProjectId(projId || '')
     sync()
   }
 
-  if (!pilot) {
-    return <Login onLogin={handleLogin} />
-  }
+  // ── Gates ─────────────────────────────────────────────────────────────────
+
+  if (!pilot) return <Login onLogin={handleLogin} />
+  if (!preflightDone) return <Preflight pilot={pilot} onComplete={handlePreflightComplete} />
+
+  // ── Main App ──────────────────────────────────────────────────────────────
 
   const collectedCount = sites.filter(s => s.collectedApp).length
   const partialCount = sites.filter(s => s.partialCollection).length
@@ -226,6 +257,7 @@ export default function App() {
           {pendingCount > 0 && <span className="pending-pill">{pendingCount} pending</span>}
         </div>
         <div className="top-bar-right">
+          <button className="icon-btn" onClick={() => setShowChangePassword(true)} title="Change Password">🔑</button>
           <button className="icon-btn" onClick={sync} disabled={syncing} title="Sync">
             {syncing ? '⏳' : '⟳'}
           </button>
@@ -281,10 +313,10 @@ export default function App() {
         )}
       </div>
 
-      {/* Submit EOD button */}
-      {doneCount > 0 && (
-        <button className="eod-btn" onClick={handleEOD}>
-          Submit EOD ({doneCount} sites)
+      {/* Submit EOD button — only shown when queue has items */}
+      {eodQueue.size > 0 && (
+        <button className="eod-btn" onClick={handleEOD} disabled={eodSubmitting}>
+          {eodSubmitting ? 'Submitting…' : `Submit EOD (${eodQueue.size} sites)`}
         </button>
       )}
 
@@ -296,6 +328,8 @@ export default function App() {
           onUpdate={handleUpdate}
           isOnline={isOnline}
           pendingCount={pendingCount}
+          inEodQueue={eodQueue.has(selectedSite.id)}
+          onEodToggle={handleEodToggle}
         />
       )}
 
@@ -305,7 +339,7 @@ export default function App() {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h2>End of Day Report</h2>
 
-            {eodSummary?.submitted ? (
+            {eodSummary?.success ? (
               <>
                 <div className="eod-summary">
                   <div className="eod-row">
@@ -322,7 +356,7 @@ export default function App() {
                   </div>
                 </div>
                 <p className="eod-note">
-                  Your EOD report is saved in Airtable. Your supervisor can review it there.
+                  EOD report submitted. Your supervisor can review it in Airtable.
                 </p>
               </>
             ) : (
@@ -365,11 +399,16 @@ export default function App() {
             )}
 
             <button className="btn-secondary" onClick={() => setShowEOD(false)}>
-              {eodSummary?.submitted ? 'Done' : 'Cancel'}
+              {eodSummary?.success ? 'Done' : 'Cancel'}
             </button>
           </div>
         </div>
       )}
+
+      {/* Change password modal */}
+      {showChangePassword && (
+        <ChangePassword onClose={() => setShowChangePassword(false)} />
+      )}
     </div>
   )
-}
+    }
