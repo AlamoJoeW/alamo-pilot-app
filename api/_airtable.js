@@ -73,6 +73,7 @@ export async function airtableGet(table, params = {}) {
   if (params.offset) qs.set('offset', params.offset)
   if (params.maxRecords) qs.set('maxRecords', params.maxRecords)
   if (params.pageSize) qs.set('pageSize', params.pageSize)
+  if (params.view) qs.set('view', params.view)
 
   const url = `https://api.airtable.com/v0/${BASE_ID}/${table}?${qs}`
   const res = await fetch(url, { headers: { Authorization: `Bearer ${API_KEY}` } })
@@ -118,11 +119,12 @@ export async function airtablePost(table, fields) {
 }
 
 // Paginate through all records matching a filter
-export async function airtableGetAll(table, filterByFormula, fields) {
+export async function airtableGetAll(table, filterByFormula, fields, view) {
   const records = []
   let offset = null
   do {
     const params = { filterByFormula, fields, pageSize: 100 }
+    if (view) params.view = view
     if (offset) params.offset = offset
     const data = await airtableGet(table, params)
     records.push(...data.records)
