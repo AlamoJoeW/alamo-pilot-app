@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     try {
       const pilot = verifyToken(req)
       const today = new Date().toISOString().split('T')[0]
-      const { collectedIds = [], partialIds = [], mobIds = [], projectId } = req.body || {}
+      const { collectedIds = [], partialIds = [], mobIds = [], projectId, fullCount, partialCount } = req.body || {}
 
       // Validate pilot record ID — missing ID sends [{}] to Airtable which causes a silent rejection
       if (!pilot.pilotRecordId || typeof pilot.pilotRecordId !== 'string') {
@@ -69,6 +69,12 @@ export default async function handler(req, res) {
       }
       if (mobIds.length > 0) {
         fields[FIELDS.EOD_MOBILIZATION] = mobIds.map(id => ({ id }))
+      }
+      if (fullCount != null && !isNaN(Number(fullCount))) {
+        fields[FIELDS.EOD_FULL_COUNT] = Number(fullCount)
+      }
+      if (partialCount != null && !isNaN(Number(partialCount))) {
+        fields[FIELDS.EOD_PARTIAL_COUNT] = Number(partialCount)
       }
       // Only include projectId if it looks like a valid Airtable record ID
       if (projectId && isValidId(projectId)) {

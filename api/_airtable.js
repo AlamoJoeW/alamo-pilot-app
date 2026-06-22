@@ -45,7 +45,9 @@ export const FIELDS = {
   EOD_PILOT: 'fldnARlXlU1Y1lov4',
   EOD_FULL_COLLECTION: 'fldNvJt3DszkVZHyC',
   EOD_PARTIAL_COLLECTION: 'fldx1NbBv3bFvBoJf',
-  EOD_MOBILIZATION: 'fldEv1OCPrpOhjMqs',
+  EOD_MOBILIZATION:  'fldEv1OCPrpOhjMqs',
+  EOD_FULL_COUNT:    'fldpCI0Ma5rrmX9MC',
+  EOD_PARTIAL_COUNT: 'fld2CPBKoJiPbjKPn',
 }
 
 // All site fields to fetch for the app

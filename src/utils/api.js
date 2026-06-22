@@ -67,3 +67,14 @@ export async function fetchEODSummary() {
   if (!res.ok) throw new Error('Failed to fetch EOD')
   return res.json()
 }
+
+export async function submitEOD({ collectedIds, partialIds, mobIds, fullCount, partialCount }) {
+  const res = await fetch(`${BASE}/api/submit-eod`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ collectedIds, partialIds, mobIds, fullCount, partialCount }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'EOD submission failed')
+  return data
+}

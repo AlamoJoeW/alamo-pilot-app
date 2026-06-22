@@ -8,6 +8,7 @@ import {
   fetchSites,
   updateSite,
   fetchEODSummary,
+  submitEOD,
   logout,
 } from './utils/api'
 import {
@@ -33,6 +34,10 @@ export default function App() {
   const [pendingCount, setPendingCount] = useState(0)
   const [eodSummary, setEodSummary] = useState(null)
   const [showEOD, setShowEOD] = useState(false)
+  const [eodFullCount, setEodFullCount] = useState('')
+  const [eodPartialCount, setEodPartialCount] = useState('')
+  const [eodSubmitting, setEodSubmitting] = useState(false)
+  const [eodError, setEodError] = useState('')
   const [syncedAt, setSyncedAt] = useState(null)
 
   // Online/offline detection
@@ -154,13 +159,37 @@ export default function App() {
   }, [isOnline, selectedSite])
 
   async function handleEOD() {
+    setEodFullCount('')
+    setEodPartialCount('')
+    setEodError('')
     try {
       const summary = await fetchEODSummary()
       setEodSummary(summary)
-      setShowEOD(true)
     } catch {
-      setShowEOD(true)
       setEodSummary(null)
+    }
+    setShowEOD(true)
+  }
+
+  async function handleEODSubmit() {
+    setEodSubmitting(true)
+    setEodError('')
+    try {
+      const collectedIds = sites.filter(s => s.collectedApp).map(s => s.id)
+      const partialIds   = sites.filter(s => s.partialCollection).map(s => s.id)
+      const mobIds       = sites.filter(s => s.mobFee).map(s => s.id)
+      const result = await submitEOD({
+        collectedIds,
+        partialIds,
+        mobIds,
+        fullCount:    eodFullCount !== '' ? Number(eodFullCount) : undefined,
+        partialCount: eodPartialCount !== '' ? Number(eodPartialCount) : undefined,
+      })
+      setEodSummary(result)
+    } catch (err) {
+      setEodError(err.message || 'Submission failed')
+    } finally {
+      setEodSubmitting(false)
     }
   }
 
@@ -275,7 +304,8 @@ export default function App() {
         <div className="modal-overlay" onClick={() => setShowEOD(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h2>End of Day Report</h2>
-            {eodSummary ? (
+
+            {eodSummary?.submitted ? (
               <>
                 <div className="eod-summary">
                   <div className="eod-row">
@@ -294,22 +324,48 @@ export default function App() {
                 <p className="eod-note">
                   Your EOD report is saved in Airtable. Your supervisor can review it there.
                 </p>
-                {eodSummary.airtableUrl && (
-                  <a
-                    href={eodSummary.airtableUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn-secondary"
-                  >
-                    View in Airtable
-                  </a>
-                )}
               </>
             ) : (
-              <p>Loading EOD data…</p>
+              <>
+                <p className="eod-note">Enter your counts for today, then submit.</p>
+                <div className="eod-summary">
+                  <div className="eod-row">
+                    <span>Full Assets Collected</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={eodFullCount}
+                      onChange={e => setEodFullCount(e.target.value)}
+                      className="eod-count-input"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="eod-row">
+                    <span>Partial Assets Collected</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={eodPartialCount}
+                      onChange={e => setEodPartialCount(e.target.value)}
+                      className="eod-count-input"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                {eodError && <p style={{ color: '#ef4444', fontSize: 13 }}>{eodError}</p>}
+                <button
+                  className="btn-primary"
+                  onClick={handleEODSubmit}
+                  disabled={eodSubmitting}
+                  style={{ marginBottom: 8 }}
+                >
+                  {eodSubmitting ? 'Submitting…' : 'Submit EOD'}
+                </button>
+              </>
             )}
-            <button className="btn-primary" onClick={() => setShowEOD(false)}>
-              Done
+
+            <button className="btn-secondary" onClick={() => setShowEOD(false)}>
+              {eodSummary?.submitted ? 'Done' : 'Cancel'}
             </button>
           </div>
         </div>

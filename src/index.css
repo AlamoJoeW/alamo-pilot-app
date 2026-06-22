@@ -670,6 +670,17 @@ html, body, #root {
 }
 .eod-row:last-child { border-bottom: none; }
 .eod-row strong { font-size: 20px; }
+.eod-count-input {
+  width: 80px;
+  padding: 6px 10px;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface2);
+  color: var(--text);
+}
 
 .eod-note {
   font-size: 14px;
