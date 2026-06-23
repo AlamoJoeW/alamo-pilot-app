@@ -1,136 +1,134 @@
-import jwt from 'jsonwebtoken'
-import { airtableGet, airtablePost, airtablePatch, TABLES, airtableGetAll } from './_airtable.js'
+// Shared Airtable helpers for all API routes
 
-export const config = { api: { bodyParser: { sizeLimit: '10mb' } } }
+export const BASE_ID = process.env.AIRTABLE_BASE || 'app3uLCFgt3Y0aPaa'
+export const API_KEY = process.env.AIRTABLE_API_KEY
 
-const PREFLIGHT_TABLE = 'tbl3XS1n9edeDuLOn'
-
-const F = {
-  DATE:           'fld3e4DOx5yYCgbYe',
-  PILOT:          'fldiapaRvwWUjBC4x',
-  PROJECT:        'fldH8N230tZWXxxZr',
-  TRAVEL_DAY:     'fldkUrdlnzkuw8ML5',
-  TRAVELING_TO:   'fldQEK9X7oGDodpGv',
-  VISUAL_OBS:     'fldq9cdjr2Xka4gNU',
-  AIRCRAFT:       'fldXJPP7MDKEaLSCV',
-  ACRES:          'flde2vhvTKKRjxAf2',
-  BASIN:          'fldavOCL4taDWbKjr',
-  FLIGHT_ADDR:    'fldWaWcaL4NOJcdnP',
-  HOSPITAL:       'fldW4Ofn8HB5QDwon',
-  IMSAFE:         'fldkfoTxuuvdDcfBB',
-  WEATHER_CHK:    'fldtG4CncB7BPB0Kc',
-  WEATHER_FCST:   'flda4qHgaJR1Zu7A3',
-  AIRWORTHY:      'fld40658xFfOJ8CFn',
-  AIRWORTHY_N:    'fldM9piS7h91ZgBtP',
-  AIRSPACE:       'fldjlqeEuvawTW4Y3',
-  TFR:            'fldVH0r0hjgPIJneE',
-  LAANC_REQ:      'fldlMlZKaYnNcUR1J',
-  CREW_REST:      'fldn4FW0OroiL214h',
-  CREW_DAYS:      'fld6zYpJ9uxACJxvq',
-  CREW_WORK:      'fld7KAF09V0j2lbb7',
-  WX_WIND:        'fldlMLvrVa6QbAWoP',
-  WX_VIS:         'fldI8QV1OIpbzAukx',
-  WX_CEIL:        'fldmFj1nQ0e7DXVUT',
-  WX_RAIN:        'fldjlZXJQpCCKub7n',
-  WX_TEMP:        'fldT2VZ7fECRALv19',
-  WX_TSTORM:      'fldDZPynJrcqmsoMB',
-  RISK_TOTAL:     'fldlIeYxPDF6fkOqv',
-  ADD_RISKS:      'fld69iUTWmrmVfLxw',
-  MITIGATING:     'fldHYjSRFoMTVH24A',
-  MISSION_OVW:    'fld2u2SXsljOi1L8l',
-  GO_NOGO:        'fldlVErGgP1IJAoLp',
-  NOTES:          'fldY4gVkWEfEhZgFV',
-  EMERG_CONTACT:  'fldpvClkZS1S30rZ7',
-  START_LAT:      'fldAUf6IwteFufphx',
-  START_LNG:      'fldF7blLSgdAq9mNz',
-  EOD_LINK:       'fldMTHfIuLaJoKdtv',
+export const TABLES = {
+  PILOTS: 'tblYVHjbcI46iQ4EB',
+  COLLECTION_ASSETS: 'tbl1y4oOzEAhf0a4S',
+  EOD_REPORTS: 'tblxlNUqgFy251qha',
 }
 
-function verifyToken(req) {
-  const auth = req.headers.authorization || ''
-  return jwt.verify(auth.replace('Bearer ', ''), process.env.JWT_SECRET)
+export const FIELDS = {
+  // Pilots
+  PILOT_EMAIL:        'fldtJh69QILzlTgMY',
+  PILOT_PASSWORD:     'fld8mIJRKQnPqAz2p',
+  PILOT_FIRST_NAME:   'fldj99i8QHMNP1N9a',
+  PILOT_DISPLAY_NAME: 'fldKEKxHbI9lRCXTR', // formula: full name
+
+  // Collection Assets
+  SITE_ID:              'fldeMYc6CwJOqKKNh',
+  FUZE_ID:              'fld6vEZSPDY7KW38S',
+  COLLECTION_STATUS:    'fld1EPWNQo3zBPsK7',
+  SITE_ISSUE:           'fldovKW04qQhgVnu7',
+  PILOT_ASSIGNED:       'fldxdjMwaTmXabapY',
+  SUB_PROJECT:          'fldbhgVAo5Zw5kTAD',
+  ADDRESS:              'fldcDkKV2vyn25UC5',
+  CITY:                 'fldlxY0GC60x2Sdhc',
+  STATE:                'fldSmMUwJ3XV9P4wt',
+  ZIP:                  'fldwQOL2kGzhS7KNm',
+  SITE_STRUCTURE_TYPE:  'fldEarowciBZ1xo2B',
+  STRUCTURE_HEIGHT:     'fldIDfYAc79cbgdf5',
+  AIRPORT:              'fldsh2jGThrn8lPn3',
+  AIRSPACE:             'fldeE5RD1XLMIOoXo',
+  LATITUDE:             'fldfrOZfgkRgF3fVY',
+  LONGITUDE:            'fldBRvkT3ZwBIJS05',
+  DATE_ADDED:           'fldvZjxOCRfcT055V',
+  MAP_COLOR:            'fldd8KeiQAeFXc2cR',
+  SITE_STRUCTURE_OWNER: 'fldOTBMryx9tr8hSf',
+  MOB_FEE:              'fldZDb14q18VOR2De',
+  PARTIAL_COLLECTION:   'fldcD4EwDU5HkDFua',
+  COLLECTED_APP:        'fldNK7WyoeYeDhgE6',
+
+  // EOD Reports
+  EOD_DATE:             'fldHhWbzHpjzQIQ3n',
+  EOD_PILOT:            'fldnARlXlU1Y1lov4',
+  EOD_FULL_COLLECTION:  'fldNvJt3DszkVZHyC',
+  EOD_PARTIAL_COLLECTION: 'fldx1NbBv3bFvBoJf',
+  EOD_MOBILIZATION:     'fldEv1OCPrpOhjMqs',
+  EOD_FULL_COUNT:       'fldpCI0Ma5rrmX9MC',
+  EOD_PARTIAL_COUNT:    'fld2CPBKoJiPbjKPn',
+  EOD_PROJECT:          'fldvdVxx1eamdRkyM',
 }
 
-function today() {
-  return new Date().toISOString().slice(0, 10)
+// All site fields to fetch for the app
+export const SITE_FIELDS = Object.values(FIELDS).filter(id =>
+  [
+    'fldeMYc6CwJOqKKNh', 'fld6vEZSPDY7KW38S', 'fld1EPWNQo3zBPsK7',
+    'fldovKW04qQhgVnu7', 'fldxdjMwaTmXabapY', 'fldbhgVAo5Zw5kTAD',
+    'fldcDkKV2vyn25UC5', 'fldlxY0GC60x2Sdhc', 'fldSmMUwJ3XV9P4wt',
+    'fldwQOL2kGzhS7KNm', 'fldEarowciBZ1xo2B', 'fldIDfYAc79cbgdf5',
+    'fldsh2jGThrn8lPn3', 'fldeE5RD1XLMIOoXo', 'fldfrOZfgkRgF3fVY',
+    'fldBRvkT3ZwBIJS05', 'fldvZjxOCRfcT055V', 'fldd8KeiQAeFXc2cR',
+    'fldOTBMryx9tr8hSf', 'fldZDb14q18VOR2De', 'fldcD4EwDU5HkDFua',
+    'fldNK7WyoeYeDhgE6',
+  ].includes(id)
+)
+
+export async function airtableGet(table, params = {}) {
+  const qs = new URLSearchParams()
+  qs.set('returnFieldsByFieldId', 'true')
+  if (params.filterByFormula) qs.set('filterByFormula', params.filterByFormula)
+  if (params.fields) params.fields.forEach(f => qs.append('fields[]', f))
+  if (params.offset) qs.set('offset', params.offset)
+  if (params.maxRecords) qs.set('maxRecords', params.maxRecords)
+  if (params.pageSize) qs.set('pageSize', params.pageSize)
+  if (params.view) qs.set('view', params.view)
+
+  const url = `https://api.airtable.com/v0/${BASE_ID}/${table}?${qs}`
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${API_KEY}` } })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Airtable GET error ${res.status}: ${err}`)
+  }
+  return res.json()
 }
 
-export default async function handler(req, res) {
-  try {
-    const pilot = verifyToken(req)
+export async function airtablePatch(table, recordId, fields) {
+  const url = `https://api.airtable.com/v0/${BASE_ID}/${table}/${recordId}`
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ fields }),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Airtable PATCH error ${res.status}: ${err}`)
+  }
+  return res.json()
+}
 
-    if (req.method === 'GET') {
-      // Use the Airtable "Today" view for date filtering (timezone-aware).
-      // Match pilot by display name via formula — ARRAYJOIN({linked_field}) in Airtable
-      // formulas returns the primary field value (display names), not record IDs.
-      // This is more reliable than matching by pilotRecordId from the JWT.
-      const todayStr = today()
-      const pilotName = (pilot.displayName || pilot.firstName || '').replace(/['"]/g, '')
-      const fields = [F.DATE, F.PILOT, F.TRAVEL_DAY, F.GO_NOGO]
+export async function airtablePost(table, fields) {
+  const url = `https://api.airtable.com/v0/${BASE_ID}/${table}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ fields }),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Airtable POST error ${res.status}: ${err}`)
+  }
+  return res.json()
+}
 
-      let records
-      if (pilotName) {
-        // Primary: filter by both date AND pilot name inside Airtable
-        const filter = `AND(DATESTR({${F.DATE}})='${todayStr}', FIND('${pilotName}', ARRAYJOIN({${F.PILOT}})))`
-        records = await airtableGetAll(PREFLIGHT_TABLE, filter, fields)
-      } else {
-        // Fallback: date only, then JS-side ID match
-        const filter = `DATESTR({${F.DATE}})='${todayStr}'`
-        records = await airtableGetAll(PREFLIGHT_TABLE, filter, fields)
-      }
-
-      console.log(`[preflight GET] date=${todayStr} pilot="${pilotName}" recordsFound=${records.length}`)
-
-      const rec = pilotName
-        ? (records[0] || null)
-        : (records.find(r => (r.fields[F.PILOT] || []).includes(pilot.pilotRecordId)) || null)
-
-      if (!rec) return res.json({ exists: false })
-      return res.json({
-        exists: true,
-        preflightId: rec.id,
-        travelDay: rec.fields[F.TRAVEL_DAY] || false,
-        goNogo: rec.fields[F.GO_NOGO] || null,
-      })
-    }
-
-    if (req.method === 'POST') {
-      const b = req.body
-      const fields = {}
-
-      fields[F.DATE]   = today()
-      fields[F.PILOT]  = [pilot.pilotRecordId]
-
-      if (b.projectId)        fields[F.PROJECT]      = [b.projectId]
-      if (b.aircraftId)       fields[F.AIRCRAFT]     = [b.aircraftId]
-      if (b.travelDay != null) fields[F.TRAVEL_DAY]  = !!b.travelDay
-      if (b.travelingTo)      fields[F.TRAVELING_TO] = b.travelingTo
-      if (b.visualObserver != null) fields[F.VISUAL_OBS] = !!b.visualObserver
-      if (b.acres != null)    fields[F.ACRES]        = b.acres
-      if (b.basin)            fields[F.BASIN]        = b.basin
-      if (b.closestFlightAddr) fields[F.FLIGHT_ADDR] = b.closestFlightAddr
-      if (b.nearestHospital)  fields[F.HOSPITAL]     = b.nearestHospital
-      if (b.imsafe?.length)   fields[F.IMSAFE]       = b.imsafe
-      if (b.weatherCheck?.length) fields[F.WEATHER_CHK] = b.weatherCheck
-      if (b.weatherForecast)  fields[F.WEATHER_FCST] = b.weatherForecast
-      if (b.airworthy)        fields[F.AIRWORTHY]    = b.airworthy
-      if (b.airworthyNotes)   fields[F.AIRWORTHY_N]  = b.airworthyNotes
-      if (b.airspace?.length) fields[F.AIRSPACE]     = b.airspace
-      if (b.tfrPresent)       fields[F.TFR]          = b.tfrPresent
-      if (b.laancRequired)    fields[F.LAANC_REQ]    = b.laancRequired
-      if (b.crewRest)         fields[F.CREW_REST]    = b.crewRest
-      if (b.crewDays)         fields[F.CREW_DAYS]    = b.crewDays
-      if (b.crewWork)         fields[F.CREW_WORK]    = b.crewWork
-      if (b.wxWind)           fields[F.WX_WIND]      = b.wxWind
-      if (b.wxVis)            fields[F.WX_VIS]       = b.wxVis
-      if (b.wxCeil)           fields[F.WX_CEIL]      = b.wxCeil
-      if (b.wxRain)           fields[F.WX_RAIN]      = b.wxRain
-      if (b.wxTemp)           fields[F.WX_TEMP]      = b.wxTemp
-      if (b.wxTstorm)         fields[F.WX_TSTORM]    = b.wxTstorm
-      if (b.riskTotal)        fields[F.RISK_TOTAL]   = b.riskTotal
-      if (b.additionalRisks)  fields[F.ADD_RISKS]    = b.additionalRisks
-      if (b.mitigatingFactors) fields[F.MITIGATING]  = b.mitigatingFactors
-      if (b.missionOverview != null) fields[F.MISSION_OVW] = !!b.missionOverview
-      if (b.goNogo)           fields[F.GO_NOGO]      = b.goNogo
-      if (b.notes)            fields[F.NOTES]        = b.notes
-      if (b.startLat 
+// Paginate through all records matching a filter
+export async function airtableGetAll(table, filterByFormula, fields, view) {
+  const records = []
+  let offset = null
+  do {
+    const params = { filterByFormula, fields, pageSize: 100 }
+    if (view) params.view = view
+    if (offset) params.offset = offset
+    const data = await airtableGet(table, params)
+    records.push(...data.records)
+    offset = data.offset || null
+  } while (offset)
+  return records
+}
