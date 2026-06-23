@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
   try {
-    verifyToken(req)
+    const pilot = verifyToken(req)
 
     const records = []
     let offset = null
@@ -36,7 +36,12 @@ export default async function handler(req, res) {
       offset = data.offset || null
     } while (offset)
 
-    const sites = records.map(r => ({
+    // Filter to only sites assigned to the logged-in pilot
+    const pilotRecords = records.filter(r =>
+      (r.fields[FIELDS.PILOT_ASSIGNED] || []).includes(pilot.pilotRecordId)
+    )
+
+    const sites = pilotRecords.map(r => ({
       id: r.id,
       siteId:              r.fields[FIELDS.SITE_ID]              || '',
       fuzeId:              r.fields[FIELDS.FUZE_ID]              || '',
@@ -52,8 +57,8 @@ export default async function handler(req, res) {
       structureHeight:     r.fields[FIELDS.STRUCTURE_HEIGHT]     || '',
       airport:             r.fields[FIELDS.AIRPORT]              || '',
       airspace:            r.fields[FIELDS.AIRSPACE]             || '',
-      latitude:            r.fields[FIELDS.LATITUDE]             ?? null,
-      longitude:           r.fields[FIELDS.LONGITUDE]            ?? null,
+      lat:                 r.fields[FIELDS.LATITUDE]             ?? null,
+      lng:                 r.fields[FIELDS.LONGITUDE]            ?? null,
       dateAdded:           r.fields[FIELDS.DATE_ADDED]           || '',
       mapColor:            r.fields[FIELDS.MAP_COLOR]            || '',
       siteStructureOwner:  r.fields[FIELDS.SITE_STRUCTURE_OWNER] || '',
