@@ -36,9 +36,10 @@ export default async function handler(req, res) {
       offset = data.offset || null
     } while (offset)
 
-    // Filter to only sites assigned to the logged-in pilot
+    // Filter to only sites assigned to the logged-in pilot.
+    // PILOT_APP is a linked record field; the API returns an array of pilot record IDs.
     const pilotRecords = records.filter(r =>
-      (r.fields[FIELDS.PILOT_ASSIGNED] || []).includes(pilot.pilotRecordId)
+      (r.fields[FIELDS.PILOT_APP] || []).includes(pilot.pilotRecordId)
     )
 
     const sites = pilotRecords.map(r => ({
@@ -47,7 +48,8 @@ export default async function handler(req, res) {
       fuzeId:              r.fields[FIELDS.FUZE_ID]              || '',
       collectionStatus:    r.fields[FIELDS.COLLECTION_STATUS]    || '',
       siteIssue:           r.fields[FIELDS.SITE_ISSUE]           || '',
-      pilotAssigned:       r.fields[FIELDS.PILOT_ASSIGNED]       || [],
+      pilotAssigned:       r.fields[FIELDS.PILOT_ASSIGNED]       || '',
+      pilotApp:            r.fields[FIELDS.PILOT_APP]            || [],
       subProject:          r.fields[FIELDS.SUB_PROJECT]          || '',
       address:             r.fields[FIELDS.ADDRESS]              || '',
       city:                r.fields[FIELDS.CITY]                 || '',

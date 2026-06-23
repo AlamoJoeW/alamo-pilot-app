@@ -22,6 +22,7 @@ export const FIELDS = {
   COLLECTION_STATUS:    'fld1EPWNQo3zBPsK7',
   SITE_ISSUE:           'fldovKW04qQhgVnu7',
   PILOT_ASSIGNED:       'fldxdjMwaTmXabapY',
+  PILOT_APP:            'fld6U7B31MX3x8NzQ', // linked record to Pilots table
   SUB_PROJECT:          'fldbhgVAo5Zw5kTAD',
   ADDRESS:              'fldcDkKV2vyn25UC5',
   CITY:                 'fldlxY0GC60x2Sdhc',
@@ -55,7 +56,7 @@ export const FIELDS = {
 export const SITE_FIELDS = Object.values(FIELDS).filter(id =>
   [
     'fldeMYc6CwJOqKKNh', 'fld6vEZSPDY7KW38S', 'fld1EPWNQo3zBPsK7',
-    'fldovKW04qQhgVnu7', 'fldxdjMwaTmXabapY', 'fldbhgVAo5Zw5kTAD',
+    'fldovKW04qQhgVnu7', 'fldxdjMwaTmXabapY', 'fld6U7B31MX3x8NzQ', 'fldbhgVAo5Zw5kTAD',
     'fldcDkKV2vyn25UC5', 'fldlxY0GC60x2Sdhc', 'fldSmMUwJ3XV9P4wt',
     'fldwQOL2kGzhS7KNm', 'fldEarowciBZ1xo2B', 'fldIDfYAc79cbgdf5',
     'fldsh2jGThrn8lPn3', 'fldeE5RD1XLMIOoXo', 'fldfrOZfgkRgF3fVY',
