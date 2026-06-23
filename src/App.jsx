@@ -4,16 +4,16 @@ import MapView from './components/MapView'
 import RouteView from './components/RouteView'
 import SiteList from './components/SiteList'
 import SiteDetail from './components/SiteDetail'
-import Preflight from './components/Preflight'
-import EODReport from './components/EODReport'
 import {
   getPilotInfo,
   fetchSites,
   updateSite,
-  submitEOD,
   logout,
   checkPreflight,
 } from './utils/api'
+
+const EOD_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shriKnuzFRkspxTOE'
+const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6NBl4k'
 import {
   saveSites,
   getSites,
@@ -24,6 +24,44 @@ import {
   getMeta,
   clearAll,
 } from './utils/db'
+
+function PreflightPrompt({ pilot, onCheck, onLogout }) {
+  const [checking, setChecking] = useState(false)
+
+  async function handleCheck() {
+    setChecking(true)
+    await onCheck()
+    setChecking(false)
+  }
+
+  return (
+    <div className="preflight-screen" style={{ justifyContent: 'center', alignItems: 'center' }}>
+      <div style={{ textAlign: 'center', padding: 32 }}>
+        <div style={{ fontSize: 64, marginBottom: 16 }}>✈️</div>
+        <h2 style={{ marginBottom: 8 }}>Daily Preflight Required</h2>
+        <p style={{ color: 'var(--text2)', marginBottom: 32 }}>
+          No preflight on file for today, {pilot?.firstName || pilot?.displayName}. Complete the form before flying.
+        </p>
+        <button
+          className="btn-primary btn-full"
+          style={{ marginBottom: 12 }}
+          onClick={() => window.open(PREFLIGHT_FORM_URL, '_blank')}
+        >
+          Open Preflight Form
+        </button>
+        <button
+          className="btn-secondary btn-full"
+          style={{ marginBottom: 12 }}
+          onClick={handleCheck}
+          disabled={checking}
+        >
+          {checking ? 'Checking…' : "I've Completed My Preflight"}
+        </button>
+        <button className="btn-secondary" onClick={onLogout}>Log Out</button>
+      </div>
+    </div>
+  )
+}
 
 function TravelDayScreen({ pilot, onLogout }) {
   return (
@@ -50,8 +88,6 @@ export default function App() {
   const [syncError, setSyncError] = useState('')
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(0)
-  const [showEODForm, setShowEODForm] = useState(false)
-  const [eodResult, setEodResult] = useState(null)  // null | { success } | { error }
   const [syncedAt, setSyncedAt] = useState(null)
 
   // Preflight state
@@ -196,28 +232,6 @@ export default function App() {
     }
   }, [isOnline, selectedSite])
 
-  async function handleEODSubmit({ collectedIds, partialIds, mobIds, preflightId: pfId, eodForm }) {
-    // Capture end-of-day GPS (optional, non-blocking)
-    let endLat = null, endLng = null
-    if (navigator.geolocation) {
-      await new Promise(resolve => {
-        navigator.geolocation.getCurrentPosition(
-          pos => { endLat = pos.coords.latitude; endLng = pos.coords.longitude; resolve() },
-          () => resolve()
-        )
-      })
-    }
-
-    try {
-      const result = await submitEOD(collectedIds, partialIds, mobIds, endLat, endLng, pfId || preflightId, eodForm)
-      setEodResult({ success: true, ...result })
-      setShowEODForm(false)
-    } catch (err) {
-      if (err.message === 'AUTH_EXPIRED') { handleLogout(); return }
-      throw err  // Let EODReport show the error
-    }
-  }
-
   function handleLogout() {
     logout()
     clearAll()
@@ -249,15 +263,13 @@ export default function App() {
     return <div className="pf-loading">Checking preflight…</div>
   }
 
-  // Auth OK + preflight not done → show Preflight form
+  // Auth OK + preflight not done → prompt pilot to open Airtable form
   if (!preflightExists) {
     return (
-      <Preflight
+      <PreflightPrompt
         pilot={pilot}
-        onComplete={(id) => {
-          setPreflightId(id)
-          setPreflightExists(true)
-        }}
+        onCheck={checkAndSetPreflight}
+        onLogout={handleLogout}
       />
     )
   }
@@ -344,12 +356,10 @@ export default function App() {
         )}
       </div>
 
-      {/* Submit EOD button */}
-      {doneCount > 0 && (
-        <button className="eod-btn" onClick={() => setShowEODForm(true)}>
-          {`Submit EOD (${doneCount} sites)`}
-        </button>
-      )}
+      {/* EOD Report button — always visible */}
+      <button className="eod-btn" onClick={() => window.open(EOD_FORM_URL, '_blank')}>
+        End of Day Report
+      </button>
 
       {/* Site detail sheet */}
       {selectedSite && (
@@ -362,31 +372,6 @@ export default function App() {
         />
       )}
 
-      {/* EOD form — full screen, like Preflight */}
-      {showEODForm && (
-        <EODReport
-          pilot={pilot}
-          sites={sites}
-          preflightId={preflightId}
-          onSubmit={handleEODSubmit}
-          onCancel={() => setShowEODForm(false)}
-        />
-      )}
-
-      {/* EOD success banner */}
-      {eodResult?.success && (
-        <div className="modal-overlay" onClick={() => setEodResult(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h2>EOD Submitted</h2>
-            <p style={{ color: 'var(--text2)', marginBottom: 16 }}>
-              Your end-of-day report has been submitted to Airtable.
-            </p>
-            <button className="btn-primary" onClick={() => setEodResult(null)}>
-              Done
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -66,7 +66,7 @@ export default async function handler(req, res) {
       // Match pilot client-side: ARRAYJOIN returns display names, not record IDs,
       // so FIND(pilotRecordId, ARRAYJOIN(...)) never matches.
       const todayStr = today()
-      const filter = `{${F.DATE}}='${todayStr}'`
+      const filter = `DATESTR({${F.DATE}})='${todayStr}'`
       const records = await airtableGetAll(PREFLIGHT_TABLE, filter, [F.DATE, F.PILOT, F.TRAVEL_DAY, F.GO_NOGO])
       console.log(`[preflight GET] date=${todayStr} pilotRecordId=${pilot.pilotRecordId} recordsFound=${records.length}`)
       if (records.length > 0) {
