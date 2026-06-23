@@ -60,19 +60,31 @@ export default async function handler(req, res) {
     const pilot = verifyToken(req)
 
     if (req.method === 'GET') {
-      // Filter by today's date string (same approach as submit-eod.js).
-      // IS_SAME/TODAY() was unreliable — timezone mismatch between Airtable base
-      // and UTC server clock could cause it to return no records.
-      // Match pilot client-side: ARRAYJOIN returns display names, not record IDs,
-      // so FIND(pilotRecordId, ARRAYJOIN(...)) never matches.
+      // Use the Airtable "Today" view for date filtering (timezone-aware).
+      // Match pilot by display name via formula — ARRAYJOIN({linked_field}) in Airtable
+      // formulas returns the primary field value (display names), not record IDs.
+      // This is more reliable than matching by pilotRecordId from the JWT.
       const todayStr = today()
-      const filter = `DATESTR({${F.DATE}})='${todayStr}'`
-      const records = await airtableGetAll(PREFLIGHT_TABLE, filter, [F.DATE, F.PILOT, F.TRAVEL_DAY, F.GO_NOGO])
-      console.log(`[preflight GET] date=${todayStr} pilotRecordId=${pilot.pilotRecordId} recordsFound=${records.length}`)
-      if (records.length > 0) {
-        console.log('[preflight GET] pilot fields:', records.map(r => r.fields[F.PILOT]))
+      const pilotName = (pilot.displayName || pilot.firstName || '').replace(/['"]/g, '')
+      const fields = [F.DATE, F.PILOT, F.TRAVEL_DAY, F.GO_NOGO]
+
+      let records
+      if (pilotName) {
+        // Primary: filter by both date AND pilot name inside Airtable
+        const filter = `AND(DATESTR({${F.DATE}})='${todayStr}', FIND('${pilotName}', ARRAYJOIN({${F.PILOT}})))`
+        records = await airtableGetAll(PREFLIGHT_TABLE, filter, fields)
+      } else {
+        // Fallback: date only, then JS-side ID match
+        const filter = `DATESTR({${F.DATE}})='${todayStr}'`
+        records = await airtableGetAll(PREFLIGHT_TABLE, filter, fields)
       }
-      const rec = records.find(r => (r.fields[F.PILOT] || []).includes(pilot.pilotRecordId))
+
+      console.log(`[preflight GET] date=${todayStr} pilot="${pilotName}" recordsFound=${records.length}`)
+
+      const rec = pilotName
+        ? (records[0] || null)
+        : (records.find(r => (r.fields[F.PILOT] || []).includes(pilot.pilotRecordId)) || null)
+
       if (!rec) return res.json({ exists: false })
       return res.json({
         exists: true,

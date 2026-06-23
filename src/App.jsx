@@ -11,9 +11,6 @@ import {
   logout,
   checkPreflight,
 } from './utils/api'
-
-const EOD_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shriKnuzFRkspxTOE'
-const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6NBl4k'
 import {
   saveSites,
   getSites,
@@ -24,6 +21,9 @@ import {
   getMeta,
   clearAll,
 } from './utils/db'
+
+const EOD_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shriKnuzFRkspxTOE'
+const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6NBl4k'
 
 function PreflightPrompt({ pilot, onCheck, onLogout }) {
   const [checking, setChecking] = useState(false)
