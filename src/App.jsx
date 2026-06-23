@@ -5,12 +5,10 @@ import RouteView from './components/RouteView'
 import SiteList from './components/SiteList'
 import SiteDetail from './components/SiteDetail'
 import Preflight from './components/Preflight'
-import EODReport from './components/EODReport'
 import {
   getPilotInfo,
   fetchSites,
   updateSite,
-  submitEOD,
   logout,
   checkPreflight,
 } from './utils/api'
@@ -24,6 +22,8 @@ import {
   getMeta,
   clearAll,
 } from './utils/db'
+
+const EOD_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shriKnuzFRkspxTOE'
 
 function TravelDayScreen({ pilot, onLogout }) {
   return (
@@ -43,24 +43,20 @@ function TravelDayScreen({ pilot, onLogout }) {
 export default function App() {
   const [pilot, setPilot] = useState(null)
   const [sites, setSites] = useState([])
-  const [view, setView] = useState('map')          // 'map' | 'list'
+  const [view, setView] = useState('map')
   const [filter, setFilter] = useState('all')
   const [selectedSite, setSelectedSite] = useState(null)
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState('')
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(0)
-  const [showEODForm, setShowEODForm] = useState(false)
-  const [eodResult, setEodResult] = useState(null)  // null | { success } | { error }
   const [syncedAt, setSyncedAt] = useState(null)
 
-  // Preflight state
   const [preflightChecked, setPreflightChecked] = useState(false)
   const [preflightExists, setPreflightExists] = useState(false)
   const [preflightTravelDay, setPreflightTravelDay] = useState(false)
   const [preflightId, setPreflightId] = useState(null)
 
-  // Online/offline detection
   useEffect(() => {
     const on = () => setIsOnline(true)
     const off = () => setIsOnline(false)
@@ -69,7 +65,6 @@ export default function App() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
 
-  // Check auth on mount
   useEffect(() => {
     const info = getPilotInfo()
     if (info) {
@@ -80,25 +75,19 @@ export default function App() {
     }
   }, [])
 
-  // Flush pending updates when coming online
   useEffect(() => {
-    if (isOnline && pilot) {
-      flushPending()
-    }
+    if (isOnline && pilot) flushPending()
   }, [isOnline, pilot])
 
   async function loadFromCache() {
     const cached = await getSites()
-    if (cached.length > 0) {
-      setSites(cached)
-    }
+    if (cached.length > 0) setSites(cached)
     const at = await getMeta('syncedAt')
     if (at) setSyncedAt(at)
     const pending = await getPendingUpdates()
     setPendingCount(pending.length)
   }
 
-  // Check Airtable for today's preflight — called explicitly on every login event
   async function checkAndSetPreflight() {
     setPreflightChecked(false)
     try {
@@ -107,7 +96,6 @@ export default function App() {
       setPreflightTravelDay(pf.travelDay || false)
       setPreflightId(pf.preflightId || null)
     } catch {
-      // Non-fatal — default to showing the form so pilot can submit
       setPreflightExists(false)
     } finally {
       setPreflightChecked(true)
@@ -138,7 +126,6 @@ export default function App() {
   async function flushPending() {
     const pending = await getPendingUpdates()
     if (pending.length === 0) return
-
     let flushed = 0
     for (const { key, value } of pending) {
       try {
@@ -146,15 +133,12 @@ export default function App() {
         await deletePendingUpdate(key)
         flushed++
       } catch {
-        break // Stop on first failure (network issue)
+        break
       }
     }
-
     const remaining = await getPendingUpdates()
     setPendingCount(remaining.length)
-
     if (flushed > 0) {
-      // Re-sync to get fresh data
       const data = await fetchSites().catch(() => null)
       if (data) {
         await saveSites(data.sites)
@@ -164,7 +148,6 @@ export default function App() {
   }
 
   const handleUpdate = useCallback(async (recordId, action) => {
-    // Optimistic local update
     const changes = {
       collectedApp: action === 'collected',
       partialCollection: action === 'partial',
@@ -175,18 +158,13 @@ export default function App() {
       changes.partialCollection = false
       changes.mobFee = false
     }
-
     await updateSiteLocally(recordId, changes)
     setSites(prev => prev.map(s => s.id === recordId ? { ...s, ...changes } : s))
-    if (selectedSite?.id === recordId) {
-      setSelectedSite(prev => ({ ...prev, ...changes }))
-    }
-
+    if (selectedSite?.id === recordId) setSelectedSite(prev => ({ ...prev, ...changes }))
     if (isOnline) {
       try {
         await updateSite(recordId, action)
-      } catch (err) {
-        // If network fails, queue it
+      } catch {
         await queueUpdate({ recordId, action })
         setPendingCount(n => n + 1)
       }
@@ -195,28 +173,6 @@ export default function App() {
       setPendingCount(n => n + 1)
     }
   }, [isOnline, selectedSite])
-
-  async function handleEODSubmit({ collectedIds, partialIds, mobIds, preflightId: pfId, eodForm }) {
-    // Capture end-of-day GPS (optional, non-blocking)
-    let endLat = null, endLng = null
-    if (navigator.geolocation) {
-      await new Promise(resolve => {
-        navigator.geolocation.getCurrentPosition(
-          pos => { endLat = pos.coords.latitude; endLng = pos.coords.longitude; resolve() },
-          () => resolve()
-        )
-      })
-    }
-
-    try {
-      const result = await submitEOD(collectedIds, partialIds, mobIds, endLat, endLng, pfId || preflightId, eodForm)
-      setEodResult({ success: true, ...result })
-      setShowEODForm(false)
-    } catch (err) {
-      if (err.message === 'AUTH_EXPIRED') { handleLogout(); return }
-      throw err  // Let EODReport show the error
-    }
-  }
 
   function handleLogout() {
     logout()
@@ -237,37 +193,18 @@ export default function App() {
     sync()
   }
 
-  // ── Render guards ─────────────────────────────────────────────────────────────
-
-  // No auth → Login
-  if (!pilot) {
-    return <Login onLogin={handleLogin} />
-  }
-
-  // Auth OK but preflight not yet checked → brief loading state
-  if (!preflightChecked) {
-    return <div className="pf-loading">Checking preflight…</div>
-  }
-
-  // Auth OK + preflight not done → show Preflight form
+  if (!pilot) return <Login onLogin={handleLogin} />
+  if (!preflightChecked) return <div className="pf-loading">Checking preflight…</div>
   if (!preflightExists) {
     return (
       <Preflight
         pilot={pilot}
-        onComplete={(id) => {
-          setPreflightId(id)
-          setPreflightExists(true)
-        }}
+        onComplete={(id) => { setPreflightId(id); setPreflightExists(true) }}
       />
     )
   }
+  if (preflightTravelDay) return <TravelDayScreen pilot={pilot} onLogout={handleLogout} />
 
-  // Auth OK + travel day → Travel Day screen (no route/map)
-  if (preflightTravelDay) {
-    return <TravelDayScreen pilot={pilot} onLogout={handleLogout} />
-  }
-
-  // Normal flight day → map/list/EOD
   const collectedCount = sites.filter(s => s.collectedApp).length
   const partialCount = sites.filter(s => s.partialCollection).length
   const mobCount = sites.filter(s => s.mobFee).length
@@ -275,7 +212,6 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Top bar */}
       <header className="top-bar">
         <div className="top-bar-left">
           <span className="pilot-name">{pilot.firstName || pilot.displayName}</span>
@@ -292,7 +228,6 @@ export default function App() {
 
       {syncError && <div className="sync-error">{syncError}</div>}
 
-      {/* Progress bar */}
       <div className="progress-bar">
         <div className="progress-stats">
           <span>{doneCount} / {sites.length} sites</span>
@@ -308,50 +243,24 @@ export default function App() {
         </div>
       </div>
 
-      {/* View toggle */}
       <div className="view-toggle">
-        <button
-          className={`toggle-btn ${view === 'map' ? 'active' : ''}`}
-          onClick={() => setView('map')}
-        >
-          Map
-        </button>
-        <button
-          className={`toggle-btn ${view === 'route' ? 'active' : ''}`}
-          onClick={() => setView('route')}
-        >
-          Route
-        </button>
-        <button
-          className={`toggle-btn ${view === 'list' ? 'active' : ''}`}
-          onClick={() => setView('list')}
-        >
-          List
-        </button>
+        <button className={`toggle-btn ${view === 'map' ? 'active' : ''}`} onClick={() => setView('map')}>Map</button>
+        <button className={`toggle-btn ${view === 'route' ? 'active' : ''}`} onClick={() => setView('route')}>Route</button>
+        <button className={`toggle-btn ${view === 'list' ? 'active' : ''}`} onClick={() => setView('list')}>List</button>
       </div>
 
-      {/* Main content */}
       <div className="main-content">
         {view === 'map' && <MapView sites={sites} onSelect={setSelectedSite} />}
         {view === 'route' && <RouteView sites={sites} />}
         {view === 'list' && (
-          <SiteList
-            sites={sites}
-            onSelect={setSelectedSite}
-            filter={filter}
-            onFilterChange={setFilter}
-          />
+          <SiteList sites={sites} onSelect={setSelectedSite} filter={filter} onFilterChange={setFilter} />
         )}
       </div>
 
-      {/* Submit EOD button */}
-      {doneCount > 0 && (
-        <button className="eod-btn" onClick={() => setShowEODForm(true)}>
-          {`Submit EOD (${doneCount} sites)`}
-        </button>
-      )}
+      <button className="eod-btn" onClick={() => window.open(EOD_FORM_URL, '_blank')}>
+        End of Day Report
+      </button>
 
-      {/* Site detail sheet */}
       {selectedSite && (
         <SiteDetail
           site={selectedSite}
@@ -360,32 +269,6 @@ export default function App() {
           isOnline={isOnline}
           pendingCount={pendingCount}
         />
-      )}
-
-      {/* EOD form — full screen, like Preflight */}
-      {showEODForm && (
-        <EODReport
-          pilot={pilot}
-          sites={sites}
-          preflightId={preflightId}
-          onSubmit={handleEODSubmit}
-          onCancel={() => setShowEODForm(false)}
-        />
-      )}
-
-      {/* EOD success banner */}
-      {eodResult?.success && (
-        <div className="modal-overlay" onClick={() => setEodResult(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h2>EOD Submitted</h2>
-            <p style={{ color: 'var(--text2)', marginBottom: 16 }}>
-              Your end-of-day report has been submitted to Airtable.
-            </p>
-            <button className="btn-primary" onClick={() => setEodResult(null)}>
-              Done
-            </button>
-          </div>
-        </div>
       )}
     </div>
   )
