@@ -62,13 +62,15 @@ export async function updateSite(recordId, action) {
   return res.json()
 }
 
-export async function submitAccessIssue(recordId, action, notes, file) {
+export async function submitAccessIssue(recordId, action, notes, file, captureTypes, issueFlags) {
   const body = { recordId, action, notes }
   if (file) {
     body.fileBase64 = file.base64
     body.fileName = file.name
     body.fileMimeType = file.type
   }
+  if (captureTypes) body.captureTypes = captureTypes
+  if (issueFlags)   body.issueFlags   = issueFlags
   const res = await fetch(`${BASE}/api/access-issue`, {
     method: 'POST',
     headers: authHeaders(),
@@ -88,11 +90,11 @@ export async function fetchEODSummary() {
   return res.json()
 }
 
-export async function submitEOD({ collectedIds, partialIds, mobIds, projectId, fullCount, partialCount }) {
+export async function submitEOD(collectedIds, partialIds, mobIds, endLat = null, endLng = null, preflightId = null, eodForm = null) {
   const res = await fetch(`${BASE}/api/submit-eod`, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ collectedIds, partialIds, mobIds, projectId, fullCount, partialCount }),
+    body: JSON.stringify({ collectedIds, partialIds, mobIds, endLat, endLng, preflightId, eodForm }),
   })
   if (!res.ok) {
     if (res.status === 401) throw new Error('AUTH_EXPIRED')
@@ -102,16 +104,36 @@ export async function submitEOD({ collectedIds, partialIds, mobIds, projectId, f
   return res.json()
 }
 
-export async function changePassword(currentPassword, newPassword) {
-  const res = await fetch(`${BASE}/api/change-password`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ currentPassword, newPassword }),
-  })
-  if (!res.ok) {
-    if (res.status === 401) throw new Error('AUTH_EXPIRED')
-    const data = await res.json().catch(() => ({}))
-    throw new Error(data.error || 'Failed to change password')
-  }
+export async function checkPreflight() {
+  const res = await fetch(`${BASE}/api/preflight`, { headers: authHeaders() })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
   return res.json()
 }
+
+export async function submitPreflight(data) {
+  const res = await fetch(`${BASE}/api/preflight`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  return res.json()
+}
+
+export async function fetchAircraft() {
+  const res = await fetch(`${BASE}/api/aircraft`, { headers: authHeaders() })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  return res.json()
+}
+
+export async function fetchProjects() {
+  const res = await fetch(`${BASE}/api/projects`, { headers: authHeaders() })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  return res.json()
+}
+
+export async function fetchDailyRoute() {
+  const res = await fetch(`${BASE}/api/daily-route`, { headers: authHeaders() })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  return res.json()
+    }
