@@ -46,6 +46,10 @@ const F = {
   EOD_LINK:       'fldMTHfIuLaJoKdtv',
 }
 
+// Pilots table fields for current location
+const PILOT_CURRENT_LAT = 'fldUueaq9Z2sAMq84'
+const PILOT_CURRENT_LNG = 'fldQsQfdRFDhZFsBO'
+
 function verifyToken(req) {
   const auth = req.headers.authorization || ''
   return jwt.verify(auth.replace('Bearer ', ''), process.env.JWT_SECRET)
@@ -60,26 +64,20 @@ export default async function handler(req, res) {
     const pilot = verifyToken(req)
 
     if (req.method === 'GET') {
-      // Use the Airtable "Today" view for date filtering (timezone-aware).
-      // Match pilot by display name via formula — ARRAYJOIN({linked_field}) in Airtable
-      // formulas returns the primary field value (display names), not record IDs.
-      // This is more reliable than matching by pilotRecordId from the JWT.
       const todayStr = today()
       const pilotName = (pilot.displayName || pilot.firstName || '').replace(/['"]/g, '')
       const fields = [F.DATE, F.PILOT, F.TRAVEL_DAY, F.GO_NOGO]
 
       let records
       if (pilotName) {
-        // Primary: filter by both date AND pilot name inside Airtable
-        const filter = `AND(DATESTR({${F.DATE}})='${todayStr}', FIND('${pilotName}', ARRAYJOIN({${F.PILOT}})))`
+        const filter = "AND(DATESTR({" + F.DATE + "})='" + todayStr + "', FIND('" + pilotName + "', ARRAYJOIN({" + F.PILOT + "})))"
         records = await airtableGetAll(PREFLIGHT_TABLE, filter, fields)
       } else {
-        // Fallback: date only, then JS-side ID match
-        const filter = `DATESTR({${F.DATE}})='${todayStr}'`
+        const filter = "DATESTR({" + F.DATE + "})='" + todayStr + "'"
         records = await airtableGetAll(PREFLIGHT_TABLE, filter, fields)
       }
 
-      console.log(`[preflight GET] date=${todayStr} pilot="${pilotName}" recordsFound=${records.length}`)
+      console.log('[preflight GET] date=' + todayStr + ' pilot="' + pilotName + '" recordsFound=' + records.length)
 
       const rec = pilotName
         ? (records[0] || null)
@@ -110,12 +108,12 @@ export default async function handler(req, res) {
       if (b.basin)            fields[F.BASIN]        = b.basin
       if (b.closestFlightAddr) fields[F.FLIGHT_ADDR] = b.closestFlightAddr
       if (b.nearestHospital)  fields[F.HOSPITAL]     = b.nearestHospital
-      if (b.imsafe?.length)   fields[F.IMSAFE]       = b.imsafe
-      if (b.weatherCheck?.length) fields[F.WEATHER_CHK] = b.weatherCheck
+      if (b.imsafe && b.imsafe.length)   fields[F.IMSAFE]       = b.imsafe
+      if (b.weatherCheck && b.weatherCheck.length) fields[F.WEATHER_CHK] = b.weatherCheck
       if (b.weatherForecast)  fields[F.WEATHER_FCST] = b.weatherForecast
       if (b.airworthy)        fields[F.AIRWORTHY]    = b.airworthy
       if (b.airworthyNotes)   fields[F.AIRWORTHY_N]  = b.airworthyNotes
-      if (b.airspace?.length) fields[F.AIRSPACE]     = b.airspace
+      if (b.airspace && b.airspace.length) fields[F.AIRSPACE]     = b.airspace
       if (b.tfrPresent)       fields[F.TFR]          = b.tfrPresent
       if (b.laancRequired)    fields[F.LAANC_REQ]    = b.laancRequired
       if (b.crewRest)         fields[F.CREW_REST]    = b.crewRest
@@ -140,6 +138,20 @@ export default async function handler(req, res) {
       if (emergId) fields[F.EMERG_CONTACT] = [emergId]
 
       const result = await airtablePost(PREFLIGHT_TABLE, fields)
+
+      // Update pilot's current location in the Pilots table
+      if (b.startLat != null && b.startLng != null && pilot.pilotRecordId) {
+        try {
+          const locFields = {}
+          locFields[PILOT_CURRENT_LAT] = b.startLat
+          locFields[PILOT_CURRENT_LNG] = b.startLng
+          await airtablePatch(TABLES.PILOTS, pilot.pilotRecordId, locFields)
+        } catch (locErr) {
+          console.warn('Failed to update pilot location:', locErr.message)
+          // Non-fatal - preflight still succeeds
+        }
+      }
+
       return res.json({ success: true, preflightId: result.id })
     }
 
