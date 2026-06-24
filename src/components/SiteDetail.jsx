@@ -36,7 +36,7 @@ function fileToBase64(file) {
   })
 }
 
-function AccessIssueModal({ action, onSubmit, onCancel, submitting }) {
+function AccessIssueModal({ action, onSubmit, onCancel, submitting, formUrl }) {
   const [notes, setNotes] = useState('')
   const [file, setFile] = useState(null)
   const [fileLoading, setFileLoading] = useState(false)
@@ -96,7 +96,7 @@ function AccessIssueModal({ action, onSubmit, onCancel, submitting }) {
           </button>
           <button
             className="btn-modal-confirm"
-            onClick={() => onSubmit(notes, file)}
+            onClick={() => { window.open(formUrl, '_blank'); onSubmit(notes, file) }}
             disabled={!notes.trim() || submitting || fileLoading}
           >
             {submitting ? 'Submitting...' : `Submit ${label}`}
@@ -145,7 +145,6 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
   async function handleAccessIssueSubmit(notes, file) {
     const action = showAccessModal
     setLoading(true)
-    window.open(ACCESS_FORM_URL, '_blank') // open before awaits — browsers block popups after async breaks
     try {
       await submitAccessIssue(site.id, action, notes, file)
       await onUpdate(site.id, action)
@@ -252,6 +251,7 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           onSubmit={handleAccessIssueSubmit}
           onCancel={() => !loading && setShowAccessModal(null)}
           submitting={loading}
+          formUrl={ACCESS_FORM_URL}
         />
       )}
     </div>
