@@ -145,11 +145,11 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
   async function handleAccessIssueSubmit(notes, file) {
     const action = showAccessModal
     setLoading(true)
+    window.open(ACCESS_FORM_URL, '_blank') // open before awaits — browsers block popups after async breaks
     try {
       await submitAccessIssue(site.id, action, notes, file)
       await onUpdate(site.id, action)
       setShowAccessModal(null)
-      window.open(ACCESS_FORM_URL, '_blank')
       const label = action === 'partial' ? 'Partial' : 'MOB Fee'
       setToast(`✓ ${label} — access issue filed`)
       setTimeout(() => setToast(''), 3000)
