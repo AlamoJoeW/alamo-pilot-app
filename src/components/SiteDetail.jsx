@@ -18,15 +18,11 @@ function getSiteStatus(site) {
 }
 
 function InfoRow({ label, value }) {
-  if (!value && value !== 0) return null
-  const display = Array.isArray(value)
-    ? value.map(v => (v && typeof v === 'object' ? v.name || v.id || '' : v)).filter(Boolean).join(', ')
-    : typeof value === 'object' ? (value.name || value.id || '') : value
-  if (!display && display !== 0) return null
+  if (!value) return null
   return (
     <div className="info-row">
       <span className="info-label">{label}</span>
-      <span className="info-value">{display}</span>
+      <span className="info-value">{value}</span>
     </div>
   )
 }
@@ -151,6 +147,24 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           <InfoRow label="Latitude" value={site.lat} />
           <InfoRow label="Longitude" value={site.lng} />
           <InfoRow label="Site Issue" value={site.siteIssue} />
+          {site.coaAttachments && site.coaAttachments.length > 0 && (
+            <div className="info-row">
+              <span className="info-label">COA</span>
+              <span className="info-value">
+                {site.coaAttachments.map((att, i) => (
+                  <a
+                    key={i}
+                    href={att.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'block', color: '#60a5fa', textDecoration: 'underline', wordBreak: 'break-all' }}
+                  >
+                    {att.filename || `COA File ${i + 1}`}
+                  </a>
+                ))}
+              </span>
+            </div>
+          )}
           <InfoRow label="Pilot Assigned" value={site.pilotAssigned} />
           <InfoRow label="Map Color" value={site.mapColor} />
           <InfoRow label="Date Added" value={site.dateAdded ? new Date(site.dateAdded).toLocaleDateString() : ''} />

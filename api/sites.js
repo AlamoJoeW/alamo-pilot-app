@@ -3,14 +3,6 @@ import { BASE_ID, API_KEY, TABLES, FIELDS, SITE_FIELDS } from './_airtable.js'
 
 const VIEW_NAME = 'Verizon vHive All for KMLs'
 
-// Safely extract a string from a field that may be a linked record array, object, or primitive
-function str(val) {
-  if (val == null) return ''
-  if (Array.isArray(val)) return val.map(v => (v && typeof v === 'object' ? v.name || v.id || '' : String(v))).filter(Boolean).join(', ')
-  if (typeof val === 'object') return val.name || val.id || ''
-  return String(val)
-}
-
 function verifyToken(req) {
   const auth = req.headers.authorization || ''
   return jwt.verify(auth.replace('Bearer ', ''), process.env.JWT_SECRET)
@@ -52,29 +44,30 @@ export default async function handler(req, res) {
 
     const sites = pilotRecords.map(r => ({
       id: r.id,
-      siteId:              str(r.fields[FIELDS.SITE_ID]),
-      fuzeId:              str(r.fields[FIELDS.FUZE_ID]),
-      collectionStatus:    str(r.fields[FIELDS.COLLECTION_STATUS]),
-      siteIssue:           str(r.fields[FIELDS.SITE_ISSUE]),
-      pilotAssigned:       str(r.fields[FIELDS.PILOT_ASSIGNED]),
+      siteId:              r.fields[FIELDS.SITE_ID]              || '',
+      fuzeId:              r.fields[FIELDS.FUZE_ID]              || '',
+      collectionStatus:    r.fields[FIELDS.COLLECTION_STATUS]    || '',
+      siteIssue:           Array.isArray(r.fields[FIELDS.SITE_ISSUE]) ? r.fields[FIELDS.SITE_ISSUE].join(', ') : (r.fields[FIELDS.SITE_ISSUE] || ''),
+      pilotAssigned:       r.fields[FIELDS.PILOT_ASSIGNED]       || '',
       pilotApp:            r.fields[FIELDS.PILOT_APP]            || [],
-      subProject:          str(r.fields[FIELDS.SUB_PROJECT]),
-      address:             str(r.fields[FIELDS.ADDRESS]),
-      city:                str(r.fields[FIELDS.CITY]),
-      state:               str(r.fields[FIELDS.STATE]),
-      zip:                 str(r.fields[FIELDS.ZIP]),
-      siteStructureType:   str(r.fields[FIELDS.SITE_STRUCTURE_TYPE]),
-      structureHeight:     str(r.fields[FIELDS.STRUCTURE_HEIGHT]),
-      airport:             str(r.fields[FIELDS.AIRPORT]),
-      airspace:            str(r.fields[FIELDS.AIRSPACE]),
+      subProject:          r.fields[FIELDS.SUB_PROJECT]          || '',
+      address:             r.fields[FIELDS.ADDRESS]              || '',
+      city:                r.fields[FIELDS.CITY]                 || '',
+      state:               r.fields[FIELDS.STATE]                || '',
+      zip:                 r.fields[FIELDS.ZIP]                  || '',
+      siteStructureType:   r.fields[FIELDS.SITE_STRUCTURE_TYPE]  || '',
+      structureHeight:     r.fields[FIELDS.STRUCTURE_HEIGHT]     || '',
+      airport:             r.fields[FIELDS.AIRPORT]              || '',
+      airspace:            r.fields[FIELDS.AIRSPACE]             || '',
       lat:                 r.fields[FIELDS.LATITUDE]             ?? null,
       lng:                 r.fields[FIELDS.LONGITUDE]            ?? null,
-      dateAdded:           str(r.fields[FIELDS.DATE_ADDED]),
-      mapColor:            str(r.fields[FIELDS.MAP_COLOR]),
-      siteStructureOwner:  str(r.fields[FIELDS.SITE_STRUCTURE_OWNER]),
+      dateAdded:           r.fields[FIELDS.DATE_ADDED]           || '',
+      mapColor:            r.fields[FIELDS.MAP_COLOR]            || '',
+      siteStructureOwner:  r.fields[FIELDS.SITE_STRUCTURE_OWNER] || '',
       mobFee:              r.fields[FIELDS.MOB_FEE]              || false,
       partialCollection:   r.fields[FIELDS.PARTIAL_COLLECTION]   || false,
       collectedApp:        r.fields[FIELDS.COLLECTED_APP]        || false,
+      coaAttachments:      r.fields[FIELDS.COA]                  || [],
     }))
 
     return res.json({ sites, syncedAt: new Date().toISOString() })

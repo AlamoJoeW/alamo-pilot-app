@@ -40,6 +40,7 @@ export const FIELDS = {
   MOB_FEE:              'fldZDb14q18VOR2De',
   PARTIAL_COLLECTION:   'fldcD4EwDU5HkDFua',
   COLLECTED_APP:        'fldNK7WyoeYeDhgE6',
+  COA:                  'fld2N9NqZJLUBUp9U',
 
   // EOD Reports
   EOD_DATE:             'fldHhWbzHpjzQIQ3n',
@@ -62,7 +63,7 @@ export const SITE_FIELDS = Object.values(FIELDS).filter(id =>
     'fldsh2jGThrn8lPn3', 'fldeE5RD1XLMIOoXo', 'fldfrOZfgkRgF3fVY',
     'fldBRvkT3ZwBIJS05', 'fldvZjxOCRfcT055V', 'fldd8KeiQAeFXc2cR',
     'fldOTBMryx9tr8hSf', 'fldZDb14q18VOR2De', 'fldcD4EwDU5HkDFua',
-    'fldNK7WyoeYeDhgE6',
+    'fldNK7WyoeYeDhgE6', 'fld2N9NqZJLUBUp9U',
   ].includes(id)
 )
 
