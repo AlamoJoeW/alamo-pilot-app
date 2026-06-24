@@ -155,6 +155,18 @@ export default async function handler(req, res) {
       return res.json({ success: true, preflightId: result.id })
     }
 
+    if (req.method === 'PATCH') {
+      const { preflightId, lat, lng } = req.body
+      if (!preflightId || lat == null || lng == null) {
+        return res.status(400).json({ error: 'Missing preflightId, lat, or lng' })
+      }
+      const fields = {}
+      fields[F.START_LAT] = lat
+      fields[F.START_LNG] = lng
+      await airtablePatch(PREFLIGHT_TABLE, preflightId, fields)
+      return res.json({ success: true })
+    }
+
     return res.status(405).json({ error: 'Method not allowed' })
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {

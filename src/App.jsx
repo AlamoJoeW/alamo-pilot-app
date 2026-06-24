@@ -10,6 +10,7 @@ import {
   updateSite,
   logout,
   checkPreflight,
+  updatePreflightLocation,
 } from './utils/api'
 import {
   saveSites,
@@ -142,6 +143,16 @@ export default function App() {
       setPreflightExists(pf.exists)
       setPreflightTravelDay(pf.travelDay || false)
       setPreflightId(pf.preflightId || null)
+
+      // Silently update Current Latitude/Longitude on the preflight record
+      if (pf.exists && pf.preflightId && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          ({ coords }) => {
+            updatePreflightLocation(pf.preflightId, coords.latitude, coords.longitude).catch(() => {})
+          },
+          () => {} // fail silently if GPS unavailable
+        )
+      }
     } catch {
       // Non-fatal — default to showing the form so pilot can submit
       setPreflightExists(false)

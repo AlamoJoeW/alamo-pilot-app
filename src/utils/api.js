@@ -128,6 +128,16 @@ export async function checkPreflight() {
   return res.json()
 }
 
+export async function updatePreflightLocation(preflightId, lat, lng) {
+  const res = await fetch(`${BASE}/api/preflight`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ preflightId, lat, lng }),
+  })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  return res.json()
+}
+
 export async function submitPreflight(data) {
   const res = await fetch(`${BASE}/api/preflight`, {
     method: 'POST',
