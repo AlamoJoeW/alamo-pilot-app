@@ -47,7 +47,7 @@ export default async function handler(req, res) {
       siteId:              r.fields[FIELDS.SITE_ID]              || '',
       fuzeId:              r.fields[FIELDS.FUZE_ID]              || '',
       collectionStatus:    r.fields[FIELDS.COLLECTION_STATUS]    || '',
-      siteIssue:           Array.isArray(r.fields[FIELDS.SITE_ISSUE]) ? r.fields[FIELDS.SITE_ISSUE].join(', ') : (r.fields[FIELDS.SITE_ISSUE] || ''),
+      siteIssue:           Array.isArray(r.fields[FIELDS.SITE_ISSUE]) ? r.fields[FIELDS.SITE_ISSUE].map(v => (v && typeof v === 'object' ? v.value : v)).filter(Boolean).join(', ') : (r.fields[FIELDS.SITE_ISSUE] || ''),
       pilotAssigned:       r.fields[FIELDS.PILOT_ASSIGNED]       || '',
       pilotApp:            r.fields[FIELDS.PILOT_APP]            || [],
       subProject:          r.fields[FIELDS.SUB_PROJECT]          || '',
