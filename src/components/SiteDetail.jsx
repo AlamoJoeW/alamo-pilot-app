@@ -96,7 +96,7 @@ function AccessIssueModal({ action, onSubmit, onCancel, submitting, formUrl }) {
           </button>
           <button
             className="btn-modal-confirm"
-            onClick={() => { window.open(formUrl, '_blank'); onSubmit(notes, file) }}
+            onClick={() => onSubmit(notes, file)}
             disabled={!notes.trim() || submitting || fileLoading}
           >
             {submitting ? 'Submitting...' : `Submit ${label}`}
@@ -218,14 +218,14 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           <div className="action-row-2">
             <button
               className={`action-btn partial ${status === 'partial' ? 'active' : ''}`}
-              onClick={() => handleAction('partial')}
+              onClick={() => { if (status !== 'partial') window.open(ACCESS_FORM_URL, '_blank'); handleAction('partial') }}
               disabled={loading}
             >
               {status === 'partial' ? '✓ Partial' : 'Partial'}
             </button>
             <button
               className={`action-btn mob ${status === 'mob' ? 'active' : ''}`}
-              onClick={() => handleAction('mob')}
+              onClick={() => { if (status !== 'mob') window.open(ACCESS_FORM_URL, '_blank'); handleAction('mob') }}
               disabled={loading}
             >
               {status === 'mob' ? '✓ MOB Fee' : 'MOB Fee'}
