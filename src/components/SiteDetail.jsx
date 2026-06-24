@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { submitAccessIssue } from '../utils/api'
 
+const ACCESS_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrZ1KM4eEKKTyyo6'
+
 const STATUS_LABELS = {
   collected: { label: 'Collected', color: '#22c55e', bg: '#052e16' },
   partial: { label: 'Partial', color: '#facc15', bg: '#2d2006' },
@@ -105,13 +107,12 @@ function AccessIssueModal({ action, onSubmit, onCancel, submitting }) {
   )
 }
 
-export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingCount, inEodQueue, onEodToggle }) {
+export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingCount }) {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState('')
   const [showAccessModal, setShowAccessModal] = useState(null) // null | 'partial' | 'mob'
   const status = getSiteStatus(site)
   const statusStyle = STATUS_LABELS[status]
-  const hasStatus = status !== 'none'
 
   async function handleAction(action) {
     if (loading) return
@@ -148,6 +149,7 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
       await submitAccessIssue(site.id, action, notes, file)
       await onUpdate(site.id, action)
       setShowAccessModal(null)
+      window.open(ACCESS_FORM_URL, '_blank')
       const label = action === 'partial' ? 'Partial' : 'MOB Fee'
       setToast(`✓ ${label} — access issue filed`)
       setTimeout(() => setToast(''), 3000)
@@ -232,23 +234,6 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           </div>
         </div>
 
-        {/* EOD queue toggle — only shown when site has a status */}
-        {hasStatus && onEodToggle && (
-          <button
-            className={'action-btn eod-toggle ' + (inEodQueue ? 'eod-queued' : '')}
-            onClick={() => onEodToggle(site.id)}
-            style={{
-              marginTop: '10px',
-              width: '100%',
-              background: inEodQueue ? '#166534' : 'transparent',
-              color: inEodQueue ? '#86efac' : '#64748b',
-              border: '1px solid ' + (inEodQueue ? '#166534' : '#334155'),
-            }}
-          >
-            {inEodQueue ? '✓ In EOD — tap to remove' : '+ Add to EOD'}
-          </button>
-        )}
-
         {!isOnline && (
           <div className="offline-badge">
             Offline — update queued ({pendingCount} pending)
@@ -271,4 +256,4 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
       )}
     </div>
   )
-      }
+}
