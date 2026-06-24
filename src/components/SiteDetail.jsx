@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { submitAccessIssue } from '../utils/api'
+import { useState, useEffect, useCallback } from 'react'
+import { checkAccessIssue } from '../utils/api'
 
 const ACCESS_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrZ1KM4eEKKTyyo6'
 
@@ -27,105 +27,72 @@ function InfoRow({ label, value }) {
   )
 }
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result.split(',')[1])
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
-
-function AccessIssueModal({ action, onSubmit, onCancel, submitting, formUrl }) {
-  const [notes, setNotes] = useState('')
-  const [file, setFile] = useState(null)
-  const [fileLoading, setFileLoading] = useState(false)
-  const label = action === 'partial' ? 'Partial Collection' : 'MOB Fee'
-
-  async function handleFileChange(e) {
-    const f = e.target.files[0]
-    if (!f) return
-    setFileLoading(true)
-    try {
-      const base64 = await fileToBase64(f)
-      setFile({ base64, name: f.name, type: f.type })
-    } catch {
-      // ignore
-    } finally {
-      setFileLoading(false)
-    }
-  }
-
-  return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal access-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <span className="modal-title">{label}</span>
-          <span className="modal-required-badge">Required</span>
-        </div>
-        <p className="modal-desc">
-          Describe why this site couldn't be fully collected. Attach the access issues form if available.
-        </p>
-
-        <label className="field-label">Reason *</label>
-        <textarea
-          className="notes-textarea"
-          placeholder="e.g. Gate was locked, no access code on file..."
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-          rows={4}
-          autoFocus
-          disabled={submitting}
-        />
-
-        <label className="field-label">Attachment (optional)</label>
-        <label className={`file-pick-btn ${file ? 'file-attached' : ''}`}>
-          {fileLoading ? '⏳ Processing...' : file ? `✓ ${file.name}` : '📎 Add Photo or File'}
-          <input
-            type="file"
-            accept="image/*,application/pdf"
-            style={{ display: 'none' }}
-            onChange={handleFileChange}
-            disabled={submitting || fileLoading}
-          />
-        </label>
-
-        <div className="modal-actions">
-          <button className="btn-modal-cancel" onClick={onCancel} disabled={submitting}>
-            Cancel
-          </button>
-          <button
-            className="btn-modal-confirm"
-            onClick={() => onSubmit(notes, file)}
-            disabled={!notes.trim() || submitting || fileLoading}
-          >
-            {submitting ? 'Submitting...' : `Submit ${label}`}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingCount }) {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState('')
-  const [showAccessModal, setShowAccessModal] = useState(null) // null | 'partial' | 'mob'
+  const [pendingAction, setPendingAction] = useState(null) // null | 'partial' | 'mob'
+  const [checkState, setCheckState] = useState('idle')    // 'idle' | 'checking' | 'notFound'
+
   const status = getSiteStatus(site)
   const statusStyle = STATUS_LABELS[status]
+
+  const runCheck = useCallback(async () => {
+    if (checkState === 'checking' || !pendingAction) return
+    setCheckState('checking')
+    try {
+      const result = await checkAccessIssue(site.id)
+      if (result.exists) {
+        setLoading(true)
+        try {
+          await onUpdate(site.id, pendingAction)
+          const label = pendingAction === 'partial' ? 'Partial' : 'MOB Fee'
+          setPendingAction(null)
+          setCheckState('idle')
+          setToast(`✓ ${label} confirmed`)
+          setTimeout(() => setToast(''), 3000)
+        } catch (err) {
+          setToast('Error: ' + (err.message || 'Try again'))
+          setTimeout(() => setToast(''), 4000)
+          setCheckState('idle')
+        } finally {
+          setLoading(false)
+        }
+      } else {
+        setCheckState('notFound')
+      }
+    } catch {
+      setCheckState('notFound')
+    }
+  }, [checkState, pendingAction, site.id, onUpdate])
+
+  // Auto-check when pilot switches back to this tab
+  useEffect(() => {
+    if (!pendingAction) return
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') runCheck()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [pendingAction, runCheck])
+
+  function cancelPending() {
+    setPendingAction(null)
+    setCheckState('idle')
+  }
 
   async function handleAction(action) {
     if (loading) return
     const newAction = action === status ? 'uncollect' : action
 
-    // Partial and MOB require online + access issue form
     if (newAction === 'partial' || newAction === 'mob') {
       if (!isOnline) {
         setToast('Must be online to submit Partial or MOB Fee')
         setTimeout(() => setToast(''), 3000)
         return
       }
-      setShowAccessModal(newAction)
+      // window.open is called synchronously in the button onClick
+      setPendingAction(newAction)
+      setCheckState('idle')
       return
     }
 
@@ -142,30 +109,11 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
     }
   }
 
-  async function handleAccessIssueSubmit(notes, file) {
-    const action = showAccessModal
-    setLoading(true)
-    try {
-      await submitAccessIssue(site.id, action, notes, file)
-      await onUpdate(site.id, action)
-      setShowAccessModal(null)
-      const label = action === 'partial' ? 'Partial' : 'MOB Fee'
-      setToast(`✓ ${label} — access issue filed`)
-      setTimeout(() => setToast(''), 3000)
-    } catch (err) {
-      setToast('Error: ' + (err.message || 'Try again'))
-      setTimeout(() => setToast(''), 4000)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <div className="detail-overlay" onClick={onClose}>
       <div className="detail-sheet" onClick={e => e.stopPropagation()}>
         <div className="detail-handle" />
 
-        {/* Header */}
         <div className="detail-header">
           <div>
             <div className="detail-site-id">{site.siteId || 'Site'}</div>
@@ -179,14 +127,12 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           </div>
         </div>
 
-        {/* Collection status from Airtable formula */}
         {site.collectionStatus && (
           <div className="detail-airtable-status">
             Airtable: {site.collectionStatus}
           </div>
         )}
 
-        {/* All pilot CSV fields */}
         <div className="detail-info">
           <InfoRow label="Sub Project" value={site.subProject} />
           <InfoRow label="Address" value={site.address} />
@@ -206,32 +152,55 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           <InfoRow label="Date Added" value={site.dateAdded ? new Date(site.dateAdded).toLocaleDateString() : ''} />
         </div>
 
-        {/* Action buttons */}
-        <div className="detail-actions">
-          <button
-            className={`action-btn collected ${status === 'collected' ? 'active' : ''}`}
-            onClick={() => handleAction('collected')}
-            disabled={loading}
-          >
-            {status === 'collected' ? '✓ Collected' : 'Mark Collected'}
-          </button>
-          <div className="action-row-2">
-            <button
-              className={`action-btn partial ${status === 'partial' ? 'active' : ''}`}
-              onClick={() => { if (status !== 'partial') window.open(ACCESS_FORM_URL, '_blank'); handleAction('partial') }}
-              disabled={loading}
-            >
-              {status === 'partial' ? '✓ Partial' : 'Partial'}
-            </button>
-            <button
-              className={`action-btn mob ${status === 'mob' ? 'active' : ''}`}
-              onClick={() => { if (status !== 'mob') window.open(ACCESS_FORM_URL, '_blank'); handleAction('mob') }}
-              disabled={loading}
-            >
-              {status === 'mob' ? '✓ MOB Fee' : 'MOB Fee'}
-            </button>
+        {pendingAction ? (
+          <div className="access-pending">
+            {checkState === 'checking' ? (
+              <p className="pending-msg">Checking for access form submission...</p>
+            ) : checkState === 'notFound' ? (
+              <>
+                <p className="pending-msg">No access form found yet for this site. Complete the form and come back.</p>
+                <div className="pending-btns">
+                  <button className="btn-check-again" onClick={runCheck}>Check Again</button>
+                  <button className="btn-cancel-pending" onClick={cancelPending}>Cancel</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="pending-msg">Access form is open. Complete it and return here — the site will be marked automatically.</p>
+                <div className="pending-btns">
+                  <button className="btn-check-again" onClick={runCheck}>I'm Back — Check Now</button>
+                  <button className="btn-cancel-pending" onClick={cancelPending}>Cancel</button>
+                </div>
+              </>
+            )}
           </div>
-        </div>
+        ) : (
+          <div className="detail-actions">
+            <button
+              className={`action-btn collected ${status === 'collected' ? 'active' : ''}`}
+              onClick={() => handleAction('collected')}
+              disabled={loading}
+            >
+              {status === 'collected' ? '✓ Collected' : 'Mark Collected'}
+            </button>
+            <div className="action-row-2">
+              <button
+                className={`action-btn partial ${status === 'partial' ? 'active' : ''}`}
+                onClick={() => { if (status !== 'partial') window.open(ACCESS_FORM_URL, '_blank'); handleAction('partial') }}
+                disabled={loading}
+              >
+                {status === 'partial' ? '✓ Partial' : 'Partial'}
+              </button>
+              <button
+                className={`action-btn mob ${status === 'mob' ? 'active' : ''}`}
+                onClick={() => { if (status !== 'mob') window.open(ACCESS_FORM_URL, '_blank'); handleAction('mob') }}
+                disabled={loading}
+              >
+                {status === 'mob' ? '✓ MOB Fee' : 'MOB Fee'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {!isOnline && (
           <div className="offline-badge">
@@ -243,17 +212,6 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
 
         <button className="detail-close" onClick={onClose}>Close</button>
       </div>
-
-      {/* Access Issue Modal */}
-      {showAccessModal && (
-        <AccessIssueModal
-          action={showAccessModal}
-          onSubmit={handleAccessIssueSubmit}
-          onCancel={() => !loading && setShowAccessModal(null)}
-          submitting={loading}
-          formUrl={ACCESS_FORM_URL}
-        />
-      )}
     </div>
   )
 }

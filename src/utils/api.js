@@ -62,6 +62,14 @@ export async function updateSite(recordId, action) {
   return res.json()
 }
 
+export async function checkAccessIssue(siteRecordId) {
+  const res = await fetch(`${BASE}/api/check-access-issue?siteRecordId=${encodeURIComponent(siteRecordId)}`, {
+    headers: authHeaders(),
+  })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  return res.json()
+}
+
 export async function submitAccessIssue(recordId, action, notes, file, captureTypes, issueFlags) {
   const body = { recordId, action, notes }
   if (file) {
@@ -90,7 +98,15 @@ export async function fetchEODSummary() {
   return res.json()
 }
 
-export async function submitEOD(collectedIds, partialIds, mobIds, endLat = null, endLng = null, preflightId = null, eodForm = null) {
+export async function submitEOD(
+  collectedIds,
+  partialIds,
+  mobIds,
+  endLat = null,
+  endLng = null,
+  preflightId = null,
+  eodForm = null
+) {
   const res = await fetch(`${BASE}/api/submit-eod`, {
     method: 'POST',
     headers: authHeaders(),
@@ -103,6 +119,8 @@ export async function submitEOD(collectedIds, partialIds, mobIds, endLat = null,
   }
   return res.json()
 }
+
+// ── Preflight ─────────────────────────────────────────────────────────────────
 
 export async function checkPreflight() {
   const res = await fetch(`${BASE}/api/preflight`, { headers: authHeaders() })
@@ -120,6 +138,8 @@ export async function submitPreflight(data) {
   return res.json()
 }
 
+// ── Aircraft & Projects ────────────────────────────────────────────────────────
+
 export async function fetchAircraft() {
   const res = await fetch(`${BASE}/api/aircraft`, { headers: authHeaders() })
   if (res.status === 401) throw new Error('AUTH_EXPIRED')
@@ -132,8 +152,10 @@ export async function fetchProjects() {
   return res.json()
 }
 
+// ── Daily Route ────────────────────────────────────────────────────────────────
+
 export async function fetchDailyRoute() {
   const res = await fetch(`${BASE}/api/daily-route`, { headers: authHeaders() })
   if (res.status === 401) throw new Error('AUTH_EXPIRED')
   return res.json()
-    }
+}
