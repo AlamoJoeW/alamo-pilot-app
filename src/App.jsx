@@ -214,9 +214,7 @@ export default function App() {
 
     await updateSiteLocally(recordId, changes)
     setSites(prev => prev.map(s => s.id === recordId ? { ...s, ...changes } : s))
-    if (selectedSite?.id === recordId) {
-      setSelectedSite(prev => ({ ...prev, ...changes }))
-    }
+    setSelectedSite(prev => prev?.id === recordId ? { ...prev, ...changes } : prev)
 
     if (isOnline) {
       try {
@@ -375,3 +373,4 @@ export default function App() {
     </div>
   )
 }
+                    
