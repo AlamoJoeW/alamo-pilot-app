@@ -18,11 +18,15 @@ function getSiteStatus(site) {
 }
 
 function InfoRow({ label, value }) {
-  if (!value) return null
+  if (!value && value !== 0) return null
+  const display = Array.isArray(value)
+    ? value.map(v => (v && typeof v === 'object' ? v.name || v.id || '' : v)).filter(Boolean).join(', ')
+    : typeof value === 'object' ? (value.name || value.id || '') : value
+  if (!display && display !== 0) return null
   return (
     <div className="info-row">
       <span className="info-label">{label}</span>
-      <span className="info-value">{value}</span>
+      <span className="info-value">{display}</span>
     </div>
   )
 }
