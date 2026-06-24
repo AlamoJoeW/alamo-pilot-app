@@ -29,7 +29,11 @@ export default async function handler(req, res) {
     const exists = records.some(r => {
       const links = r.fields[SITE_LINK_FIELD]
       if (!Array.isArray(links)) return false
-      return links.some(link => link.id === siteRecordId)
+      return links.some(link => {
+        // Airtable REST API returns linked records as strings ("recXXX") or objects ({id:"recXXX"})
+        if (typeof link === 'string') return link === siteRecordId
+        return link?.id === siteRecordId
+      })
     })
 
     return res.json({ exists })
