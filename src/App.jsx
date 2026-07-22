@@ -26,59 +26,6 @@ import {
 const EOD_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shriKnuzFRkspxTOE'
 const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6NBl4k'
 
-function PreflightPrompt({ pilot, onCheck, onLogout }) {
-  const [checking, setChecking] = useState(false)
-
-  async function handleCheck() {
-    setChecking(true)
-    await onCheck()
-    setChecking(false)
-  }
-
-  return (
-    <div className="preflight-screen" style={{ justifyContent: 'center', alignItems: 'center' }}>
-      <div style={{ textAlign: 'center', padding: 32 }}>
-        <div style={{ fontSize: 64, marginBottom: 16 }}>✈️</div>
-        <h2 style={{ marginBottom: 8 }}>Daily Preflight Required</h2>
-        <p style={{ color: 'var(--text2)', marginBottom: 32 }}>
-          No preflight on file for today, {pilot?.firstName || pilot?.displayName}. Complete the form before flying.
-        </p>
-        <button
-          className="btn-primary btn-full"
-          style={{ marginBottom: 12 }}
-          onClick={() => window.open(PREFLIGHT_FORM_URL, '_blank')}
-        >
-          Open Preflight Form
-        </button>
-        <button
-          className="btn-secondary btn-full"
-          style={{ marginBottom: 12 }}
-          onClick={handleCheck}
-          disabled={checking}
-        >
-          {checking ? 'Checking…' : "I've Completed My Preflight"}
-        </button>
-        <button className="btn-secondary" onClick={onLogout}>Log Out</button>
-      </div>
-    </div>
-  )
-}
-
-function TravelDayScreen({ pilot, onLogout }) {
-  return (
-    <div className="preflight-screen" style={{ justifyContent: 'center', alignItems: 'center' }}>
-      <div style={{ textAlign: 'center', padding: 32 }}>
-        <div style={{ fontSize: 64, marginBottom: 16 }}>🚗</div>
-        <h2 style={{ marginBottom: 8 }}>Travel Day</h2>
-        <p style={{ color: 'var(--text2)', marginBottom: 32 }}>
-          No flight operations scheduled. Safe travels, {pilot?.firstName}!
-        </p>
-        <button className="btn-secondary" onClick={onLogout}>Log Out</button>
-      </div>
-    </div>
-  )
-}
-
 export default function App() {
   const [pilot, setPilot] = useState(null)
   const [sites, setSites] = useState([])
@@ -96,6 +43,7 @@ export default function App() {
   const [preflightExists, setPreflightExists] = useState(false)
   const [preflightTravelDay, setPreflightTravelDay] = useState(false)
   const [preflightId, setPreflightId] = useState(null)
+  const [preflightRechecking, setPreflightRechecking] = useState(false)
 
   // Online/offline detection
   useEffect(() => {
@@ -159,6 +107,12 @@ export default function App() {
     } finally {
       setPreflightChecked(true)
     }
+  }
+
+  async function handleRecheckPreflight() {
+    setPreflightRechecking(true)
+    await checkAndSetPreflight()
+    setPreflightRechecking(false)
   }
 
   async function sync() {
@@ -251,6 +205,7 @@ export default function App() {
     setPreflightExists(false)
     setPreflightTravelDay(false)
     setPreflightId(null)
+    setPreflightRechecking(false)
   }
 
   function handleLogin(data) {
@@ -272,23 +227,11 @@ export default function App() {
     return <div className="pf-loading">Checking preflight…</div>
   }
 
-  // Auth OK + preflight not done → prompt pilot to open Airtable form
-  if (!preflightExists) {
-    return (
-      <PreflightPrompt
-        pilot={pilot}
-        onCheck={checkAndSetPreflight}
-        onLogout={handleLogout}
-      />
-    )
-  }
+  // Pilots can view Map/List without a completed preflight, but can't log
+  // site status (or see Route/EOD) until preflight is submitted for today
+  // and it isn't a travel day.
+  const canEdit = preflightExists && !preflightTravelDay
 
-  // Auth OK + travel day → Travel Day screen (no route/map)
-  if (preflightTravelDay) {
-    return <TravelDayScreen pilot={pilot} onLogout={handleLogout} />
-  }
-
-  // Normal flight day → map/list/EOD
   const collectedCount = sites.filter(s => s.collectedApp).length
   const partialCount = sites.filter(s => s.partialCollection).length
   const mobCount = sites.filter(s => s.mobFee).length
@@ -312,6 +255,26 @@ export default function App() {
       </header>
 
       {syncError && <div className="sync-error">{syncError}</div>}
+
+      {/* Preflight gate banner */}
+      {!preflightExists && (
+        <div className="preflight-banner">
+          <span>Preflight required before logging site status.</span>
+          <div className="preflight-banner-btns">
+            <button className="btn-check-again" onClick={() => window.open(PREFLIGHT_FORM_URL, '_blank')}>
+              Open Form
+            </button>
+            <button className="btn-check-again" onClick={handleRecheckPreflight} disabled={preflightRechecking}>
+              {preflightRechecking ? 'Checking…' : "I've Submitted It"}
+            </button>
+          </div>
+        </div>
+      )}
+      {preflightExists && preflightTravelDay && (
+        <div className="preflight-banner travel-day">
+          <span>🚗 Travel Day — no flight ops scheduled today. Map is read-only.</span>
+        </div>
+      )}
 
       {/* Progress bar */}
       <div className="progress-bar">
@@ -339,7 +302,9 @@ export default function App() {
         </button>
         <button
           className={`toggle-btn ${view === 'route' ? 'active' : ''}`}
-          onClick={() => setView('route')}
+          onClick={() => preflightExists && setView('route')}
+          disabled={!preflightExists}
+          title={!preflightExists ? 'Complete preflight to unlock Route' : ''}
         >
           Route
         </button>
@@ -354,7 +319,7 @@ export default function App() {
       {/* Main content */}
       <div className="main-content">
         {view === 'map' && <MapView sites={sites} onSelect={setSelectedSite} />}
-        {view === 'route' && <RouteView sites={sites} />}
+        {view === 'route' && (preflightExists ? <RouteView sites={sites} /> : <MapView sites={sites} onSelect={setSelectedSite} />)}
         {view === 'list' && (
           <SiteList
             sites={sites}
@@ -365,8 +330,13 @@ export default function App() {
         )}
       </div>
 
-      {/* EOD Report button — always visible */}
-      <button className="eod-btn" onClick={() => window.open(EOD_FORM_URL, '_blank')}>
+      {/* EOD Report button — requires preflight and not a travel day */}
+      <button
+        className="eod-btn"
+        onClick={() => canEdit && window.open(EOD_FORM_URL, '_blank')}
+        disabled={!canEdit}
+        title={!canEdit ? 'Complete preflight to submit an EOD report' : ''}
+      >
         End of Day Report
       </button>
 
@@ -378,6 +348,7 @@ export default function App() {
           onUpdate={handleUpdate}
           isOnline={isOnline}
           pendingCount={pendingCount}
+          canEdit={canEdit}
         />
       )}
 

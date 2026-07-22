@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { checkAccessIssue } from '../utils/api'
 
 const ACCESS_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrZ1KM4eEKKTyyo6'
+const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6NBl4k'
 
 const STATUS_LABELS = {
   collected: { label: 'Collected', color: '#22c55e', bg: '#052e16' },
@@ -27,7 +28,7 @@ function InfoRow({ label, value }) {
   )
 }
 
-export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingCount }) {
+export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingCount, canEdit }) {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState('')
   const [pendingAction, setPendingAction] = useState(null) // null | 'partial' | 'mob'
@@ -81,7 +82,7 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
   }
 
   async function handleAction(action) {
-    if (loading) return
+    if (loading || !canEdit) return
     const newAction = action === status ? 'uncollect' : action
 
     if (newAction === 'partial' || newAction === 'mob') {
@@ -170,7 +171,16 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           <InfoRow label="Date Added" value={site.dateAdded ? new Date(site.dateAdded).toLocaleDateString() : ''} />
         </div>
 
-        {pendingAction ? (
+        {!canEdit ? (
+          <div className="access-pending">
+            <p className="pending-msg">Complete today's preflight before logging site status.</p>
+            <div className="pending-btns">
+              <button className="btn-check-again" onClick={() => window.open(PREFLIGHT_FORM_URL, '_blank')}>
+                Open Preflight Form
+              </button>
+            </div>
+          </div>
+        ) : pendingAction ? (
           <div className="access-pending">
             {checkState === 'checking' ? (
               <p className="pending-msg">Checking for access form submission...</p>
