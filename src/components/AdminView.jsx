@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { fetchAdminSites, fetchPilotLocations } from '../utils/api'
+import { fetchAdminData } from '../utils/api'
 
 const SITE_STATUS_COLORS = {
   collected: '#22c55e',
@@ -74,9 +74,9 @@ export default function AdminView() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const [sitesData, locData] = await Promise.all([fetchAdminSites(), fetchPilotLocations()])
-      setSites(sitesData.sites || [])
-      setPilots(locData.pilots || [])
+      const data = await fetchAdminData()
+      setSites(data.sites || [])
+      setPilots(data.pilots || [])
       setAsOf(new Date().toISOString())
     } catch (err) {
       setError(err.message === 'FORBIDDEN' ? 'Admin access required' : 'Failed to load admin data')

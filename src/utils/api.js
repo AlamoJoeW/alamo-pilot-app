@@ -171,23 +171,15 @@ export async function fetchDailyRoute() {
 }
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
+// Sites + pilot locations are served from one combined endpoint (api/admin.js) to
+// stay under Vercel's Hobby-plan 12-serverless-function limit.
 
-export async function fetchAdminSites() {
-  const res = await fetch(`${BASE}/api/admin-sites`, { headers: authHeaders() })
+export async function fetchAdminData() {
+  const res = await fetch(`${BASE}/api/admin`, { headers: authHeaders() })
   if (!res.ok) {
     if (res.status === 401) throw new Error('AUTH_EXPIRED')
     if (res.status === 403) throw new Error('FORBIDDEN')
-    throw new Error('Failed to fetch admin sites')
-  }
-  return res.json()
-}
-
-export async function fetchPilotLocations() {
-  const res = await fetch(`${BASE}/api/pilot-locations`, { headers: authHeaders() })
-  if (!res.ok) {
-    if (res.status === 401) throw new Error('AUTH_EXPIRED')
-    if (res.status === 403) throw new Error('FORBIDDEN')
-    throw new Error('Failed to fetch pilot locations')
+    throw new Error('Failed to fetch admin data')
   }
   return res.json()
 }
