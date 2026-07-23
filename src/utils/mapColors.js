@@ -32,3 +32,41 @@ export const MAP_COLOR_HEX = {
 export function colorForMapColor(mapColor) {
   return MAP_COLOR_HEX[mapColor] || null
 }
+
+// Which Map Color choices count as "done" for progress counts (chip strip fractions,
+// the pilot app's progress bar, List filter tabs, etc.) — only the unambiguous ones.
+// Everything else falls back to the pilot-toggled Collected (App) / Partial Collection
+// / Mob Fee checkboxes, same as before.
+const MAP_COLOR_BUCKET = {
+  'Collected':        'collected',
+  'COLLECTED':        'collected',
+  'Partial':          'partial',
+  'Partial Further Coordination Required': 'partial',
+  'MOB FEE':          'mob',
+}
+
+// Map Color values that mean "still needs a flight," even if a stale Collected (App)
+// checkbox says otherwise (e.g. it was collected once, then flagged bad and needs a
+// reflight) — these always count as NOT done, overriding the checkboxes.
+const MAP_COLOR_NOT_DONE = new Set(['Refly', 'Refly Further Coordination Required'])
+
+export function bucketForMapColor(mapColor) {
+  return MAP_COLOR_BUCKET[mapColor] || null
+}
+
+// Single source of truth for a site's progress bucket: 'collected' | 'partial' | 'mob'
+// | null (still pending). Map Color wins when it's one of the unambiguous statuses or
+// a "needs reflight" status; otherwise falls back to the pilot's own checkboxes.
+export function statusBucketForSite(site) {
+  if (MAP_COLOR_NOT_DONE.has(site.mapColor)) return null
+  const mcBucket = bucketForMapColor(site.mapColor)
+  if (mcBucket) return mcBucket
+  if (site.collectedApp) return 'collected'
+  if (site.partialCollection) return 'partial'
+  if (site.mobFee) return 'mob'
+  return null
+}
+
+export function isSiteDone(site) {
+  return statusBucketForSite(site) !== null
+}

@@ -1,3 +1,5 @@
+import { statusBucketForSite } from '../utils/mapColors'
+
 const STATUS_COLORS = {
   collected: '#22c55e',
   partial: '#facc15',
@@ -5,11 +7,11 @@ const STATUS_COLORS = {
   none: '#475569',
 }
 
+// Map Color (office-maintained status) wins when unambiguous; falls back to the
+// pilot's own Collected/Partial/MOB checkboxes otherwise. Keeps the List view's
+// counts and dots consistent with the progress bar and the Map/Admin pins.
 function getSiteStatus(site) {
-  if (site.collectedApp) return 'collected'
-  if (site.partialCollection) return 'partial'
-  if (site.mobFee) return 'mob'
-  return 'none'
+  return statusBucketForSite(site) || 'none'
 }
 
 function statusLabel(s) {

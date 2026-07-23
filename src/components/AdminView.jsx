@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchAdminData } from '../utils/api'
-import { colorForMapColor } from '../utils/mapColors'
+import { colorForMapColor, isSiteDone } from '../utils/mapColors'
 
 const SITE_STATUS_COLORS = {
   collected: '#22c55e',
@@ -255,7 +255,7 @@ export default function AdminView() {
       <div className="filter-tabs admin-pilot-strip">
         {pilots.filter(p => sitesForPilot(p.pilotId).length > 0).map(p => {
           const s = sitesForPilot(p.pilotId)
-          const done = s.filter(x => x.collectedApp || x.partialCollection || x.mobFee).length
+          const done = s.filter(isSiteDone).length
           const isHidden = hiddenPilotIds.has(p.pilotId)
           return (
             <button

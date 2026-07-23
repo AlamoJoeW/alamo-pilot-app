@@ -5,6 +5,7 @@ import RouteView from './components/RouteView'
 import SiteList from './components/SiteList'
 import SiteDetail from './components/SiteDetail'
 import AdminView from './components/AdminView'
+import { statusBucketForSite } from './utils/mapColors'
 import {
   getPilotInfo,
   fetchSites,
@@ -251,9 +252,11 @@ export default function App() {
   // and it isn't a travel day.
   const canEdit = preflightExists && !preflightTravelDay
 
-  const collectedCount = sites.filter(s => s.collectedApp).length
-  const partialCount = sites.filter(s => s.partialCollection).length
-  const mobCount = sites.filter(s => s.mobFee).length
+  // Map Color (office-maintained status) counts as done when it's unambiguous, so
+  // sites collected/marked outside the app's own checkboxes still show as progress.
+  const collectedCount = sites.filter(s => statusBucketForSite(s) === 'collected').length
+  const partialCount = sites.filter(s => statusBucketForSite(s) === 'partial').length
+  const mobCount = sites.filter(s => statusBucketForSite(s) === 'mob').length
   const doneCount = collectedCount + partialCount + mobCount
 
   return (
