@@ -77,6 +77,8 @@ export default function AdminView() {
   const [error, setError] = useState('')
   const [asOf, setAsOf] = useState(null)
   const [hiddenPilotIds, setHiddenPilotIds] = useState(() => new Set())
+  const [mode, setMode] = useState('map') // 'map' | 'list'
+  const [selectedPilotId, setSelectedPilotId] = useState(null)
 
   const load = useCallback(async () => {
     setError('')
@@ -193,6 +195,28 @@ export default function AdminView() {
     return sites.filter(s => (s.pilotApp || []).includes(pilotId))
   }
 
+  // Double-click a chip: select that pilot (filters the site list) and fit the map
+  // to their assigned sites — falls back to their GPS pin if none have coordinates.
+  function selectPilot(pilotId) {
+    const willSelect = selectedPilotId !== pilotId
+    setSelectedPilotId(willSelect ? pilotId : null)
+    if (!willSelect) return
+
+    const L = window.L
+    const map = mapInstance.current
+    if (!map || !L) return
+    const theirSites = sitesForPilot(pilotId).filter(s => s.lat && s.lng)
+    if (theirSites.length > 0) {
+      map.fitBounds(L.latLngBounds(theirSites.map(s => [s.lat, s.lng])), { padding: [40, 40], maxZoom: 14 })
+    } else {
+      const p = pilots.find(x => x.pilotId === pilotId)
+      if (p && p.lat && p.lng) map.setView([p.lat, p.lng], Math.max(map.getZoom(), 12))
+    }
+  }
+
+  const listSites = selectedPilotId ? sitesForPilot(selectedPilotId) : sites
+  const selectedPilotName = pilots.find(p => p.pilotId === selectedPilotId)?.name
+
   return (
     <div className="admin-view">
       <div className="admin-toolbar">
@@ -200,9 +224,25 @@ export default function AdminView() {
           Admin — All Pilots
           {asOf && <span className="admin-asof">Refreshed {timeAgo(asOf)}</span>}
         </div>
-        <button className="icon-btn" onClick={load} disabled={loading} title="Refresh">
-          {loading ? '⏳' : '⟳'}
-        </button>
+        <div className="admin-toolbar-actions">
+          <div className="view-toggle admin-mode-toggle">
+            <button
+              className={`toggle-btn ${mode === 'map' ? 'active' : ''}`}
+              onClick={() => setMode('map')}
+            >
+              Map
+            </button>
+            <button
+              className={`toggle-btn ${mode === 'list' ? 'active' : ''}`}
+              onClick={() => setMode('list')}
+            >
+              List
+            </button>
+          </div>
+          <button className="icon-btn" onClick={load} disabled={loading} title="Refresh">
+            {loading ? '⏳' : '⟳'}
+          </button>
+        </div>
       </div>
 
       {error && <div className="sync-error">{error}</div>}
@@ -217,10 +257,11 @@ export default function AdminView() {
           return (
             <button
               key={p.pilotId}
-              className={`filter-tab admin-pilot-chip ${isHidden ? 'admin-pilot-chip-off' : 'active'}`}
+              className={`filter-tab admin-pilot-chip ${isHidden ? 'admin-pilot-chip-off' : 'active'} ${selectedPilotId === p.pilotId ? 'admin-pilot-chip-selected' : ''}`}
               onClick={() => togglePilot(p.pilotId)}
+              onDoubleClick={() => selectPilot(p.pilotId)}
               style={{ borderColor: colorForPilot(p.pilotId) }}
-              title={isHidden ? 'Hidden — tap to show on map' : 'Visible — tap to hide from map'}
+              title={`${isHidden ? 'Hidden' : 'Visible'} — tap to show/hide, double-tap to center on their sites`}
             >
               <span className="admin-pilot-dot" style={{ background: colorForPilot(p.pilotId) }} />
               {p.name} · {done}/{s.length}
@@ -229,9 +270,49 @@ export default function AdminView() {
         })}
       </div>
 
-      <div className="map-wrapper admin-map-wrapper">
+      <div
+        className="map-wrapper admin-map-wrapper"
+        style={{ display: mode === 'map' ? 'block' : 'none' }}
+      >
         <div ref={mapRef} className="map-container" />
       </div>
+
+      {mode === 'list' && (
+        <div className="site-list-container admin-site-list">
+          <div className="admin-list-header">
+            {selectedPilotId ? (
+              <>
+                Showing <strong>{selectedPilotName || 'pilot'}</strong> · {listSites.length} sites
+                <button className="admin-list-clear" onClick={() => setSelectedPilotId(null)}>Show all</button>
+              </>
+            ) : (
+              <>All pilots · {listSites.length} sites</>
+            )}
+          </div>
+          <div className="site-list">
+            {listSites.length === 0 && <div className="empty-state">No sites</div>}
+            {listSites.map(site => {
+              const color = getSiteColor(site)
+              const pilotNames = (site.pilotNames || []).join(', ') || 'Unassigned'
+              return (
+                <div key={site.id} className="site-row">
+                  <div className="status-dot" style={{ background: color }} />
+                  <div className="site-row-info">
+                    <div className="site-row-id">{site.siteId || '—'}</div>
+                    <div className="site-row-sub">
+                      FUZE: {site.fuzeId || '—'} · {site.city || site.state || site.subProject || '—'}
+                      {!selectedPilotId && ` · ${pilotNames}`}
+                    </div>
+                  </div>
+                  <div className="site-row-status" style={{ color }}>
+                    {site.mapColor || (site.collectedApp ? 'Collected' : site.partialCollection ? 'Partial' : site.mobFee ? 'MOB Fee' : 'Pending')}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

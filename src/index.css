@@ -1462,6 +1462,60 @@ html, body, #root {
   filter: grayscale(1);
 }
 
+.admin-pilot-chip-selected {
+  box-shadow: 0 0 0 1.5px var(--text) inset;
+}
+
+.admin-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-mode-toggle {
+  border-bottom: none;
+  background: none;
+  padding: 0;
+  gap: 4px;
+}
+
+.admin-mode-toggle .toggle-btn {
+  flex: none;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.admin-site-list {
+  flex: 1;
+  min-height: 0;
+}
+
+.admin-list-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text2);
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-list-clear {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.admin-list-clear:hover {
+  color: var(--text);
+  border-color: var(--text2);
+}
+
 .admin-pilot-warn {
   color: var(--red);
 }
