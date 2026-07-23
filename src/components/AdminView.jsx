@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchAdminData } from '../utils/api'
+import { colorForMapColor } from '../utils/mapColors'
 
 const SITE_STATUS_COLORS = {
   collected: '#22c55e',
@@ -21,6 +22,12 @@ function getSiteStatus(site) {
   if (site.partialCollection) return 'partial'
   if (site.mobFee) return 'mob'
   return 'none'
+}
+
+// Map Color (office-maintained: Refly, Bird Site, Waiting on a COA, etc.) wins when
+// set; otherwise fall back to the pilot-toggled collected/partial/MOB booleans.
+function getSiteColor(site) {
+  return colorForMapColor(site.mapColor) || SITE_STATUS_COLORS[getSiteStatus(site)]
 }
 
 function timeAgo(iso) {
@@ -117,11 +124,11 @@ export default function AdminView() {
 
     const mapped = sites.filter(s => s.lat && s.lng)
     mapped.forEach(site => {
-      const color = SITE_STATUS_COLORS[getSiteStatus(site)]
+      const color = getSiteColor(site)
       const marker = L.marker([site.lat, site.lng], { icon: siteIcon(color) })
       const pilotNames = (site.pilotNames || []).join(', ') || 'Unassigned'
       marker.bindTooltip(
-        `<strong>${site.siteId || 'Site'}</strong><br>Pilot: ${pilotNames}<br>${site.city || ''} ${site.state || ''}`,
+        `<strong>${site.siteId || 'Site'}</strong><br>Pilot: ${pilotNames}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}`,
         { direction: 'top', offset: [0, -8] }
       )
       marker.addTo(map)

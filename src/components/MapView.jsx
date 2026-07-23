@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { colorForMapColor } from '../utils/mapColors'
 
 const STATUS_COLORS = {
   collected: '#22c55e',
@@ -14,6 +15,13 @@ function getSiteStatus(site) {
   if (site.mobFee) return 'mob'
   if (site.siteIssue) return 'issue'
   return 'none'
+}
+
+// Airtable's "map color" field is the richer, office-maintained status (Refly, Bird
+// Site, Waiting on a COA, etc.) — use it when set, otherwise fall back to the simple
+// collected/partial/MOB booleans the pilot toggles in-app.
+function getSiteColor(site) {
+  return colorForMapColor(site.mapColor) || STATUS_COLORS[getSiteStatus(site)]
 }
 
 function makeIcon(color) {
@@ -87,13 +95,12 @@ export default function MapView({ sites, onSelect }) {
     const mapped = sites.filter(s => s.lat && s.lng)
 
     mapped.forEach(site => {
-      const status = getSiteStatus(site)
-      const color = STATUS_COLORS[status]
+      const color = getSiteColor(site)
       const marker = L.marker([site.lat, site.lng], { icon: makeIcon(color) })
 
       marker.on('click', () => onSelect(site))
       marker.bindTooltip(
-        `<strong>${site.siteId || 'Site'}</strong><br>FUZE: ${site.fuzeId || '—'}<br>${site.city || ''} ${site.state || ''}`,
+        `<strong>${site.siteId || 'Site'}</strong><br>FUZE: ${site.fuzeId || '—'}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}`,
         { direction: 'top', offset: [0, -8] }
       )
 
