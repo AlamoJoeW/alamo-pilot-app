@@ -4,6 +4,7 @@ import MapView from './components/MapView'
 import RouteView from './components/RouteView'
 import SiteList from './components/SiteList'
 import SiteDetail from './components/SiteDetail'
+import AdminView from './components/AdminView'
 import {
   getPilotInfo,
   fetchSites,
@@ -71,6 +72,23 @@ export default function App() {
       flushPending()
     }
   }, [isOnline, pilot])
+
+  // Periodic location ping while the app is open with a preflight on file, so the
+  // Admin view can show a reasonably current position instead of a once-a-day snapshot.
+  useEffect(() => {
+    if (!preflightExists || !preflightId || !navigator.geolocation) return
+    const pingLocation = () => {
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+          updatePreflightLocation(preflightId, coords.latitude, coords.longitude).catch(() => {})
+        },
+        () => {},
+        { enableHighAccuracy: false, timeout: 10000 }
+      )
+    }
+    const interval = setInterval(pingLocation, 6 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [preflightExists, preflightId])
 
   async function loadFromCache() {
     const cached = await getSites()
@@ -201,6 +219,7 @@ export default function App() {
     setPilot(null)
     setSites([])
     setSelectedSite(null)
+    setView('map')
     setPreflightChecked(false)
     setPreflightExists(false)
     setPreflightTravelDay(false)
@@ -314,6 +333,14 @@ export default function App() {
         >
           List
         </button>
+        {pilot.isAdmin && (
+          <button
+            className={`toggle-btn ${view === 'admin' ? 'active' : ''}`}
+            onClick={() => setView('admin')}
+          >
+            Admin
+          </button>
+        )}
       </div>
 
       {/* Main content */}
@@ -328,6 +355,7 @@ export default function App() {
             onFilterChange={setFilter}
           />
         )}
+        {view === 'admin' && pilot.isAdmin && <AdminView />}
       </div>
 
       {/* EOD Report button — requires preflight and not a travel day */}

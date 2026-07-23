@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { airtableGet, airtablePost, airtablePatch, TABLES, airtableGetAll } from './_airtable.js'
+import { airtableGet, airtablePost, airtablePatch, airtableGetAll } from './_airtable.js'
 
 export const config = { api: { bodyParser: { sizeLimit: '10mb' } } }
 
@@ -44,11 +44,14 @@ const F = {
   START_LAT:      'fldAUf6IwteFufphx',
   START_LNG:      'fldF7blLSgdAq9mNz',
   EOD_LINK:       'fldMTHfIuLaJoKdtv',
+  LOCATION_UPDATED_AT: 'fldqHF3twipXfVmc3',
 }
 
-// Pilots table fields for current location
-const PILOT_CURRENT_LAT = 'fldUueaq9Z2sAMq84'
-const PILOT_CURRENT_LNG = 'fldQsQfdRFDhZFsBO'
+// Note: Pilots.Current Latitude/Longitude (fldUueaq9Z2sAMq84 / fldQsQfdRFDhZFsBO) are
+// lookup fields sourced from this table's START_LAT/START_LNG via the Pilot<->Preflight
+// link, so they update automatically whenever we write START_LAT/START_LNG below —
+// no separate write to the Pilots table is needed (an earlier version tried to PATCH
+// them directly, which silently failed since lookup fields are read-only).
 
 function verifyToken(req) {
   const auth = req.headers.authorization || ''
@@ -133,24 +136,12 @@ export default async function handler(req, res) {
       if (b.notes)            fields[F.NOTES]        = b.notes
       if (b.startLat != null) fields[F.START_LAT]    = b.startLat
       if (b.startLng != null) fields[F.START_LNG]    = b.startLng
+      if (b.startLat != null && b.startLng != null) fields[F.LOCATION_UPDATED_AT] = new Date().toISOString()
 
       const emergId = process.env.EMERGENCY_CONTACT_RECORD_ID
       if (emergId) fields[F.EMERG_CONTACT] = [emergId]
 
       const result = await airtablePost(PREFLIGHT_TABLE, fields)
-
-      // Update pilot's current location in the Pilots table
-      if (b.startLat != null && b.startLng != null && pilot.pilotRecordId) {
-        try {
-          const locFields = {}
-          locFields[PILOT_CURRENT_LAT] = b.startLat
-          locFields[PILOT_CURRENT_LNG] = b.startLng
-          await airtablePatch(TABLES.PILOTS, pilot.pilotRecordId, locFields)
-        } catch (locErr) {
-          console.warn('Failed to update pilot location:', locErr.message)
-          // Non-fatal - preflight still succeeds
-        }
-      }
 
       return res.json({ success: true, preflightId: result.id })
     }
@@ -163,6 +154,7 @@ export default async function handler(req, res) {
       const fields = {}
       fields[F.START_LAT] = lat
       fields[F.START_LNG] = lng
+      fields[F.LOCATION_UPDATED_AT] = new Date().toISOString()
       await airtablePatch(PREFLIGHT_TABLE, preflightId, fields)
       return res.json({ success: true })
     }

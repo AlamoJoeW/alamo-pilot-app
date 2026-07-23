@@ -15,6 +15,7 @@ export const FIELDS = {
   PILOT_PASSWORD:     'fld8mIJRKQnPqAz2p',
   PILOT_FIRST_NAME:   'fldj99i8QHMNP1N9a',
   PILOT_DISPLAY_NAME: 'fldKEKxHbI9lRCXTR', // formula: full name
+  PILOT_ADMIN:        'flda57OfNG0SKs3Dy', // checkbox: can see Admin view
 
   // Collection Assets
   SITE_ID:              'fldeMYc6CwJOqKKNh',

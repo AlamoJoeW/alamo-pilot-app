@@ -169,3 +169,25 @@ export async function fetchDailyRoute() {
   if (res.status === 401) throw new Error('AUTH_EXPIRED')
   return res.json()
 }
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+
+export async function fetchAdminSites() {
+  const res = await fetch(`${BASE}/api/admin-sites`, { headers: authHeaders() })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    if (res.status === 403) throw new Error('FORBIDDEN')
+    throw new Error('Failed to fetch admin sites')
+  }
+  return res.json()
+}
+
+export async function fetchPilotLocations() {
+  const res = await fetch(`${BASE}/api/pilot-locations`, { headers: authHeaders() })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    if (res.status === 403) throw new Error('FORBIDDEN')
+    throw new Error('Failed to fetch pilot locations')
+  }
+  return res.json()
+}
