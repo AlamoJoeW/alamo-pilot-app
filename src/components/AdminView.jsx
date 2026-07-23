@@ -196,7 +196,8 @@ export default function AdminView() {
   }
 
   // Double-click a chip: select that pilot (filters the site list) and fit the map
-  // to their assigned sites — falls back to their GPS pin if none have coordinates.
+  // to their assigned sites plus their own GPS location, so the pilot pin is always
+  // in view alongside their sites.
   function selectPilot(pilotId) {
     const willSelect = selectedPilotId !== pilotId
     setSelectedPilotId(willSelect ? pilotId : null)
@@ -206,11 +207,12 @@ export default function AdminView() {
     const map = mapInstance.current
     if (!map || !L) return
     const theirSites = sitesForPilot(pilotId).filter(s => s.lat && s.lng)
-    if (theirSites.length > 0) {
-      map.fitBounds(L.latLngBounds(theirSites.map(s => [s.lat, s.lng])), { padding: [40, 40], maxZoom: 14 })
-    } else {
-      const p = pilots.find(x => x.pilotId === pilotId)
-      if (p && p.lat && p.lng) map.setView([p.lat, p.lng], Math.max(map.getZoom(), 12))
+    const p = pilots.find(x => x.pilotId === pilotId)
+    const pts = theirSites.map(s => [s.lat, s.lng])
+    if (p && p.lat && p.lng) pts.push([p.lat, p.lng])
+
+    if (pts.length > 0) {
+      map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 14 })
     }
   }
 
@@ -247,10 +249,11 @@ export default function AdminView() {
 
       {error && <div className="sync-error">{error}</div>}
 
-      {/* Pilot chip strip — only pilots who've checked in today. Tap a chip to show/hide
+      {/* Pilot chip strip — every pilot with at least one site in the "Verizon vHive
+          All for KMLs" view, regardless of preflight status. Tap a chip to show/hide
           that pilot's pin + sites on the map; map pins default to everyone visible. */}
       <div className="filter-tabs admin-pilot-strip">
-        {pilots.filter(p => p.hasPreflightToday).map(p => {
+        {pilots.filter(p => sitesForPilot(p.pilotId).length > 0).map(p => {
           const s = sitesForPilot(p.pilotId)
           const done = s.filter(x => x.collectedApp || x.partialCollection || x.mobFee).length
           const isHidden = hiddenPilotIds.has(p.pilotId)
