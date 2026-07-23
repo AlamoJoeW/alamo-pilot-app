@@ -1,0 +1,99 @@
+import { statusBucketForSite, colorForMapColor } from '../utils/mapColors'
+
+// Read-only site detail sheet for the Admin view — same visual language as the
+// pilot-facing SiteDetail, but no action buttons and no preflight gating. Admins
+// can look, not touch.
+
+const BUCKET_LABELS = {
+  collected: { label: 'Collected', color: '#22c55e', bg: '#052e16' },
+  partial: { label: 'Partial', color: '#facc15', bg: '#2d2006' },
+  mob: { label: 'MOB Fee', color: '#f97316', bg: '#2c1003' },
+}
+
+function InfoRow({ label, value }) {
+  if (!value) return null
+  return (
+    <div className="info-row">
+      <span className="info-label">{label}</span>
+      <span className="info-value">{value}</span>
+    </div>
+  )
+}
+
+export default function AdminSiteDetail({ site, onClose }) {
+  if (!site) return null
+
+  const bucket = statusBucketForSite(site)
+  const badge = bucket
+    ? BUCKET_LABELS[bucket]
+    : { label: 'Not Collected', color: '#94a3b8', bg: '#1e293b' }
+  const mapColorHex = colorForMapColor(site.mapColor)
+
+  return (
+    <div className="detail-overlay" onClick={onClose}>
+      <div className="detail-sheet" onClick={e => e.stopPropagation()}>
+        <div className="detail-handle" />
+
+        <div className="detail-header">
+          <div>
+            <div className="detail-site-id">{site.siteId || 'Site'}</div>
+            <div className="detail-fuze">FUZE: {site.fuzeId || '—'}</div>
+          </div>
+          <div className="status-badge" style={{ color: badge.color, background: badge.bg }}>
+            {badge.label}
+          </div>
+        </div>
+
+        {site.mapColor && (
+          <div className="detail-airtable-status" style={{ color: mapColorHex || undefined }}>
+            Map Color: {site.mapColor}
+          </div>
+        )}
+        {site.collectionStatus && (
+          <div className="detail-airtable-status">
+            Airtable: {site.collectionStatus}
+          </div>
+        )}
+
+        <div className="detail-info">
+          <InfoRow label="Assigned Pilot(s)" value={(site.pilotNames || []).join(', ')} />
+          <InfoRow label="Sub Project" value={site.subProject} />
+          <InfoRow label="Address" value={site.address} />
+          <InfoRow label="City" value={site.city} />
+          <InfoRow label="State" value={site.state} />
+          <InfoRow label="Zip" value={site.zip} />
+          <InfoRow label="Structure Type" value={site.siteStructureType} />
+          <InfoRow label="Structure Owner" value={site.siteStructureOwner} />
+          <InfoRow label="Height (ft)" value={site.structureHeight} />
+          <InfoRow label="Airport" value={site.airport} />
+          <InfoRow label="Airspace" value={site.airspace} />
+          <InfoRow label="Latitude" value={site.lat} />
+          <InfoRow label="Longitude" value={site.lng} />
+          <InfoRow label="Site Issue" value={site.siteIssue} />
+          {site.coaAttachments && site.coaAttachments.length > 0 && (
+            <div className="info-row">
+              <span className="info-label">COA</span>
+              <span className="info-value">
+                {site.coaAttachments.map((att, i) => (
+                  <a
+                    key={i}
+                    href={att.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'block', color: '#60a5fa', textDecoration: 'underline', wordBreak: 'break-all' }}
+                  >
+                    {att.filename || `COA File ${i + 1}`}
+                  </a>
+                ))}
+              </span>
+            </div>
+          )}
+          <InfoRow label="Pilot Assigned (legacy field)" value={site.pilotAssigned} />
+          <InfoRow label="Date Added" value={site.dateAdded ? new Date(site.dateAdded).toLocaleDateString() : ''} />
+        </div>
+
+        <button className="detail-close" onClick={onClose}>Close</button>
+      </div>
+    </div>
+  )
+}

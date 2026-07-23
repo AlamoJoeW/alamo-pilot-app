@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchAdminData } from '../utils/api'
 import { colorForMapColor, isSiteDone } from '../utils/mapColors'
+import AdminSiteDetail from './AdminSiteDetail'
 
 const SITE_STATUS_COLORS = {
   collected: '#22c55e',
@@ -79,6 +80,7 @@ export default function AdminView() {
   const [hiddenPilotIds, setHiddenPilotIds] = useState(() => new Set())
   const [mode, setMode] = useState('map') // 'map' | 'list'
   const [selectedPilotId, setSelectedPilotId] = useState(null)
+  const [selectedSite, setSelectedSite] = useState(null)
 
   const load = useCallback(async () => {
     setError('')
@@ -139,6 +141,7 @@ export default function AdminView() {
         `<strong>${site.siteId || 'Site'}</strong><br>Pilot: ${pilotNames}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}`,
         { direction: 'top', offset: [0, -8] }
       )
+      marker.on('click', () => setSelectedSite(site))
       marker.addTo(map)
       siteMarkersRef.current.push(marker)
     })
@@ -298,7 +301,7 @@ export default function AdminView() {
               const color = getSiteColor(site)
               const pilotNames = (site.pilotNames || []).join(', ') || 'Unassigned'
               return (
-                <div key={site.id} className="site-row">
+                <div key={site.id} className="site-row" onClick={() => setSelectedSite(site)}>
                   <div className="status-dot" style={{ background: color }} />
                   <div className="site-row-info">
                     <div className="site-row-id">{site.siteId || '—'}</div>
@@ -315,6 +318,10 @@ export default function AdminView() {
             })}
           </div>
         </div>
+      )}
+
+      {selectedSite && (
+        <AdminSiteDetail site={selectedSite} onClose={() => setSelectedSite(null)} />
       )}
     </div>
   )
