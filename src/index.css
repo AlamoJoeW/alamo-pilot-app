@@ -1454,6 +1454,14 @@ html, body, #root {
   flex-shrink: 0;
 }
 
+.admin-pilot-chip-off {
+  opacity: 0.4;
+}
+
+.admin-pilot-chip-off .admin-pilot-dot {
+  filter: grayscale(1);
+}
+
 .admin-pilot-warn {
   color: var(--red);
 }

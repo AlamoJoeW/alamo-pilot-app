@@ -76,7 +76,7 @@ export default function AdminView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [asOf, setAsOf] = useState(null)
-  const [activePilotId, setActivePilotId] = useState(null)
+  const [hiddenPilotIds, setHiddenPilotIds] = useState(() => new Set())
 
   const load = useCallback(async () => {
     setError('')
@@ -122,7 +122,13 @@ export default function AdminView() {
     siteMarkersRef.current.forEach(m => m.remove())
     siteMarkersRef.current = []
 
-    const mapped = sites.filter(s => s.lat && s.lng)
+    const mapped = sites.filter(s => {
+      if (!s.lat || !s.lng) return false
+      const assigned = s.pilotApp || []
+      // Unassigned sites always show; assigned sites show if at least one of
+      // their pilots hasn't been toggled off in the chip strip.
+      return assigned.length === 0 || assigned.some(id => !hiddenPilotIds.has(id))
+    })
     mapped.forEach(site => {
       const color = getSiteColor(site)
       const marker = L.marker([site.lat, site.lng], { icon: siteIcon(color) })
@@ -134,7 +140,7 @@ export default function AdminView() {
       marker.addTo(map)
       siteMarkersRef.current.push(marker)
     })
-  }, [sites])
+  }, [sites, hiddenPilotIds])
 
   // Redraw pilot markers
   useEffect(() => {
@@ -145,7 +151,7 @@ export default function AdminView() {
     pilotMarkersRef.current.forEach(m => m.remove())
     pilotMarkersRef.current = []
 
-    const located = pilots.filter(p => p.lat && p.lng)
+    const located = pilots.filter(p => p.lat && p.lng && !hiddenPilotIds.has(p.pilotId))
     located.forEach(p => {
       const color = colorForPilot(p.pilotId)
       const marker = L.marker([p.lat, p.lng], { icon: pilotIcon(color), zIndexOffset: 500 })
@@ -157,24 +163,30 @@ export default function AdminView() {
       marker.addTo(map)
       pilotMarkersRef.current.push(marker)
     })
+  }, [pilots, hiddenPilotIds])
 
-    // Fit bounds to everything we have on first load
+  // Fit bounds to everything we have — only on a fresh data load, not on chip toggles
+  useEffect(() => {
+    const L = window.L
+    const map = mapInstance.current
+    if (!map || !L || !asOf) return
     const allPts = [
       ...sites.filter(s => s.lat && s.lng).map(s => [s.lat, s.lng]),
-      ...located.map(p => [p.lat, p.lng]),
+      ...pilots.filter(p => p.lat && p.lng).map(p => [p.lat, p.lng]),
     ]
     if (allPts.length > 0) {
       map.fitBounds(L.latLngBounds(allPts), { padding: [30, 30], maxZoom: 12 })
     }
-  }, [pilots, sites])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asOf])
 
-  function focusPilot(pilotId) {
-    setActivePilotId(prev => (prev === pilotId ? null : pilotId))
-    const p = pilots.find(x => x.pilotId === pilotId)
-    const map = mapInstance.current
-    if (p && p.lat && p.lng && map) {
-      map.setView([p.lat, p.lng], Math.max(map.getZoom(), 12))
-    }
+  function togglePilot(pilotId) {
+    setHiddenPilotIds(prev => {
+      const next = new Set(prev)
+      if (next.has(pilotId)) next.delete(pilotId)
+      else next.add(pilotId)
+      return next
+    })
   }
 
   function sitesForPilot(pilotId) {
@@ -195,17 +207,20 @@ export default function AdminView() {
 
       {error && <div className="sync-error">{error}</div>}
 
-      {/* Pilot chip strip — only pilots who've checked in today; map pins still show everyone */}
+      {/* Pilot chip strip — only pilots who've checked in today. Tap a chip to show/hide
+          that pilot's pin + sites on the map; map pins default to everyone visible. */}
       <div className="filter-tabs admin-pilot-strip">
         {pilots.filter(p => p.hasPreflightToday).map(p => {
           const s = sitesForPilot(p.pilotId)
           const done = s.filter(x => x.collectedApp || x.partialCollection || x.mobFee).length
+          const isHidden = hiddenPilotIds.has(p.pilotId)
           return (
             <button
               key={p.pilotId}
-              className={`filter-tab admin-pilot-chip ${activePilotId === p.pilotId ? 'active' : ''}`}
-              onClick={() => focusPilot(p.pilotId)}
+              className={`filter-tab admin-pilot-chip ${isHidden ? 'admin-pilot-chip-off' : 'active'}`}
+              onClick={() => togglePilot(p.pilotId)}
               style={{ borderColor: colorForPilot(p.pilotId) }}
+              title={isHidden ? 'Hidden — tap to show on map' : 'Visible — tap to hide from map'}
             >
               <span className="admin-pilot-dot" style={{ background: colorForPilot(p.pilotId) }} />
               {p.name} · {done}/{s.length}
