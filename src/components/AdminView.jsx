@@ -188,9 +188,9 @@ export default function AdminView() {
 
       {error && <div className="sync-error">{error}</div>}
 
-      {/* Pilot chip strip */}
+      {/* Pilot chip strip — only pilots who've checked in today; map pins still show everyone */}
       <div className="filter-tabs admin-pilot-strip">
-        {pilots.map(p => {
+        {pilots.filter(p => p.hasPreflightToday).map(p => {
           const s = sitesForPilot(p.pilotId)
           const done = s.filter(x => x.collectedApp || x.partialCollection || x.mobFee).length
           return (
@@ -202,7 +202,6 @@ export default function AdminView() {
             >
               <span className="admin-pilot-dot" style={{ background: colorForPilot(p.pilotId) }} />
               {p.name} · {done}/{s.length}
-              {!p.hasPreflightToday && <span className="admin-pilot-warn"> · no check-in</span>}
             </button>
           )
         })}
