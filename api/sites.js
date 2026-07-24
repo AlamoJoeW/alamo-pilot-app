@@ -68,6 +68,7 @@ export default async function handler(req, res) {
       partialCollection:   r.fields[FIELDS.PARTIAL_COLLECTION]   || false,
       collectedApp:        r.fields[FIELDS.COLLECTED_APP]        || false,
       coaAttachments:      r.fields[FIELDS.COA]                  || [],
+      appStatusUpdatedAt:  r.fields[FIELDS.APP_STATUS_SET_AT]    || null,
     }))
 
     return res.json({ sites, syncedAt: new Date().toISOString() })

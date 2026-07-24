@@ -63,6 +63,12 @@ export default async function handler(req, res) {
     }
   }
 
+  // Stamp the app-status timestamp on every action. The pin color logic
+  // (src/utils/mapColors.js -> colorForSite) shows this pilot-set status as the
+  // pin's color for 24 hours, overriding the office-maintained Map Color field,
+  // then falls back to Map Color automatically once the window passes.
+  fields[FIELDS.APP_STATUS_SET_AT] = new Date().toISOString()
+
   try {
     await airtablePatch(TABLES.COLLECTION_ASSETS, recordId, fields)
     return res.json({ success: true })

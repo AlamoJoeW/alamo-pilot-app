@@ -1,28 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { colorForMapColor } from '../utils/mapColors'
-
-const STATUS_COLORS = {
-  collected: '#22c55e',
-  partial: '#facc15',
-  mob: '#f97316',
-  none: '#ef4444',
-  issue: '#ef4444',
-}
-
-function getSiteStatus(site) {
-  if (site.collectedApp) return 'collected'
-  if (site.partialCollection) return 'partial'
-  if (site.mobFee) return 'mob'
-  if (site.siteIssue) return 'issue'
-  return 'none'
-}
-
-// Airtable's "map color" field is the richer, office-maintained status (Refly, Bird
-// Site, Waiting on a COA, etc.) — use it when set, otherwise fall back to the simple
-// collected/partial/MOB booleans the pilot toggles in-app.
-function getSiteColor(site) {
-  return colorForMapColor(site.mapColor) || STATUS_COLORS[getSiteStatus(site)]
-}
+import { colorForSite } from '../utils/mapColors'
 
 function makeIcon(color) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
@@ -95,7 +72,7 @@ export default function MapView({ sites, onSelect }) {
     const mapped = sites.filter(s => s.lat && s.lng)
 
     mapped.forEach(site => {
-      const color = getSiteColor(site)
+      const color = colorForSite(site)
       const marker = L.marker([site.lat, site.lng], { icon: makeIcon(color) })
 
       marker.on('click', () => onSelect(site))

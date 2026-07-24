@@ -1,14 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchAdminData } from '../utils/api'
-import { colorForMapColor, isSiteDone } from '../utils/mapColors'
+import { colorForSite, isSiteDone } from '../utils/mapColors'
 import AdminSiteDetail from './AdminSiteDetail'
-
-const SITE_STATUS_COLORS = {
-  collected: '#22c55e',
-  partial: '#facc15',
-  mob: '#f97316',
-  none: '#ef4444',
-}
 
 const PILOT_COLORS = ['#3b82f6', '#a855f7', '#14b8a6', '#f59e0b', '#ec4899', '#84cc16', '#06b6d4', '#f43f5e']
 
@@ -16,19 +9,6 @@ function colorForPilot(pilotId) {
   let hash = 0
   for (let i = 0; i < pilotId.length; i++) hash = (hash * 31 + pilotId.charCodeAt(i)) >>> 0
   return PILOT_COLORS[hash % PILOT_COLORS.length]
-}
-
-function getSiteStatus(site) {
-  if (site.collectedApp) return 'collected'
-  if (site.partialCollection) return 'partial'
-  if (site.mobFee) return 'mob'
-  return 'none'
-}
-
-// Map Color (office-maintained: Refly, Bird Site, Waiting on a COA, etc.) wins when
-// set; otherwise fall back to the pilot-toggled collected/partial/MOB booleans.
-function getSiteColor(site) {
-  return colorForMapColor(site.mapColor) || SITE_STATUS_COLORS[getSiteStatus(site)]
 }
 
 function timeAgo(iso) {
@@ -134,7 +114,7 @@ export default function AdminView() {
       return assigned.length === 0 || assigned.some(id => !hiddenPilotIds.has(id))
     })
     mapped.forEach(site => {
-      const color = getSiteColor(site)
+      const color = colorForSite(site)
       const marker = L.marker([site.lat, site.lng], { icon: siteIcon(color) })
       const pilotNames = (site.pilotNames || []).join(', ') || 'Unassigned'
       marker.bindTooltip(
@@ -298,7 +278,7 @@ export default function AdminView() {
           <div className="site-list">
             {listSites.length === 0 && <div className="empty-state">No sites</div>}
             {listSites.map(site => {
-              const color = getSiteColor(site)
+              const color = colorForSite(site)
               const pilotNames = (site.pilotNames || []).join(', ') || 'Unassigned'
               return (
                 <div key={site.id} className="site-row" onClick={() => setSelectedSite(site)}>

@@ -70,3 +70,45 @@ export function statusBucketForSite(site) {
 export function isSiteDone(site) {
   return statusBucketForSite(site) !== null
 }
+
+// ── Pin/dot display color (Map + Admin views) ───────────────────────────────────
+//
+// When a pilot updates a site's status in the app, we want the pin to reflect
+// that immediately instead of waiting for the office to update Map Color in
+// Airtable by hand — which can take days. But Map Color is still the more
+// authoritative, richer status (Refly, Bird Site, Waiting on a COA, etc.), so
+// the pilot's update should only "win" temporarily: 24 hours from the moment
+// they tapped it (`App Status Set At`, stamped by api/update-site.js), then the
+// pin falls back to Map Color like normal. If the office updates Map Color to
+// match before the 24 hours are up, this is a no-op — same color either way.
+
+const OVERRIDE_WINDOW_MS = 24 * 60 * 60 * 1000
+
+const PILOT_STATUS_COLORS = {
+  collected: '#22c55e',
+  partial: '#facc15',
+  mob: '#f97316',
+  none: '#ef4444',
+}
+
+function pilotStatusBucket(site) {
+  if (site.collectedApp) return 'collected'
+  if (site.partialCollection) return 'partial'
+  if (site.mobFee) return 'mob'
+  return 'none'
+}
+
+function appOverrideActive(site) {
+  if (!site.appStatusUpdatedAt) return false
+  const age = Date.now() - new Date(site.appStatusUpdatedAt).getTime()
+  return age >= 0 && age < OVERRIDE_WINDOW_MS
+}
+
+// Single source of truth for pin/dot color everywhere a site is drawn (pilot Map,
+// Admin Map, Admin List). Priority: 1) pilot's in-app status update if made in the
+// last 24h, 2) Airtable's office-maintained Map Color, 3) pilot's checkboxes with
+// no time limit, for sites Map Color was never set on at all.
+export function colorForSite(site) {
+  if (appOverrideActive(site)) return PILOT_STATUS_COLORS[pilotStatusBucket(site)]
+  return colorForMapColor(site.mapColor) || PILOT_STATUS_COLORS[pilotStatusBucket(site)]
+}
