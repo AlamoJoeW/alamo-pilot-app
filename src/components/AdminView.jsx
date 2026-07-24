@@ -21,6 +21,18 @@ function timeAgo(iso) {
   return `${hrs}h ago`
 }
 
+// Calendar-day match in the admin's local time zone — a site a pilot marked
+// at 11:58pm and one marked at 12:02am both count as "today" relative to
+// whenever the office is actually looking at this screen.
+function isMarkedToday(site) {
+  if (!site.appStatusUpdatedAt) return false
+  const d = new Date(site.appStatusUpdatedAt)
+  const now = new Date()
+  return d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+}
+
 function siteIcon(color) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="9" fill="${color}" stroke="white" stroke-width="2"/>
@@ -58,9 +70,16 @@ export default function AdminView() {
   const [error, setError] = useState('')
   const [asOf, setAsOf] = useState(null)
   const [hiddenPilotIds, setHiddenPilotIds] = useState(() => new Set())
+  const [markedTodayOnly, setMarkedTodayOnly] = useState(false)
   const [mode, setMode] = useState('map') // 'map' | 'list'
   const [selectedPilotId, setSelectedPilotId] = useState(null)
   const [selectedSite, setSelectedSite] = useState(null)
+
+  // Applied before the pilot chip strip's own show/hide — "Marked Today" narrows
+  // the pool down to sites a pilot touched today, and everything downstream
+  // (map pins, list rows, chip strip membership + done/total counts) reads from
+  // this instead of the raw `sites` list.
+  const visibleSites = markedTodayOnly ? sites.filter(isMarkedToday) : sites
 
   const load = useCallback(async () => {
     setError('')
@@ -106,7 +125,7 @@ export default function AdminView() {
     siteMarkersRef.current.forEach(m => m.remove())
     siteMarkersRef.current = []
 
-    const mapped = sites.filter(s => {
+    const mapped = visibleSites.filter(s => {
       if (!s.lat || !s.lng) return false
       const assigned = s.pilotApp || []
       // Unassigned sites always show; assigned sites show if at least one of
@@ -125,7 +144,7 @@ export default function AdminView() {
       marker.addTo(map)
       siteMarkersRef.current.push(marker)
     })
-  }, [sites, hiddenPilotIds])
+  }, [visibleSites, hiddenPilotIds])
 
   // Redraw pilot markers
   useEffect(() => {
@@ -175,11 +194,12 @@ export default function AdminView() {
   }
 
   function sitesForPilot(pilotId) {
-    return sites.filter(s => (s.pilotApp || []).includes(pilotId))
+    return visibleSites.filter(s => (s.pilotApp || []).includes(pilotId))
   }
 
   // Bulk show/hide every pilot in the chip strip (same pilot set the strip itself
-  // renders — anyone with at least one assigned site).
+  // renders — anyone with at least one assigned site, within the current
+  // Marked Today filter if it's on).
   function selectAllPilots() {
     setHiddenPilotIds(new Set())
   }
@@ -210,7 +230,7 @@ export default function AdminView() {
     }
   }
 
-  const listSites = selectedPilotId ? sitesForPilot(selectedPilotId) : sites
+  const listSites = selectedPilotId ? sitesForPilot(selectedPilotId) : visibleSites
   const selectedPilotName = pilots.find(p => p.pilotId === selectedPilotId)?.name
 
   return (
@@ -221,6 +241,13 @@ export default function AdminView() {
           {asOf && <span className="admin-asof">Refreshed {timeAgo(asOf)}</span>}
           <button className="admin-chip-bulk-btn" onClick={selectAllPilots}>Select All</button>
           <button className="admin-chip-bulk-btn" onClick={deselectAllPilots}>Deselect All</button>
+          <button
+            className={`admin-chip-bulk-btn ${markedTodayOnly ? 'active' : ''}`}
+            onClick={() => setMarkedTodayOnly(v => !v)}
+            title="Show only sites a pilot marked today — pilot chips still filter within that"
+          >
+            Marked Today
+          </button>
         </div>
         <div className="admin-toolbar-actions">
           <div className="view-toggle admin-mode-toggle">

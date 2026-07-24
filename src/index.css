@@ -1449,6 +1449,12 @@ html, body, #root {
   border-color: var(--text2);
 }
 
+.admin-chip-bulk-btn.active {
+  color: white;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 .admin-pilot-strip {
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);
