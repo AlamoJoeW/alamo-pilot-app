@@ -178,6 +178,17 @@ export default function AdminView() {
     return sites.filter(s => (s.pilotApp || []).includes(pilotId))
   }
 
+  // Bulk show/hide every pilot in the chip strip (same pilot set the strip itself
+  // renders — anyone with at least one assigned site).
+  function selectAllPilots() {
+    setHiddenPilotIds(new Set())
+  }
+
+  function deselectAllPilots() {
+    const allIds = pilots.filter(p => sitesForPilot(p.pilotId).length > 0).map(p => p.pilotId)
+    setHiddenPilotIds(new Set(allIds))
+  }
+
   // Double-click a chip: select that pilot (filters the site list) and fit the map
   // to their assigned sites plus their own GPS location, so the pilot pin is always
   // in view alongside their sites.
@@ -208,6 +219,8 @@ export default function AdminView() {
         <div className="admin-toolbar-title">
           Admin — All Pilots
           {asOf && <span className="admin-asof">Refreshed {timeAgo(asOf)}</span>}
+          <button className="admin-chip-bulk-btn" onClick={selectAllPilots}>Select All</button>
+          <button className="admin-chip-bulk-btn" onClick={deselectAllPilots}>Deselect All</button>
         </div>
         <div className="admin-toolbar-actions">
           <div className="view-toggle admin-mode-toggle">

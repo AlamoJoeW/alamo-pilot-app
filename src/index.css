@@ -1433,6 +1433,22 @@ html, body, #root {
   color: var(--text2);
 }
 
+.admin-chip-bulk-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.admin-chip-bulk-btn:hover {
+  color: var(--text);
+  border-color: var(--text2);
+}
+
 .admin-pilot-strip {
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);
