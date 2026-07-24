@@ -13,7 +13,7 @@ export default async function handler(req, res) {
           console.log('Formula:', formula)
           const data = await airtableGet(TABLES.PILOTS, {
                   filterByFormula: formula,
-                  fields: [FIELDS.PILOT_EMAIL, FIELDS.PILOT_PASSWORD, FIELDS.PILOT_FIRST_NAME, FIELDS.PILOT_DISPLAY_NAME, FIELDS.PILOT_ADMIN],
+                  fields: [FIELDS.PILOT_EMAIL, FIELDS.PILOT_PASSWORD, FIELDS.PILOT_FIRST_NAME, FIELDS.PILOT_DISPLAY_NAME, FIELDS.PILOT_ADMIN, FIELDS.PASSWORD_CHANGED],
                   pageSize: 1,
           })
           console.log('Records found:', data.records?.length)
@@ -33,8 +33,9 @@ export default async function handler(req, res) {
           const firstName = (pilot.fields[FIELDS.PILOT_FIRST_NAME] || '').trim().split('\n')[0].trim()
           const displayName = (pilot.fields[FIELDS.PILOT_DISPLAY_NAME] || firstName).trim()
           const isAdmin = !!pilot.fields[FIELDS.PILOT_ADMIN]
-          const token = jwt.sign({ pilotRecordId: pilot.id, email: cleanEmail, firstName, displayName, isAdmin }, process.env.JWT_SECRET, { expiresIn: '30d' })
-          res.json({ token, firstName, displayName, isAdmin })
+          const mustChangePassword = !pilot.fields[FIELDS.PASSWORD_CHANGED]
+          const token = jwt.sign({ pilotRecordId: pilot.id, email: cleanEmail, firstName, displayName, isAdmin, mustChangePassword }, process.env.JWT_SECRET, { expiresIn: '30d' })
+          res.json({ token, firstName, displayName, isAdmin, mustChangePassword })
     } catch (err) {
           console.error('Login error:', err)
           res.status(500).json({ error: 'Server error' })

@@ -13,7 +13,9 @@ export default function Login({ onLogin }) {
     setLoading(true)
     try {
       const data = await login(email.trim(), password)
-      onLogin(data)
+      // Pass the just-typed password up (kept in memory only) so a forced
+      // first-login password change doesn't have to ask for it again.
+      onLogin(data, password)
     } catch (err) {
       setError(err.message || 'Login failed')
     } finally {

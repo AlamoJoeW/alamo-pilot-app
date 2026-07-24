@@ -5,6 +5,7 @@ import RouteView from './components/RouteView'
 import SiteList from './components/SiteList'
 import SiteDetail from './components/SiteDetail'
 import AdminView from './components/AdminView'
+import ChangePassword from './components/ChangePassword'
 import { statusBucketForSite } from './utils/mapColors'
 import {
   getPilotInfo,
@@ -30,6 +31,10 @@ const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6N
 
 export default function App() {
   const [pilot, setPilot] = useState(null)
+  // Kept in memory only (never persisted) — the password just typed on the
+  // login screen, reused to submit a forced first-login password change
+  // without asking the pilot to retype it.
+  const [pendingPassword, setPendingPassword] = useState('')
   const [sites, setSites] = useState([])
   const [view, setView] = useState('map')          // 'map' | 'list'
   const [filter, setFilter] = useState('all')
@@ -228,11 +233,18 @@ export default function App() {
     setPreflightRechecking(false)
   }
 
-  function handleLogin(data) {
+  function handleLogin(data, password) {
     const info = getPilotInfo()
     setPilot(info || data)
+    if (password) setPendingPassword(password)
     checkAndSetPreflight()
     sync()
+  }
+
+  function handlePasswordChanged() {
+    const info = getPilotInfo()
+    setPilot(info)
+    setPendingPassword('')
   }
 
   // ── Render guards ─────────────────────────────────────────────────────────────
@@ -240,6 +252,18 @@ export default function App() {
   // No auth → Login
   if (!pilot) {
     return <Login onLogin={handleLogin} />
+  }
+
+  // Still on the initial/temporary password → force a change before anything
+  // else in the app is reachable (no Map/List peek, no Cancel button).
+  if (pilot.mustChangePassword) {
+    return (
+      <ChangePassword
+        forced
+        initialCurrentPassword={pendingPassword}
+        onDone={handlePasswordChanged}
+      />
+    )
   }
 
   // Auth OK but preflight not yet checked → brief loading state

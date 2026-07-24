@@ -27,6 +27,23 @@ export function logout() {
   localStorage.removeItem('alamo_token')
 }
 
+export async function changePassword(currentPassword, newPassword) {
+  const res = await fetch(`${BASE}/api/change-password`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ currentPassword, newPassword }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    if (res.status === 401) throw new Error(data.error || 'AUTH_EXPIRED')
+    throw new Error(data.error || 'Failed to change password')
+  }
+  // Server reissues the token with mustChangePassword cleared — store it so
+  // the app doesn't re-prompt on the next page load this session.
+  if (data.token) localStorage.setItem('alamo_token', data.token)
+  return data
+}
+
 export function getPilotInfo() {
   const token = getToken()
   if (!token) return null

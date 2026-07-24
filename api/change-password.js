@@ -40,9 +40,22 @@ import jwt from 'jsonwebtoken'
 
     await airtablePatch(TABLES.PILOTS, pilot.id, {
       [FIELDS.PILOT_PASSWORD]: newPassword.trim(),
+      [FIELDS.PASSWORD_CHANGED]: true,
 })
 
-    res.json({ ok: true })
+    // Reissue the token with mustChangePassword cleared so the app doesn't
+    // force the pilot back into this screen on their next page load this
+    // session. Carries forward the rest of the original claims unchanged.
+    // (Strip iat/exp from the old payload — jwt.sign rejects an explicit exp
+    // when expiresIn is also passed.)
+    const { iat, exp, ...claims } = payload
+    const newToken = jwt.sign(
+      { ...claims, mustChangePassword: false },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    )
+
+    res.json({ ok: true, token: newToken })
 } catch (err) {
     console.error('Change password error:', err)
     res.status(500).json({ error: 'Server error' })
