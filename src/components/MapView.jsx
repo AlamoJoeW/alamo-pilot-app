@@ -34,6 +34,7 @@ export default function MapView({ sites, onSelect }) {
   const locateMarkerRef = useRef(null)
   const [locating, setLocating] = useState(false)
   const [locateError, setLocateError] = useState(null)
+  const [locationVisible, setLocationVisible] = useState(false)
 
   // Initialize map once
   useEffect(() => {
@@ -91,7 +92,26 @@ export default function MapView({ sites, onSelect }) {
     }
   }, [sites, onSelect])
 
+  function hideLocation() {
+    if (locateMarkerRef.current) {
+      locateMarkerRef.current.remove()
+      locateMarkerRef.current = null
+    }
+    setLocationVisible(false)
+  }
+
+  // Toggle button: tap to show your location, tap again to hide it. The hide
+  // side is the pilots' own escape hatch for when their location dot sits on
+  // top of a site pin they need to tap — reported from the field: a pilot
+  // couldn't mark a site because her own location marker was covering it.
+  // This only affects this pilot's own Map tab — the Admin view's live pilot
+  // markers are separate and keep showing regardless.
   function handleLocate() {
+    if (locationVisible) {
+      hideLocation()
+      return
+    }
+
     if (!navigator.geolocation) {
       setLocateError('GPS not available')
       return
@@ -119,6 +139,7 @@ export default function MapView({ sites, onSelect }) {
         // Pan to location at a reasonable zoom
         map.setView([latitude, longitude], Math.max(map.getZoom(), 13))
         setLocating(false)
+        setLocationVisible(true)
       },
       (err) => {
         setLocating(false)
@@ -133,10 +154,10 @@ export default function MapView({ sites, onSelect }) {
     <div className="map-wrapper">
       <div ref={mapRef} className="map-container" />
       <button
-        className={`map-locate-btn${locating ? ' locating' : ''}`}
+        className={`map-locate-btn${locating ? ' locating' : ''}${locationVisible ? ' active' : ''}`}
         onClick={handleLocate}
-        title="Center on my location"
-        aria-label="Center map on my location"
+        title={locationVisible ? 'Hide my location' : 'Show my location'}
+        aria-label={locationVisible ? 'Hide my location on the map' : 'Show my location on the map'}
       >
         {locating ? (
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
