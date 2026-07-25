@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { colorForSite } from '../utils/mapColors'
+import { tileLayerFor } from '../utils/mapLayers'
 
 function makeIcon(color) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
@@ -30,11 +31,13 @@ function makeLocateDotIcon() {
 export default function MapView({ sites, onSelect }) {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
+  const tileLayerRef = useRef(null)
   const markersRef = useRef([])
   const locateMarkerRef = useRef(null)
   const [locating, setLocating] = useState(false)
   const [locateError, setLocateError] = useState(null)
   const [locationVisible, setLocationVisible] = useState(false)
+  const [satellite, setSatellite] = useState(false)
 
   // Initialize map once
   useEffect(() => {
@@ -48,11 +51,6 @@ export default function MapView({ sites, onSelect }) {
       zoomControl: true,
     })
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19,
-    }).addTo(map)
-
     mapInstance.current = map
 
     return () => {
@@ -60,6 +58,18 @@ export default function MapView({ sites, onSelect }) {
       mapInstance.current = null
     }
   }, [])
+
+  // Swap the tile layer whenever the street/satellite toggle changes (also
+  // runs once on mount to add the initial street layer).
+  useEffect(() => {
+    const L = window.L
+    const map = mapInstance.current
+    if (!map || !L) return
+
+    if (tileLayerRef.current) map.removeLayer(tileLayerRef.current)
+    const tile = tileLayerFor(satellite)
+    tileLayerRef.current = L.tileLayer(tile.url, tile.options).addTo(map)
+  }, [satellite])
 
   // Update markers when sites change
   useEffect(() => {
@@ -153,6 +163,18 @@ export default function MapView({ sites, onSelect }) {
   return (
     <div className="map-wrapper">
       <div ref={mapRef} className="map-container" />
+      <button
+        className={`map-layer-btn with-locate${satellite ? ' active' : ''}`}
+        onClick={() => setSatellite(v => !v)}
+        title={satellite ? 'Switch to street map' : 'Switch to satellite view'}
+        aria-label={satellite ? 'Switch to street map' : 'Switch to satellite view'}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="12 2 2 7 12 12 22 7 12 2" />
+          <polyline points="2 17 12 22 22 17" />
+          <polyline points="2 12 12 17 22 12" />
+        </svg>
+      </button>
       <button
         className={`map-locate-btn${locating ? ' locating' : ''}${locationVisible ? ' active' : ''}`}
         onClick={handleLocate}

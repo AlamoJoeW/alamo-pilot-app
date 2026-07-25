@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchAdminData } from '../utils/api'
 import { colorForSite, isSiteDone } from '../utils/mapColors'
+import { tileLayerFor } from '../utils/mapLayers'
 import AdminSiteDetail from './AdminSiteDetail'
 
 const PILOT_COLORS = ['#3b82f6', '#a855f7', '#14b8a6', '#f59e0b', '#ec4899', '#84cc16', '#06b6d4', '#f43f5e']
@@ -61,6 +62,7 @@ function pilotIcon(color) {
 export default function AdminView() {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
+  const tileLayerRef = useRef(null)
   const siteMarkersRef = useRef([])
   const pilotMarkersRef = useRef([])
 
@@ -71,6 +73,7 @@ export default function AdminView() {
   const [asOf, setAsOf] = useState(null)
   const [hiddenPilotIds, setHiddenPilotIds] = useState(() => new Set())
   const [markedTodayOnly, setMarkedTodayOnly] = useState(false)
+  const [satellite, setSatellite] = useState(false)
   const [mode, setMode] = useState('map') // 'map' | 'list'
   const [selectedPilotId, setSelectedPilotId] = useState(null)
   const [selectedSite, setSelectedSite] = useState(null)
@@ -108,13 +111,20 @@ export default function AdminView() {
     const L = window.L
     if (!L) return
     const map = L.map(mapRef.current, { center: [32.7767, -96.7970], zoom: 7, zoomControl: true })
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19,
-    }).addTo(map)
     mapInstance.current = map
     return () => { map.remove(); mapInstance.current = null }
   }, [])
+
+  // Swap the tile layer whenever the street/satellite toggle changes (also
+  // runs once on mount to add the initial street layer).
+  useEffect(() => {
+    const L = window.L
+    const map = mapInstance.current
+    if (!map || !L) return
+    if (tileLayerRef.current) map.removeLayer(tileLayerRef.current)
+    const tile = tileLayerFor(satellite)
+    tileLayerRef.current = L.tileLayer(tile.url, tile.options).addTo(map)
+  }, [satellite])
 
   // Redraw site markers
   useEffect(() => {
@@ -301,6 +311,18 @@ export default function AdminView() {
         style={{ display: mode === 'map' ? 'block' : 'none' }}
       >
         <div ref={mapRef} className="map-container" />
+        <button
+          className={`map-layer-btn${satellite ? ' active' : ''}`}
+          onClick={() => setSatellite(v => !v)}
+          title={satellite ? 'Switch to street map' : 'Switch to satellite view'}
+          aria-label={satellite ? 'Switch to street map' : 'Switch to satellite view'}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2" />
+            <polyline points="2 17 12 22 22 17" />
+            <polyline points="2 12 12 17 22 12" />
+          </svg>
+        </button>
       </div>
 
       {mode === 'list' && (

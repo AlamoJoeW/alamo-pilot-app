@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { fetchDailyRoute } from '../utils/api'
+import { tileLayerFor } from '../utils/mapLayers'
 
 // ââ Numbered SVG marker ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -37,10 +38,12 @@ function stopColor(stop, sites) {
 export default function RouteView({ sites = [] }) {
   const mapRef  = useRef(null)
   const mapInst = useRef(null)
+  const tileLayerRef = useRef(null)
   const layers  = useRef([])
   const [route,   setRoute]   = useState([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState('')
+  const [satellite, setSatellite] = useState(false)
 
   useEffect(() => {
     fetchDailyRoute()
@@ -53,12 +56,20 @@ export default function RouteView({ sites = [] }) {
     const L = window.L
     if (!L) return
     const map = L.map(mapRef.current, { center: [32.7767, -96.7970], zoom: 8, zoomControl: true })
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: 'Â© OpenStreetMap contributors', maxZoom: 19,
-    }).addTo(map)
     mapInst.current = map
     return () => { map.remove(); mapInst.current = null }
   }, [])
+
+  // Swap the tile layer whenever the street/satellite toggle changes (also
+  // runs once on mount to add the initial street layer).
+  useEffect(() => {
+    const L = window.L
+    const map = mapInst.current
+    if (!map || !L) return
+    if (tileLayerRef.current) map.removeLayer(tileLayerRef.current)
+    const tile = tileLayerFor(satellite)
+    tileLayerRef.current = L.tileLayer(tile.url, tile.options).addTo(map)
+  }, [satellite])
 
   useEffect(() => {
     const L = window.L, map = mapInst.current
@@ -99,7 +110,21 @@ export default function RouteView({ sites = [] }) {
 
   return (
     <div className="route-view">
-      <div ref={mapRef} className="route-map" />
+      <div className="route-map-container">
+        <div ref={mapRef} className="route-map" />
+        <button
+          className={`map-layer-btn${satellite ? ' active' : ''}`}
+          onClick={() => setSatellite(v => !v)}
+          title={satellite ? 'Switch to street map' : 'Switch to satellite view'}
+          aria-label={satellite ? 'Switch to street map' : 'Switch to satellite view'}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2" />
+            <polyline points="2 17 12 22 22 17" />
+            <polyline points="2 12 12 17 22 12" />
+          </svg>
+        </button>
+      </div>
       <div className="route-summary">
         <span>{doneCount} / {route.length} stops done</span>
         <div className="route-legend">
