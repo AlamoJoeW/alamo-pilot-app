@@ -43,7 +43,11 @@ export default async function handler(req, res) {
     try {
       const pilot = verifyToken(req)
       const today = new Date().toISOString().split('T')[0]
-      const { collectedIds = [], partialIds = [], mobIds = [], projectId, fullCount, partialCount } = req.body || {}
+      const {
+        collectedIds = [], partialIds = [], mobIds = [], reflyIds = [],
+        projectId, preflightId, fullCount, partialCount,
+        endLat, endLng, eodForm = {},
+      } = req.body || {}
 
       // Validate pilot record ID — missing ID sends [{}] to Airtable which causes a silent rejection
       if (!pilot.pilotRecordId || typeof pilot.pilotRecordId !== 'string') {
@@ -52,7 +56,7 @@ export default async function handler(req, res) {
 
       // Validate all site record IDs look like Airtable IDs
       const isValidId = id => typeof id === 'string' && id.startsWith('rec') && id.length === 17
-      const invalidIds = [...collectedIds, ...partialIds, ...mobIds].filter(id => !isValidId(id))
+      const invalidIds = [...collectedIds, ...partialIds, ...mobIds, ...reflyIds].filter(id => !isValidId(id))
       if (invalidIds.length > 0) {
         return res.status(400).json({ error: `Invalid site record ID(s): ${invalidIds.join(', ')}` })
       }
@@ -71,6 +75,9 @@ export default async function handler(req, res) {
       if (mobIds.length > 0) {
         fields[FIELDS.EOD_MOBILIZATION] = mobIds
       }
+      if (reflyIds.length > 0) {
+        fields[FIELDS.EOD_REFLYS_SITES] = reflyIds
+      }
       if (fullCount != null && !isNaN(Number(fullCount))) {
         fields[FIELDS.EOD_FULL_COUNT] = Number(fullCount)
       }
@@ -79,6 +86,39 @@ export default async function handler(req, res) {
       }
       if (projectId && isValidId(projectId)) {
         fields[FIELDS.EOD_PROJECT] = [projectId]
+      }
+      if (preflightId && isValidId(preflightId)) {
+        fields[FIELDS.EOD_PREFLIGHT] = [preflightId]
+      }
+      if (endLat != null && !isNaN(Number(endLat))) {
+        fields[FIELDS.EOD_END_LAT] = Number(endLat)
+      }
+      if (endLng != null && !isNaN(Number(endLng))) {
+        fields[FIELDS.EOD_END_LNG] = Number(endLng)
+      }
+
+      // Fields mirroring the live Airtable "End of Day Report" form's own logic
+      // (see src/components/EODReport.jsx for the matching in-app steps).
+      if (eodForm.reflightsYN) {
+        fields[FIELDS.EOD_REFLIGHTS_YN] = eodForm.reflightsYN
+      }
+      if (eodForm.reflysCount != null && !isNaN(Number(eodForm.reflysCount))) {
+        fields[FIELDS.EOD_REFLYS_COUNT] = Number(eodForm.reflysCount)
+      }
+      if (eodForm.reflysNotes) {
+        fields[FIELDS.EOD_REFLYS_NOTES] = eodForm.reflysNotes
+      }
+      if (eodForm.visitedUncollectedYN) {
+        fields[FIELDS.EOD_VISITED_UNCOLLECTED_YN] = eodForm.visitedUncollectedYN
+      }
+      if (eodForm.mobNotes) {
+        fields[FIELDS.EOD_MOB_NOTES] = eodForm.mobNotes
+      }
+      if (eodForm.generalNotes) {
+        fields[FIELDS.EOD_GENERAL_NOTES] = eodForm.generalNotes
+      }
+      if (eodForm.airdataSynced) {
+        fields[FIELDS.EOD_AIRDATA_SYNC] = eodForm.airdataSynced
       }
 
       const result = await airtablePost(TABLES.EOD_REPORTS, fields)

@@ -452,6 +452,123 @@ html, body, #root {
   font-size: 15px;
 }
 
+/* Bulk select mode */
+.select-mode-toggle {
+  margin-left: auto;
+  font-weight: 600;
+}
+
+.bulk-action-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+
+.bulk-action-count {
+  font-size: 13px;
+  color: var(--text2);
+}
+
+.bulk-action-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bulk-action-btn {
+  flex: 1;
+  min-width: 100px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bulk-action-btn:disabled { opacity: 0.5; cursor: default; }
+
+.bulk-action-message {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.site-row-wrapper {
+  border-bottom: 1px solid var(--border);
+}
+.site-row-wrapper .site-row { border-bottom: none; }
+
+.site-row-checkbox {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.site-row-selected {
+  background: var(--surface2);
+}
+
+.site-row-refly-notes {
+  font-size: 12px;
+  color: #a855f7;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-row-notes {
+  padding: 0 16px 10px 40px;
+  font-size: 12px;
+  color: var(--text2);
+  cursor: pointer;
+}
+
+.site-row-notes-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.site-row-notes-placeholder {
+  color: var(--text2);
+  opacity: 0.6;
+}
+
+.site-row-notes-editing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px 10px 16px;
+  cursor: default;
+}
+
+.site-row-notes-input {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.site-row-notes-btn {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
 /* ========================================
    Site Detail Sheet
    ======================================== */
@@ -523,6 +640,38 @@ html, body, #root {
   border-radius: 12px;
   overflow: hidden;
   margin-bottom: 16px;
+}
+
+.icon-picker {
+  margin-bottom: 16px;
+}
+
+.icon-picker-label {
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 6px;
+}
+
+.icon-picker-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.icon-picker-btn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.icon-picker-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--surface);
 }
 
 .info-row {

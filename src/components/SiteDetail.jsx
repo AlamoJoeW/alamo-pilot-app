@@ -28,7 +28,38 @@ function InfoRow({ label, value }) {
   )
 }
 
-export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingCount, canEdit }) {
+// Pin icon shapes a pilot can choose per site — a personal, per-device display
+// preference (see src/utils/db.js), not synced to Airtable. Still tinted by the
+// same status color as the default dot; see mapColors.js / MapView.jsx.
+const ICON_TYPES = [
+  { type: null,       label: 'Default' },
+  { type: 'building', label: 'Building' },
+  { type: 'tower',    label: 'Tower' },
+  { type: 'sba',      label: 'SBA' },
+  { type: 'coa',      label: 'COA' },
+  { type: 'laanc',    label: 'LAANC' },
+]
+
+function IconPicker({ value, onChange }) {
+  return (
+    <div className="icon-picker">
+      <div className="icon-picker-label">Pin icon (this device only)</div>
+      <div className="icon-picker-row">
+        {ICON_TYPES.map(opt => (
+          <button
+            key={opt.label}
+            className={`icon-picker-btn ${(value || null) === opt.type ? 'active' : ''}`}
+            onClick={() => onChange(opt.type)}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingCount, canEdit, iconPref, onIconPrefChange }) {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState('')
   const [pendingAction, setPendingAction] = useState(null) // null | 'partial' | 'mob'
@@ -132,6 +163,10 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           <div className="detail-airtable-status">
             Airtable: {site.collectionStatus}
           </div>
+        )}
+
+        {onIconPrefChange && (
+          <IconPicker value={iconPref} onChange={type => onIconPrefChange(site.id, type)} />
         )}
 
         <div className="detail-info">

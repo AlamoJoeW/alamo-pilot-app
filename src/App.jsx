@@ -6,14 +6,19 @@ import SiteList from './components/SiteList'
 import SiteDetail from './components/SiteDetail'
 import AdminView from './components/AdminView'
 import ChangePassword from './components/ChangePassword'
+import EODReport from './components/EODReport'
 import { statusBucketForSite } from './utils/mapColors'
 import {
   getPilotInfo,
   fetchSites,
   updateSite,
+  updateSitesBulk,
+  updateSiteNotes,
   logout,
   checkPreflight,
   updatePreflightLocation,
+  submitEOD,
+  fetchProjects,
 } from './utils/api'
 import {
   saveSites,
@@ -24,10 +29,18 @@ import {
   deletePendingUpdate,
   getMeta,
   clearAll,
+  getAllIconPrefs,
+  setIconPref,
 } from './utils/db'
 
-const EOD_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shriKnuzFRkspxTOE'
 const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6NBl4k'
+
+// The live Airtable EOD form requires a Project link, but that form has to serve
+// ~15 regional teams so it makes the pilot pick one. Alamo Airborne's pilots are
+// all on this one project, so we resolve it silently instead of asking — if Alamo
+// ever splits across multiple regional projects, this match will need updating
+// (or turn into a real picker).
+const EOD_PROJECT_NAME_MATCH = /central\s*\/?\s*texas/i
 
 export default function App() {
   const [pilot, setPilot] = useState(null)
@@ -44,6 +57,13 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(0)
   const [syncedAt, setSyncedAt] = useState(null)
+  const [showEOD, setShowEOD] = useState(false)
+  const [projectId, setProjectId] = useState(null)
+  // Per-device pin icon preference (building/tower/sba/coa/laanc) — local display
+  // choice only, never synced to Airtable. Lifted up here so both MapView (draws
+  // the pins) and SiteDetail (lets a pilot change one) stay in sync without a
+  // page reload.
+  const [iconPrefs, setIconPrefs] = useState({})
 
   // Preflight state
   const [preflightChecked, setPreflightChecked] = useState(false)
@@ -71,6 +91,17 @@ export default function App() {
       sync()
     }
   }, [])
+
+  // Resolve the EOD Project link once per session — see EOD_PROJECT_NAME_MATCH above.
+  useEffect(() => {
+    if (!pilot) return
+    fetchProjects()
+      .then(data => {
+        const match = (data.projects || []).find(p => EOD_PROJECT_NAME_MATCH.test(p.name))
+        if (match) setProjectId(match.id)
+      })
+      .catch(() => {})
+  }, [pilot])
 
   // Flush pending updates when coming online
   useEffect(() => {
@@ -105,6 +136,18 @@ export default function App() {
     if (at) setSyncedAt(at)
     const pending = await getPendingUpdates()
     setPendingCount(pending.length)
+    const prefs = await getAllIconPrefs()
+    setIconPrefs(prefs)
+  }
+
+  async function handleIconPrefChange(siteId, iconType) {
+    await setIconPref(siteId, iconType)
+    setIconPrefs(prev => {
+      const next = { ...prev }
+      if (iconType) next[siteId] = iconType
+      else delete next[siteId]
+      return next
+    })
   }
 
   // Check Airtable for today's preflight — called explicitly on every login event
@@ -167,7 +210,11 @@ export default function App() {
     let flushed = 0
     for (const { key, value } of pending) {
       try {
-        await updateSite(value.recordId, value.action)
+        if (value.notes !== undefined) {
+          await updateSiteNotes(value.recordId, value.notes)
+        } else {
+          await updateSite(value.recordId, value.action)
+        }
         await deletePendingUpdate(key)
         flushed++
       } catch {
@@ -219,6 +266,66 @@ export default function App() {
     }
   }, [isOnline, selectedSite])
 
+  // Bulk-select in List view — same status action applied to many sites at once.
+  // Partial/MOB access-form gating already happened in SiteList before this is
+  // called, so by the time we get here every id is meant to actually be applied.
+  const handleBulkUpdate = useCallback(async (recordIds, action) => {
+    const changes = {
+      collectedApp: action === 'collected',
+      partialCollection: action === 'partial',
+      mobFee: action === 'mob',
+    }
+    const stampedAt = new Date().toISOString()
+
+    await Promise.all(recordIds.map(id => updateSiteLocally(id, { ...changes, appStatusUpdatedAt: stampedAt })))
+    setSites(prev => prev.map(s => recordIds.includes(s.id) ? { ...s, ...changes, appStatusUpdatedAt: stampedAt } : s))
+
+    if (isOnline) {
+      try {
+        await updateSitesBulk(recordIds, action)
+      } catch (err) {
+        // Network-level failure — queue every site individually so the whole
+        // batch isn't lost, same as the single-site offline path.
+        for (const id of recordIds) {
+          await queueUpdate({ recordId: id, action })
+        }
+        setPendingCount(n => n + recordIds.length)
+      }
+    } else {
+      for (const id of recordIds) {
+        await queueUpdate({ recordId: id, action })
+      }
+      setPendingCount(n => n + recordIds.length)
+    }
+  }, [isOnline])
+
+  // Inline Notes edit from the List view.
+  const handleNotesSave = useCallback(async (recordId, notes) => {
+    await updateSiteLocally(recordId, { notes })
+    setSites(prev => prev.map(s => s.id === recordId ? { ...s, notes } : s))
+    setSelectedSite(prev => prev?.id === recordId ? { ...prev, notes } : prev)
+
+    if (isOnline) {
+      try {
+        await updateSiteNotes(recordId, notes)
+      } catch (err) {
+        await queueUpdate({ recordId, notes })
+        setPendingCount(n => n + 1)
+      }
+    } else {
+      await queueUpdate({ recordId, notes })
+      setPendingCount(n => n + 1)
+    }
+  }, [isOnline])
+
+  async function handleEODSubmit(payload) {
+    await submitEOD(payload)
+    setShowEOD(false)
+    // Re-sync so the office-side view (and this pilot's own progress bar) reflects
+    // whatever the EOD just wrote.
+    sync()
+  }
+
   function handleLogout() {
     logout()
     clearAll()
@@ -226,6 +333,7 @@ export default function App() {
     setSites([])
     setSelectedSite(null)
     setView('map')
+    setShowEOD(false)
     setPreflightChecked(false)
     setPreflightExists(false)
     setPreflightTravelDay(false)
@@ -275,6 +383,21 @@ export default function App() {
   // site status (or see Route/EOD) until preflight is submitted for today
   // and it isn't a travel day.
   const canEdit = preflightExists && !preflightTravelDay
+
+  // Full-screen EOD wizard, submitted directly from the app instead of opening
+  // the Airtable form in a new tab.
+  if (showEOD) {
+    return (
+      <EODReport
+        pilot={pilot}
+        sites={sites}
+        preflightId={preflightId}
+        projectId={projectId}
+        onSubmit={handleEODSubmit}
+        onCancel={() => setShowEOD(false)}
+      />
+    )
+  }
 
   // Map Color (office-maintained status) counts as done when it's unambiguous, so
   // sites collected/marked outside the app's own checkboxes still show as progress.
@@ -372,14 +495,18 @@ export default function App() {
 
       {/* Main content */}
       <div className="main-content">
-        {view === 'map' && <MapView sites={sites} onSelect={setSelectedSite} />}
-        {view === 'route' && (preflightExists ? <RouteView sites={sites} /> : <MapView sites={sites} onSelect={setSelectedSite} />)}
+        {view === 'map' && <MapView sites={sites} onSelect={setSelectedSite} iconPrefs={iconPrefs} />}
+        {view === 'route' && (preflightExists ? <RouteView sites={sites} /> : <MapView sites={sites} onSelect={setSelectedSite} iconPrefs={iconPrefs} />)}
         {view === 'list' && (
           <SiteList
             sites={sites}
             onSelect={setSelectedSite}
             filter={filter}
             onFilterChange={setFilter}
+            onBulkUpdate={handleBulkUpdate}
+            onNotesSave={handleNotesSave}
+            canEdit={canEdit}
+            isOnline={isOnline}
           />
         )}
         {view === 'admin' && pilot.isAdmin && <AdminView />}
@@ -388,7 +515,7 @@ export default function App() {
       {/* EOD Report button — requires preflight and not a travel day */}
       <button
         className="eod-btn"
-        onClick={() => canEdit && window.open(EOD_FORM_URL, '_blank')}
+        onClick={() => canEdit && setShowEOD(true)}
         disabled={!canEdit}
         title={!canEdit ? 'Complete preflight to submit an EOD report' : ''}
       >
@@ -404,6 +531,8 @@ export default function App() {
           isOnline={isOnline}
           pendingCount={pendingCount}
           canEdit={canEdit}
+          iconPref={iconPrefs[selectedSite.id]}
+          onIconPrefChange={handleIconPrefChange}
         />
       )}
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchAdminData } from '../utils/api'
 import { colorForSite, isSiteDone } from '../utils/mapColors'
 import { tileLayerFor } from '../utils/mapLayers'
+import { quadcopterIcon } from '../utils/mapIcons'
 import AdminSiteDetail from './AdminSiteDetail'
 
 const PILOT_COLORS = ['#3b82f6', '#a855f7', '#14b8a6', '#f59e0b', '#ec4899', '#84cc16', '#06b6d4', '#f43f5e']
@@ -46,17 +47,11 @@ function siteIcon(color) {
   })
 }
 
+// Live pilot location marker — same quadcopter shape as the pilot's own "You are
+// here" marker in MapView.jsx, tinted per-pilot via colorForPilot() so they stay
+// visually distinguishable on the admin map.
 function pilotIcon(color) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
-    <circle cx="15" cy="15" r="12" fill="${color}" fill-opacity="0.25"/>
-    <circle cx="15" cy="15" r="7" fill="${color}" stroke="white" stroke-width="2.5"/>
-  </svg>`
-  return window.L.icon({
-    iconUrl: `data:image/svg+xml;base64,${btoa(svg)}`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    popupAnchor: [0, -15],
-  })
+  return quadcopterIcon(color, 30)
 }
 
 export default function AdminView() {

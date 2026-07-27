@@ -1,0 +1,299 @@
+/* ========================================
+   Preflight Screen
+   Append this block to src/index.css
+   ======================================== */
+
+/* Full-screen container — sits above map when active */
+.preflight-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+  z-index: 300;
+  overflow: hidden;
+}
+
+/* ── Header / progress area ── */
+.pf-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 16px 12px;
+  flex-shrink: 0;
+}
+
+.pf-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pf-icon { font-size: 28px; }
+
+.pf-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.pf-subtitle {
+  font-size: 13px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+
+.pf-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.pf-progress-label {
+  font-size: 12px;
+  color: var(--text2);
+  flex-shrink: 0;
+}
+
+.pf-dots {
+  display: flex;
+  gap: 5px;
+  flex: 1;
+}
+
+.pf-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s;
+}
+.pf-dot.active { background: var(--accent); }
+.pf-dot.done   { background: var(--green); }
+
+.pf-step-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.pf-progress-track {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pf-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+  border-radius: 2px;
+  transition: width 0.35s ease;
+}
+
+/* ── Scrollable body ── */
+.pf-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 20px 16px 8px;
+}
+
+/* ── Nav buttons ── */
+.pf-nav {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + var(--safe-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.pf-btn-back {
+  flex: 0 0 auto;
+  padding: 14px 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text2);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pf-btn-next {
+  flex: 1;
+}
+
+/* ── Step content ── */
+.pf-step {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pf-step-heading {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.pf-step-desc {
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.5;
+  margin-top: -8px;
+}
+
+/* ── Field wrapper ── */
+.pf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pf-field-hint {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.4;
+  margin: -2px 0 0;
+}
+
+/* ── Select ── */
+.pf-select {
+  width: 100%;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 15px;
+  padding: 12px 14px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+  transition: border-color 0.15s;
+}
+.pf-select:focus { border-color: var(--accent); }
+
+/* ── Text input ── */
+.pf-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 15px;
+  padding: 12px 14px;
+  outline: none;
+  -webkit-appearance: none;
+  transition: border-color 0.15s;
+}
+.pf-input:focus { border-color: var(--accent); }
+.pf-input::placeholder { color: var(--text2); }
+
+/* ── Checkbox group ── */
+.pf-checkbox-group {
+  background: var(--surface2);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.pf-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+.pf-checkbox-row:last-child { border-bottom: none; }
+
+.pf-checkbox-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* Single standalone checkbox (e.g. Travel Day, Mission Overview) */
+.pf-checkbox-single {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* ── Section labels (sub-headings within a step) ── */
+.pf-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text2);
+  margin-bottom: -6px;
+}
+
+/* ── Divider between sections ── */
+.pf-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+/* ── Loading state ── */
+.pf-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 16px;
+  color: var(--text2);
+}
+
+/* ── Travel Day confirmation screen ── */
+.travel-day-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.travel-day-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.travel-day-screen h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.travel-day-screen p {
+  font-size: 15px;
+  color: var(--text2);
+  line-height: 1.5;
+  margin-bottom: 32px;
+  max-width: 280px;
+}

@@ -79,6 +79,37 @@ export async function updateSite(recordId, action) {
   return res.json()
 }
 
+// Bulk-select in List view — same action applied to many sites in one request.
+// Returns { success, results: [{ recordId, ok, error? }] } so the caller can tell
+// the pilot which sites actually went through.
+export async function updateSitesBulk(recordIds, action) {
+  const res = await fetch(`${BASE}/api/update-site`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ recordIds, action }),
+  })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || 'Bulk update failed')
+  }
+  return res.json()
+}
+
+export async function updateSiteNotes(recordId, notes) {
+  const res = await fetch(`${BASE}/api/update-site`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ recordId, notes }),
+  })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || 'Failed to save notes')
+  }
+  return res.json()
+}
+
 export async function checkAccessIssue(siteRecordId) {
   const res = await fetch(`${BASE}/api/check-access-issue?siteRecordId=${encodeURIComponent(siteRecordId)}`, {
     headers: authHeaders(),
@@ -115,19 +146,24 @@ export async function fetchEODSummary() {
   return res.json()
 }
 
-export async function submitEOD(
-  collectedIds,
-  partialIds,
-  mobIds,
-  endLat = null,
-  endLng = null,
-  preflightId = null,
-  eodForm = null
-) {
+// Takes a single payload object (matching what EODReport.jsx's onSubmit already
+// builds) rather than a long positional argument list — that list grew to 9
+// params across a couple of feature passes and positional mismatches are an
+// easy way to silently drop a field (e.g. fullCount/partialCount).
+export async function submitEOD(payload) {
+  const {
+    collectedIds, partialIds, mobIds, reflyIds = [],
+    endLat = null, endLng = null, preflightId = null, projectId = null,
+    fullCount, partialCount, eodForm = null,
+  } = payload
   const res = await fetch(`${BASE}/api/submit-eod`, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ collectedIds, partialIds, mobIds, endLat, endLng, preflightId, eodForm }),
+    body: JSON.stringify({
+      collectedIds, partialIds, mobIds, reflyIds,
+      endLat, endLng, preflightId, projectId,
+      fullCount, partialCount, eodForm,
+    }),
   })
   if (!res.ok) {
     if (res.status === 401) throw new Error('AUTH_EXPIRED')

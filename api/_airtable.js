@@ -44,6 +44,10 @@ export const FIELDS = {
   COLLECTED_APP:        'fldNK7WyoeYeDhgE6',
   COA:                  'fld2N9NqZJLUBUp9U',
   APP_STATUS_SET_AT:    'fldBIOnu0qAMwzrCk', // dateTime, stamped by update-site.js — drives the 24h pin color override
+  NOTES:                'fld1nnUo9UIBHxLct', // single-line text — pilot-editable freeform notes (field description mentions an unrelated date calc; per Joe, that's stale/meaningless — field is used as plain notes)
+  REFLY_NOTES:          'fldfUVeri43DvQACa', // AI-generated text — why this site needs a reflight
+  REFLY:                'fldozaucwq5gpZsun', // checkbox
+  REFLY_COMPLETED:      'fldhJKccNPreDZQsh', // checkbox
 
   // EOD Reports
   EOD_DATE:             'fldHhWbzHpjzQIQ3n',
@@ -54,6 +58,17 @@ export const FIELDS = {
   EOD_FULL_COUNT:       'fldpCI0Ma5rrmX9MC',
   EOD_PARTIAL_COUNT:    'fld2CPBKoJiPbjKPn',
   EOD_PROJECT:          'fldvdVxx1eamdRkyM',
+  EOD_PREFLIGHT:        'flddNoMMCCEfwxmvZ', // link to today's Preflight risk assessment record
+  EOD_REFLIGHTS_YN:     'fldty8tlL12IOged6', // "WERE ANY REFLIGHT'S COMPLETED TODAY?" single select Yes/No
+  EOD_REFLYS_COUNT:     'fldvlsjM1BherNFWq', // "RE-FLYS COLLECTED" number
+  EOD_REFLYS_SITES:     'fldPNf8lBxy6unyh1', // linked Collection Assets records that were re-flown
+  EOD_REFLYS_NOTES:     'fld9dVIu04p2d094c', // "Notes for any Re-flys that were done today."
+  EOD_VISITED_UNCOLLECTED_YN: 'fldx5VsZz3LAOjq0N', // "Did you visit a site that you could not collect today?" (mobilization fee gate)
+  EOD_MOB_NOTES:        'fldMndVtYGze162HX', // "Notes for mobilization fee sites"
+  EOD_GENERAL_NOTES:    'fldkzk2QgquNVVUIC', // "General Notes"
+  EOD_AIRDATA_SYNC:     'fld6TQrHMgoz8Uq4K', // "ARE YOUR FLIGHT LOGS FOR TODAY SYNCED IN AIRDATA?"
+  EOD_END_LAT:          'fldsXSAqo2HCvDqzg',
+  EOD_END_LNG:          'fldAl7s8VeN3UWQtE',
 }
 
 // All site fields to fetch for the app
@@ -67,6 +82,7 @@ export const SITE_FIELDS = Object.values(FIELDS).filter(id =>
     'fldBRvkT3ZwBIJS05', 'fldvZjxOCRfcT055V', 'fldd8KeiQAeFXc2cR',
     'fldOTBMryx9tr8hSf', 'fldZDb14q18VOR2De', 'fldcD4EwDU5HkDFua',
     'fldNK7WyoeYeDhgE6', 'fld2N9NqZJLUBUp9U', 'fldBIOnu0qAMwzrCk',
+    'fld1nnUo9UIBHxLct', 'fldfUVeri43DvQACa', 'fldozaucwq5gpZsun', 'fldhJKccNPreDZQsh',
   ].includes(id)
 )
 

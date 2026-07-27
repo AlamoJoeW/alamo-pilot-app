@@ -69,6 +69,13 @@ export default async function handler(req, res) {
       collectedApp:        r.fields[FIELDS.COLLECTED_APP]        || false,
       coaAttachments:      r.fields[FIELDS.COA]                  || [],
       appStatusUpdatedAt:  r.fields[FIELDS.APP_STATUS_SET_AT]    || null,
+      notes:               r.fields[FIELDS.NOTES]                || '',
+      // AI-generated text fields come back as { value, isStale, ... } rather than a plain string
+      reflyNotes:          (r.fields[FIELDS.REFLY_NOTES] && typeof r.fields[FIELDS.REFLY_NOTES] === 'object')
+                              ? (r.fields[FIELDS.REFLY_NOTES].value || '')
+                              : (r.fields[FIELDS.REFLY_NOTES] || ''),
+      refly:               r.fields[FIELDS.REFLY]                || false,
+      reflyCompleted:      r.fields[FIELDS.REFLY_COMPLETED]      || false,
     }))
 
     return res.json({ sites, syncedAt: new Date().toISOString() })

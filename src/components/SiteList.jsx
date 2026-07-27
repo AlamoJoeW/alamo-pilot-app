@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { statusBucketForSite } from '../utils/mapColors'
+import { checkAccessIssue } from '../utils/api'
 
 const STATUS_COLORS = {
   collected: '#22c55e',
@@ -21,7 +23,70 @@ function statusLabel(s) {
   return 'Pending'
 }
 
-export default function SiteList({ sites, onSelect, filter, onFilterChange }) {
+// A site counts as "needs a reflight" from either signal — the office-set REFLY
+// checkbox, or the Map Color already flagging it (mapColors.js treats both Refly
+// values as "not done" regardless of stale Collected(App) checkboxes).
+function isReflySite(site) {
+  return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
+}
+
+const BULK_ACTIONS = [
+  { action: 'collected', label: 'Mark Collected' },
+  { action: 'partial', label: 'Mark Partial' },
+  { action: 'mob', label: 'Mark MOB Fee' },
+]
+
+function NotesRow({ site, onSave }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(site.notes || '')
+  const [saving, setSaving] = useState(false)
+
+  if (!editing) {
+    return (
+      <div
+        className="site-row-notes"
+        onClick={e => { e.stopPropagation(); setValue(site.notes || ''); setEditing(true) }}
+      >
+        {site.notes
+          ? <span className="site-row-notes-text">📝 {site.notes}</span>
+          : <span className="site-row-notes-placeholder">+ Add note</span>}
+      </div>
+    )
+  }
+
+  async function save() {
+    setSaving(true)
+    try {
+      await onSave(site.id, value.trim())
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="site-row-notes site-row-notes-editing" onClick={e => e.stopPropagation()}>
+      <input
+        className="site-row-notes-input"
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        placeholder="Add a note for this site…"
+        autoFocus
+        disabled={saving}
+        onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
+      />
+      <button className="site-row-notes-btn" onClick={save} disabled={saving}>{saving ? '…' : '✓'}</button>
+      <button className="site-row-notes-btn" onClick={() => setEditing(false)} disabled={saving}>✕</button>
+    </div>
+  )
+}
+
+export default function SiteList({ sites, onSelect, filter, onFilterChange, onBulkUpdate, onNotesSave, canEdit, isOnline }) {
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkMessage, setBulkMessage] = useState('')
+
   const filtered = sites.filter(s => {
     if (filter === 'all') return true
     return getSiteStatus(s) === filter
@@ -33,6 +98,80 @@ export default function SiteList({ sites, onSelect, filter, onFilterChange }) {
     collected: sites.filter(s => getSiteStatus(s) === 'collected').length,
     partial: sites.filter(s => getSiteStatus(s) === 'partial').length,
     mob: sites.filter(s => getSiteStatus(s) === 'mob').length,
+  }
+
+  function toggleSelectMode() {
+    setSelectMode(v => !v)
+    setSelectedIds(new Set())
+    setBulkMessage('')
+  }
+
+  function toggleSelected(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function handleRowClick(site) {
+    if (selectMode) {
+      toggleSelected(site.id)
+    } else {
+      onSelect(site)
+    }
+  }
+
+  async function runBulkAction(action) {
+    if (bulkBusy || selectedIds.size === 0 || !onBulkUpdate) return
+
+    if ((action === 'partial' || action === 'mob') && !isOnline) {
+      setBulkMessage('Must be online to submit Partial or MOB Fee')
+      return
+    }
+
+    setBulkBusy(true)
+    setBulkMessage('')
+    try {
+      const ids = Array.from(selectedIds)
+      let eligibleIds = ids
+      let blockedCount = 0
+
+      // Partial/MOB only bulk-apply to sites that already have an access form on
+      // file — same rule as the single-site flow in SiteDetail, just checked for
+      // every selected site up front instead of one at a time.
+      if (action === 'partial' || action === 'mob') {
+        const checks = await Promise.all(ids.map(async id => {
+          try {
+            const result = await checkAccessIssue(id)
+            return { id, exists: !!result.exists }
+          } catch {
+            return { id, exists: false }
+          }
+        }))
+        eligibleIds = checks.filter(c => c.exists).map(c => c.id)
+        blockedCount = checks.length - eligibleIds.length
+      }
+
+      if (eligibleIds.length > 0) {
+        await onBulkUpdate(eligibleIds, action)
+      }
+
+      const label = BULK_ACTIONS.find(a => a.action === action)?.label || action
+      if (blockedCount > 0) {
+        setBulkMessage(`${eligibleIds.length} marked. ${blockedCount} still need the access form submitted first.`)
+      } else if (eligibleIds.length > 0) {
+        setBulkMessage(`${eligibleIds.length} site${eligibleIds.length !== 1 ? 's' : ''} ${label.toLowerCase()}.`)
+      } else {
+        setBulkMessage('No sites updated — access form required for Partial/MOB Fee.')
+      }
+      setSelectedIds(new Set(eligibleIds.length === ids.length ? [] : ids.filter(id => !eligibleIds.includes(id))))
+    } catch (err) {
+      setBulkMessage('Error: ' + (err.message || 'Bulk update failed'))
+    } finally {
+      setBulkBusy(false)
+    }
   }
 
   return (
@@ -54,7 +193,35 @@ export default function SiteList({ sites, onSelect, filter, onFilterChange }) {
             {f.label}
           </button>
         ))}
+        {canEdit && (
+          <button
+            className={`filter-tab select-mode-toggle ${selectMode ? 'active' : ''}`}
+            onClick={toggleSelectMode}
+            title="Select multiple sites to mark at once"
+          >
+            {selectMode ? 'Cancel' : 'Select'}
+          </button>
+        )}
       </div>
+
+      {selectMode && (
+        <div className="bulk-action-bar">
+          <span className="bulk-action-count">{selectedIds.size} selected</span>
+          <div className="bulk-action-btns">
+            {BULK_ACTIONS.map(a => (
+              <button
+                key={a.action}
+                className="bulk-action-btn"
+                onClick={() => runBulkAction(a.action)}
+                disabled={bulkBusy || selectedIds.size === 0}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+          {bulkMessage && <div className="bulk-action-message">{bulkMessage}</div>}
+        </div>
+      )}
 
       {/* Site rows */}
       <div className="site-list">
@@ -63,24 +230,45 @@ export default function SiteList({ sites, onSelect, filter, onFilterChange }) {
         )}
         {filtered.map(site => {
           const s = getSiteStatus(site)
+          const refly = isReflySite(site)
           return (
-            <div key={site.id} className="site-row" onClick={() => onSelect(site)}>
+            <div key={site.id} className="site-row-wrapper">
               <div
-                className="status-dot"
-                style={{ background: STATUS_COLORS[s] }}
-              />
-              <div className="site-row-info">
-                <div className="site-row-id">{site.siteId || '—'}</div>
-                <div className="site-row-sub">
-                  FUZE: {site.fuzeId || '—'} · {site.city || site.state || site.subProject || '—'}
+                className={`site-row ${selectMode && selectedIds.has(site.id) ? 'site-row-selected' : ''}`}
+                onClick={() => handleRowClick(site)}
+              >
+                {selectMode && (
+                  <input
+                    type="checkbox"
+                    className="site-row-checkbox"
+                    checked={selectedIds.has(site.id)}
+                    onChange={() => toggleSelected(site.id)}
+                    onClick={e => e.stopPropagation()}
+                  />
+                )}
+                <div
+                  className="status-dot"
+                  style={{ background: STATUS_COLORS[s] }}
+                />
+                <div className="site-row-info">
+                  <div className="site-row-id">{site.siteId || '—'}</div>
+                  <div className="site-row-sub">
+                    FUZE: {site.fuzeId || '—'} · {site.city || site.state || site.subProject || '—'}
+                  </div>
+                  {refly && site.reflyNotes && (
+                    <div className="site-row-refly-notes">🔁 {site.reflyNotes}</div>
+                  )}
+                </div>
+                <div
+                  className="site-row-status"
+                  style={{ color: STATUS_COLORS[s] }}
+                >
+                  {statusLabel(s)}
                 </div>
               </div>
-              <div
-                className="site-row-status"
-                style={{ color: STATUS_COLORS[s] }}
-              >
-                {statusLabel(s)}
-              </div>
+              {!selectMode && onNotesSave && (
+                <NotesRow site={site} onSave={onNotesSave} />
+              )}
             </div>
           )
         })}

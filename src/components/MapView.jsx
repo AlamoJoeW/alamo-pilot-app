@@ -1,34 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { colorForSite } from '../utils/mapColors'
 import { tileLayerFor } from '../utils/mapLayers'
+import { makeSiteIcon, quadcopterIcon } from '../utils/mapIcons'
 
-function makeIcon(color) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="2"/>
-  </svg>`
-  const url = `data:image/svg+xml;base64,${btoa(svg)}`
-  return window.L.icon({
-    iconUrl: url,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -12],
-  })
+// A site is flagged "refly" from either the office REFLY checkbox or the Map
+// Color already saying so (see mapColors.js MAP_COLOR_NOT_DONE) — same check
+// used in SiteList.jsx.
+function isReflySite(site) {
+  return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
 }
 
-function makeLocateDotIcon() {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="8" fill="#3b82f6" stroke="white" stroke-width="3"/>
-    <circle cx="12" cy="12" r="12" fill="#3b82f6" fill-opacity="0.2"/>
-  </svg>`
-  const url = `data:image/svg+xml;base64,${btoa(svg)}`
-  return window.L.icon({
-    iconUrl: url,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-  })
-}
-
-export default function MapView({ sites, onSelect }) {
+export default function MapView({ sites, onSelect, iconPrefs = {} }) {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
   const tileLayerRef = useRef(null)
@@ -84,11 +66,14 @@ export default function MapView({ sites, onSelect }) {
 
     mapped.forEach(site => {
       const color = colorForSite(site)
-      const marker = L.marker([site.lat, site.lng], { icon: makeIcon(color) })
+      const marker = L.marker([site.lat, site.lng], { icon: makeSiteIcon(color, iconPrefs[site.id]) })
 
       marker.on('click', () => onSelect(site))
+      const reflyLine = isReflySite(site) && site.reflyNotes
+        ? `<br><em>Refly: ${site.reflyNotes}</em>`
+        : ''
       marker.bindTooltip(
-        `<strong>${site.siteId || 'Site'}</strong><br>FUZE: ${site.fuzeId || '—'}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}`,
+        `<strong>${site.siteId || 'Site'}</strong><br>FUZE: ${site.fuzeId || '—'}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}${reflyLine}`,
         { direction: 'top', offset: [0, -8] }
       )
 
@@ -100,7 +85,7 @@ export default function MapView({ sites, onSelect }) {
       const bounds = L.latLngBounds(mapped.map(s => [s.lat, s.lng]))
       map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 })
     }
-  }, [sites, onSelect])
+  }, [sites, onSelect, iconPrefs])
 
   function hideLocation() {
     if (locateMarkerRef.current) {
@@ -140,8 +125,8 @@ export default function MapView({ sites, onSelect }) {
           locateMarkerRef.current.remove()
         }
 
-        // Place blue dot at current location
-        const marker = L.marker([latitude, longitude], { icon: makeLocateDotIcon(), zIndexOffset: 1000 })
+        // Place quadcopter marker at current location
+        const marker = L.marker([latitude, longitude], { icon: quadcopterIcon('#3b82f6'), zIndexOffset: 1000 })
         marker.bindTooltip('You are here', { permanent: false, direction: 'top', offset: [0, -8] })
         marker.addTo(map)
         locateMarkerRef.current = marker
