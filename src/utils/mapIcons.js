@@ -36,9 +36,32 @@ export function siteIconSvg(color, iconType) {
         <rect x="7" y="12" width="3" height="3" fill="white"/>
         <rect x="14" y="12" width="3" height="3" fill="white"/>
         <rect x="9.5" y="17" width="5" height="5" fill="white"/>`
-    case 'tower':
-      return `<polygon points="12,2 17,22 13.5,22 12,12 10.5,22 7,22" fill="${color}" stroke="white" stroke-width="1.5"/>
-        <line x1="8.5" y1="14" x2="15.5" y2="14" stroke="white" stroke-width="1"/>`
+    case 'tower': {
+      // Lattice/self-support tower silhouette — tapering truss legs with
+      // X-bracing at three levels, topped with a small aviation beacon light
+      // (matches real-world "Self Support (Lattice Tower)" structure types).
+      // Each segment is drawn twice: a white halo first for contrast against
+      // any map tile color, then the status color on top — same visual
+      // weight as the filled+white-outline building/SBA/COA/LAANC icons.
+      const segments = [
+        [4, 22, 10, 2, 2],          // left leg
+        [20, 22, 14, 2, 2],         // right leg
+        [6.2, 16, 17.8, 16, 1.4],   // lower cross bar
+        [7.6, 10.5, 16.4, 10.5, 1.4], // upper cross bar
+        [10, 2, 14, 2, 1.4],        // top bar
+        [4, 22, 17.8, 16, 0.9],     // brace ↗
+        [20, 22, 6.2, 16, 0.9],     // brace ↖
+        [6.2, 16, 16.4, 10.5, 0.9], // brace ↗
+        [17.8, 16, 7.6, 10.5, 0.9], // brace ↖
+        [7.6, 10.5, 14, 2, 0.9],    // brace ↗
+        [16.4, 10.5, 10, 2, 0.9],   // brace ↖
+      ]
+      const line = (x1, y1, x2, y2, w, stroke) =>
+        `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round"/>`
+      const halo = segments.map(([x1, y1, x2, y2, w]) => line(x1, y1, x2, y2, w + 1.6, 'white')).join('')
+      const truss = segments.map(([x1, y1, x2, y2, w]) => line(x1, y1, x2, y2, w, color)).join('')
+      return `${halo}${truss}<circle cx="12" cy="1" r="1.3" fill="white" stroke="${color}" stroke-width="1"/>`
+    }
     case 'sba':
     case 'coa':
     case 'laanc':
