@@ -60,7 +60,65 @@ function IconPicker({ value, onChange }) {
   )
 }
 
-export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingCount, canEdit, onPinIconChange }) {
+// Freeform Notes editor for the detail sheet — same field/save path as the
+// List view's inline note button (App.jsx handleNotesSave -> api/update-site.js
+// Notes shape), just shown here too since this sheet opens from both Map and
+// List taps and Joe wants Notes visible/editable wherever a site is opened.
+function NotesEditor({ site, onSave }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(site.notes || '')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setValue(site.notes || '')
+  }, [site.id, site.notes])
+
+  if (!editing) {
+    return (
+      <div className="detail-notes">
+        <div className="detail-notes-label">Notes</div>
+        <button
+          type="button"
+          className={`detail-notes-view ${site.notes ? 'has-note' : ''}`}
+          onClick={() => { setValue(site.notes || ''); setEditing(true) }}
+        >
+          {site.notes || <span className="detail-notes-placeholder">Tap to add a note…</span>}
+        </button>
+      </div>
+    )
+  }
+
+  async function save() {
+    setSaving(true)
+    try {
+      await onSave(site.id, value.trim())
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="detail-notes">
+      <div className="detail-notes-label">Notes</div>
+      <textarea
+        className="detail-notes-textarea"
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        placeholder="Add a note for this site…"
+        autoFocus
+        disabled={saving}
+        rows={3}
+      />
+      <div className="detail-notes-btns">
+        <button className="btn-check-again" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+        <button className="btn-cancel-pending" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
+export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingCount, canEdit, onPinIconChange, onNotesSave }) {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState('')
   const [pendingAction, setPendingAction] = useState(null) // null | 'partial' | 'mob'
@@ -168,6 +226,10 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
 
         {onPinIconChange && (
           <IconPicker value={site.pinIcon} onChange={type => onPinIconChange(site.id, type)} />
+        )}
+
+        {onNotesSave && (
+          <NotesEditor site={site} onSave={onNotesSave} />
         )}
 
         <div className="detail-info">

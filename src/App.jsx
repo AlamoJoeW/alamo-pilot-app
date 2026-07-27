@@ -537,6 +537,7 @@ export default function App() {
           pendingCount={pendingCount}
           canEdit={canEdit}
           onPinIconChange={handlePinIconChange}
+          onNotesSave={handleNotesSave}
         />
       )}
 
