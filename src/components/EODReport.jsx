@@ -357,15 +357,31 @@ const INITIAL_FORM = {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+// A site's Collected/Partial/MOB checkbox can have been true for months —
+// set by the old Airtable form, a legacy data import, or a prior day's app
+// action — and would stay true forever with nothing to distinguish it from
+// something the pilot actually did today. api/update-site.js stamps
+// APP_STATUS_SET_AT every time a status action goes through the app (single
+// or bulk), so "today" is the one signal that actually means "today." Same
+// calendar-day check as AdminView.jsx's isMarkedToday.
+function isMarkedToday(site) {
+  if (!site.appStatusUpdatedAt) return false
+  const d = new Date(site.appStatusUpdatedAt)
+  const now = new Date()
+  return d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+}
+
 export default function EODReport({ pilot, sites, preflightId, projectId, onSubmit, onCancel }) {
   const [form, setFormState] = useState(INITIAL_FORM)
   const [stepIndex, setStepIndex] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const collected = sites.filter(s => s.collectedApp)
-  const partial   = sites.filter(s => s.partialCollection)
-  const mob       = sites.filter(s => s.mobFee)
+  const collected = sites.filter(s => s.collectedApp && isMarkedToday(s))
+  const partial   = sites.filter(s => s.partialCollection && isMarkedToday(s))
+  const mob       = sites.filter(s => s.mobFee && isMarkedToday(s))
 
   function setField(key, val) {
     setFormState(prev => ({ ...prev, [key]: val }))
