@@ -1700,6 +1700,8 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -1710,6 +1712,8 @@ html, body, #root {
   font-weight: 700;
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
+  row-gap: 6px;
   gap: 8px;
 }
 
