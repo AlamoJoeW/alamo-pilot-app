@@ -110,6 +110,22 @@ export async function updateSiteNotes(recordId, notes) {
   return res.json()
 }
 
+// Pin icon shape (Building/Tower/SBA/COA/LAANC as lowercase type strings, or
+// null to clear) — synced field, visible in both the pilot map and Admin view.
+export async function updateSitePinIcon(recordId, pinIcon) {
+  const res = await fetch(`${BASE}/api/update-site`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ recordId, pinIcon }),
+  })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || 'Failed to save pin icon')
+  }
+  return res.json()
+}
+
 export async function checkAccessIssue(siteRecordId) {
   const res = await fetch(`${BASE}/api/check-access-issue?siteRecordId=${encodeURIComponent(siteRecordId)}`, {
     headers: authHeaders(),

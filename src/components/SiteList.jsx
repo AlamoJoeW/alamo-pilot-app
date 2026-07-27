@@ -43,14 +43,16 @@ function NotesRow({ site, onSave }) {
 
   if (!editing) {
     return (
-      <div
-        className="site-row-notes"
+      <button
+        type="button"
+        className={`site-row-notes-btn-full ${site.notes ? 'has-note' : ''}`}
         onClick={e => { e.stopPropagation(); setValue(site.notes || ''); setEditing(true) }}
       >
+        <span className="site-row-notes-icon">✏️</span>
         {site.notes
-          ? <span className="site-row-notes-text">📝 {site.notes}</span>
-          : <span className="site-row-notes-placeholder">+ Add note</span>}
-      </div>
+          ? <span className="site-row-notes-text">{site.notes}</span>
+          : <span className="site-row-notes-placeholder">Add note</span>}
+      </button>
     )
   }
 

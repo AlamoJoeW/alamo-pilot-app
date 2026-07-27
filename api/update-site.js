@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { airtablePatch, TABLES, FIELDS } from './_airtable.js'
+import { airtablePatch, TABLES, FIELDS, PIN_ICON_APP_TO_AIRTABLE } from './_airtable.js'
 
 function verifyToken(req) {
   const auth = req.headers.authorization || ''
@@ -35,6 +35,9 @@ const isValidId = id => typeof id === 'string' && id.startsWith('rec') && id.len
  *     Returns { success: true, results: [{ recordId, ok, error? }, ...] }.
  *  3. { recordId, notes }                — freeform Notes text write. Does NOT touch
  *     the status checkboxes or the APP_STATUS_SET_AT pin-color timestamp.
+ *  4. { recordId, pinIcon }              — pin icon shape write (Building/Tower/SBA/
+ *     COA/LAANC as the app's lowercase type strings, or null to clear). Synced to the
+ *     shared "App Pin Icon" field — visible in both the pilot map and Admin view.
  *
  * Does NOT create or modify any EOD_REPORTS records.
  */
@@ -49,7 +52,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  const { recordId, recordIds, action, notes } = req.body || {}
+  const { recordId, recordIds, action, notes, pinIcon } = req.body || {}
 
   // Shape 3 — Notes edit
   if (notes !== undefined) {
@@ -65,6 +68,25 @@ export default async function handler(req, res) {
     } catch (err) {
       console.error('update-site notes error:', err)
       return res.status(500).json({ error: err.message || 'Failed to save notes' })
+    }
+  }
+
+  // Shape 4 — Pin icon edit
+  if (pinIcon !== undefined) {
+    if (!recordId || !isValidId(recordId)) {
+      return res.status(400).json({ error: 'recordId is required' })
+    }
+    if (pinIcon !== null && !PIN_ICON_APP_TO_AIRTABLE[pinIcon]) {
+      return res.status(400).json({ error: `pinIcon must be one of: ${Object.keys(PIN_ICON_APP_TO_AIRTABLE).join(', ')}, or null` })
+    }
+    try {
+      await airtablePatch(TABLES.COLLECTION_ASSETS, recordId, {
+        [FIELDS.PIN_ICON]: pinIcon === null ? null : PIN_ICON_APP_TO_AIRTABLE[pinIcon],
+      })
+      return res.json({ success: true })
+    } catch (err) {
+      console.error('update-site pinIcon error:', err)
+      return res.status(500).json({ error: err.message || 'Failed to save pin icon' })
     }
   }
 

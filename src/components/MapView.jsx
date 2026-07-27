@@ -10,7 +10,7 @@ function isReflySite(site) {
   return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
 }
 
-export default function MapView({ sites, onSelect, iconPrefs = {} }) {
+export default function MapView({ sites, onSelect }) {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
   const tileLayerRef = useRef(null)
@@ -66,7 +66,7 @@ export default function MapView({ sites, onSelect, iconPrefs = {} }) {
 
     mapped.forEach(site => {
       const color = colorForSite(site)
-      const marker = L.marker([site.lat, site.lng], { icon: makeSiteIcon(color, iconPrefs[site.id]) })
+      const marker = L.marker([site.lat, site.lng], { icon: makeSiteIcon(color, site.pinIcon) })
 
       marker.on('click', () => onSelect(site))
       const reflyLine = isReflySite(site) && site.reflyNotes
@@ -85,7 +85,7 @@ export default function MapView({ sites, onSelect, iconPrefs = {} }) {
       const bounds = L.latLngBounds(mapped.map(s => [s.lat, s.lng]))
       map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 })
     }
-  }, [sites, onSelect, iconPrefs])
+  }, [sites, onSelect])
 
   function hideLocation() {
     if (locateMarkerRef.current) {

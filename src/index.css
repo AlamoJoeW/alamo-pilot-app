@@ -538,7 +538,34 @@ html, body, #root {
 
 .site-row-notes-placeholder {
   color: var(--text2);
-  opacity: 0.6;
+}
+
+/* Always-visible, clearly-clickable Notes control — was previously dim
+   placeholder text easy to miss below the row; now a real button with a
+   border and icon so it reads as an interactive element at a glance. */
+.site-row-notes-btn-full {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  width: calc(100% - 32px);
+  margin: 0 16px 10px 40px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text2);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.site-row-notes-btn-full.has-note {
+  border-style: solid;
+  background: var(--surface2);
+  color: var(--text);
+}
+.site-row-notes-icon {
+  flex-shrink: 0;
+  line-height: 1.4;
 }
 
 .site-row-notes-editing {

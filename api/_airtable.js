@@ -48,6 +48,7 @@ export const FIELDS = {
   REFLY_NOTES:          'fldfUVeri43DvQACa', // AI-generated text — why this site needs a reflight
   REFLY:                'fldozaucwq5gpZsun', // checkbox
   REFLY_COMPLETED:      'fldhJKccNPreDZQsh', // checkbox
+  PIN_ICON:             'fldYV0oHpkm43kwLd', // single select: Building/Tower/SBA/COA/LAANC — set from SiteDetail's icon picker, shown on both pilot map and Admin
 
   // EOD Reports
   EOD_DATE:             'fldHhWbzHpjzQIQ3n',
@@ -83,8 +84,20 @@ export const SITE_FIELDS = Object.values(FIELDS).filter(id =>
     'fldOTBMryx9tr8hSf', 'fldZDb14q18VOR2De', 'fldcD4EwDU5HkDFua',
     'fldNK7WyoeYeDhgE6', 'fld2N9NqZJLUBUp9U', 'fldBIOnu0qAMwzrCk',
     'fld1nnUo9UIBHxLct', 'fldfUVeri43DvQACa', 'fldozaucwq5gpZsun', 'fldhJKccNPreDZQsh',
+    'fldYV0oHpkm43kwLd',
   ].includes(id)
 )
+
+// Pin icon shape names as stored in Airtable (singleSelect choices) vs. the
+// lowercase type strings used throughout the app's icon-drawing code
+// (src/utils/mapIcons.js, SiteDetail.jsx's ICON_TYPES). Kept as an explicit
+// map rather than a case transform since SBA/COA/LAANC are acronyms.
+export const PIN_ICON_AIRTABLE_TO_APP = {
+  Building: 'building', Tower: 'tower', SBA: 'sba', COA: 'coa', LAANC: 'laanc',
+}
+export const PIN_ICON_APP_TO_AIRTABLE = {
+  building: 'Building', tower: 'Tower', sba: 'SBA', coa: 'COA', laanc: 'LAANC',
+}
 
 export async function airtableGet(table, params = {}) {
   const qs = new URLSearchParams()

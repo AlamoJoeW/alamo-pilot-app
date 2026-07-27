@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { BASE_ID, API_KEY, TABLES, FIELDS, SITE_FIELDS } from './_airtable.js'
+import { BASE_ID, API_KEY, TABLES, FIELDS, SITE_FIELDS, PIN_ICON_AIRTABLE_TO_APP } from './_airtable.js'
 
 const VIEW_NAME = 'Verizon vHive All for KMLs'
 
@@ -76,6 +76,7 @@ export default async function handler(req, res) {
                               : (r.fields[FIELDS.REFLY_NOTES] || ''),
       refly:               r.fields[FIELDS.REFLY]                || false,
       reflyCompleted:      r.fields[FIELDS.REFLY_COMPLETED]      || false,
+      pinIcon:             PIN_ICON_AIRTABLE_TO_APP[r.fields[FIELDS.PIN_ICON]] || null,
     }))
 
     return res.json({ sites, syncedAt: new Date().toISOString() })

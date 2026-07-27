@@ -23,9 +23,10 @@ export function quadcopterIcon(color, size = 30) {
   })
 }
 
-// Site pin shapes a pilot can pick per-site from SiteDetail's icon picker
-// (src/utils/db.js `iconPrefs`, local-only). Still tinted by the site's status
-// color — the shape is an extra display dimension, not a replacement for it.
+// Site pin shapes a pilot can pick per-site from SiteDetail's icon picker,
+// synced via the Airtable "App Pin Icon" field (api/_airtable.js FIELDS.PIN_ICON).
+// Still tinted by the site's status color — the shape is an extra display
+// dimension, not a replacement for it.
 export function siteIconSvg(color, iconType) {
   switch (iconType) {
     case 'building':

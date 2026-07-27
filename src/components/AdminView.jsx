@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchAdminData } from '../utils/api'
 import { colorForSite, isSiteDone } from '../utils/mapColors'
 import { tileLayerFor } from '../utils/mapLayers'
-import { quadcopterIcon } from '../utils/mapIcons'
+import { quadcopterIcon, makeSiteIcon } from '../utils/mapIcons'
 import AdminSiteDetail from './AdminSiteDetail'
 
 const PILOT_COLORS = ['#3b82f6', '#a855f7', '#14b8a6', '#f59e0b', '#ec4899', '#84cc16', '#06b6d4', '#f43f5e']
@@ -35,16 +35,10 @@ function isMarkedToday(site) {
     d.getDate() === now.getDate()
 }
 
-function siteIcon(color) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="9" fill="${color}" stroke="white" stroke-width="2"/>
-  </svg>`
-  return window.L.icon({
-    iconUrl: `data:image/svg+xml;base64,${btoa(svg)}`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-    popupAnchor: [0, -9],
-  })
+// Site marker — same shape-per-icon-type as the pilot's own map (utils/mapIcons.js),
+// since the "App Pin Icon" field a pilot sets in SiteDetail is now synced, not local.
+function siteIcon(color, pinIcon) {
+  return makeSiteIcon(color, pinIcon, 18)
 }
 
 // Live pilot location marker — same quadcopter shape as the pilot's own "You are
@@ -139,7 +133,7 @@ export default function AdminView() {
     })
     mapped.forEach(site => {
       const color = colorForSite(site)
-      const marker = L.marker([site.lat, site.lng], { icon: siteIcon(color) })
+      const marker = L.marker([site.lat, site.lng], { icon: siteIcon(color, site.pinIcon) })
       const pilotNames = (site.pilotNames || []).join(', ') || 'Unassigned'
       marker.bindTooltip(
         `<strong>${site.siteId || 'Site'}</strong><br>Pilot: ${pilotNames}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}`,

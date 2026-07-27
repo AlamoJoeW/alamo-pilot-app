@@ -14,6 +14,7 @@ import {
   updateSite,
   updateSitesBulk,
   updateSiteNotes,
+  updateSitePinIcon,
   logout,
   checkPreflight,
   updatePreflightLocation,
@@ -29,8 +30,6 @@ import {
   deletePendingUpdate,
   getMeta,
   clearAll,
-  getAllIconPrefs,
-  setIconPref,
 } from './utils/db'
 
 const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6NBl4k'
@@ -59,11 +58,6 @@ export default function App() {
   const [syncedAt, setSyncedAt] = useState(null)
   const [showEOD, setShowEOD] = useState(false)
   const [projectId, setProjectId] = useState(null)
-  // Per-device pin icon preference (building/tower/sba/coa/laanc) — local display
-  // choice only, never synced to Airtable. Lifted up here so both MapView (draws
-  // the pins) and SiteDetail (lets a pilot change one) stay in sync without a
-  // page reload.
-  const [iconPrefs, setIconPrefs] = useState({})
 
   // Preflight state
   const [preflightChecked, setPreflightChecked] = useState(false)
@@ -136,19 +130,28 @@ export default function App() {
     if (at) setSyncedAt(at)
     const pending = await getPendingUpdates()
     setPendingCount(pending.length)
-    const prefs = await getAllIconPrefs()
-    setIconPrefs(prefs)
   }
 
-  async function handleIconPrefChange(siteId, iconType) {
-    await setIconPref(siteId, iconType)
-    setIconPrefs(prev => {
-      const next = { ...prev }
-      if (iconType) next[siteId] = iconType
-      else delete next[siteId]
-      return next
-    })
-  }
+  // Pin icon shape — a synced Airtable field (App Pin Icon), not a per-device
+  // preference, so it shows up in Admin too. Same optimistic-update + offline-
+  // queue pattern as handleNotesSave below.
+  const handlePinIconChange = useCallback(async (recordId, iconType) => {
+    await updateSiteLocally(recordId, { pinIcon: iconType })
+    setSites(prev => prev.map(s => s.id === recordId ? { ...s, pinIcon: iconType } : s))
+    setSelectedSite(prev => prev?.id === recordId ? { ...prev, pinIcon: iconType } : prev)
+
+    if (isOnline) {
+      try {
+        await updateSitePinIcon(recordId, iconType)
+      } catch (err) {
+        await queueUpdate({ recordId, pinIcon: iconType })
+        setPendingCount(n => n + 1)
+      }
+    } else {
+      await queueUpdate({ recordId, pinIcon: iconType })
+      setPendingCount(n => n + 1)
+    }
+  }, [isOnline])
 
   // Check Airtable for today's preflight — called explicitly on every login event
   async function checkAndSetPreflight() {
@@ -212,6 +215,8 @@ export default function App() {
       try {
         if (value.notes !== undefined) {
           await updateSiteNotes(value.recordId, value.notes)
+        } else if (value.pinIcon !== undefined) {
+          await updateSitePinIcon(value.recordId, value.pinIcon)
         } else {
           await updateSite(value.recordId, value.action)
         }
@@ -495,8 +500,8 @@ export default function App() {
 
       {/* Main content */}
       <div className="main-content">
-        {view === 'map' && <MapView sites={sites} onSelect={setSelectedSite} iconPrefs={iconPrefs} />}
-        {view === 'route' && (preflightExists ? <RouteView sites={sites} /> : <MapView sites={sites} onSelect={setSelectedSite} iconPrefs={iconPrefs} />)}
+        {view === 'map' && <MapView sites={sites} onSelect={setSelectedSite} />}
+        {view === 'route' && (preflightExists ? <RouteView sites={sites} /> : <MapView sites={sites} onSelect={setSelectedSite} />)}
         {view === 'list' && (
           <SiteList
             sites={sites}
@@ -531,8 +536,7 @@ export default function App() {
           isOnline={isOnline}
           pendingCount={pendingCount}
           canEdit={canEdit}
-          iconPref={iconPrefs[selectedSite.id]}
-          onIconPrefChange={handleIconPrefChange}
+          onPinIconChange={handlePinIconChange}
         />
       )}
 
