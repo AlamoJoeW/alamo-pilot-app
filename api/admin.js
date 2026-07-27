@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { BASE_ID, API_KEY, TABLES, FIELDS, SITE_FIELDS, airtableGetAll } from './_airtable.js'
+import { BASE_ID, API_KEY, TABLES, FIELDS, SITE_FIELDS, airtableGetAll, PIN_ICON_AIRTABLE_TO_APP } from './_airtable.js'
 
 // Combined admin endpoint — returns both all-pilot sites and today's pilot locations
 // in a single response. Kept as one file (rather than two) to stay under Vercel's
@@ -119,6 +119,7 @@ export default async function handler(req, res) {
         collectedApp:        r.fields[FIELDS.COLLECTED_APP]        || false,
         coaAttachments:      r.fields[FIELDS.COA]                  || [],
         appStatusUpdatedAt:  r.fields[FIELDS.APP_STATUS_SET_AT]    || null,
+        pinIcon:             PIN_ICON_AIRTABLE_TO_APP[r.fields[FIELDS.PIN_ICON]] || null,
       }
     })
 
