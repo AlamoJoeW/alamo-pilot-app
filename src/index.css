@@ -662,6 +662,15 @@ html, body, #root {
   border-radius: 8px;
 }
 
+.detail-refly-notes {
+  font-size: 13px;
+  color: #a855f7;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  background: rgba(168, 85, 247, 0.12);
+  border-radius: 8px;
+}
+
 .detail-info {
   background: var(--surface2);
   border-radius: 12px;

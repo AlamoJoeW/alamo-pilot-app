@@ -18,6 +18,13 @@ function getSiteStatus(site) {
   return 'none'
 }
 
+// Same check used in SiteList.jsx / MapView.jsx — a site counts as "needs a
+// reflight" from either the office REFLY checkbox or the Map Color already
+// flagging it.
+function isReflySite(site) {
+  return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
+}
+
 function InfoRow({ label, value }) {
   if (!value) return null
   return (
@@ -222,6 +229,10 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           <div className="detail-airtable-status">
             Airtable: {site.collectionStatus}
           </div>
+        )}
+
+        {isReflySite(site) && site.reflyNotes && (
+          <div className="detail-refly-notes">🔁 Refly: {site.reflyNotes}</div>
         )}
 
         {onPinIconChange && (
