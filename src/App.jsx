@@ -19,7 +19,6 @@ import {
   checkPreflight,
   updatePreflightLocation,
   submitEOD,
-  fetchProjects,
 } from './utils/api'
 import {
   saveSites,
@@ -33,13 +32,6 @@ import {
 } from './utils/db'
 
 const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6NBl4k'
-
-// The live Airtable EOD form requires a Project link, but that form has to serve
-// ~15 regional teams so it makes the pilot pick one. Alamo Airborne's pilots are
-// all on this one project, so we resolve it silently instead of asking — if Alamo
-// ever splits across multiple regional projects, this match will need updating
-// (or turn into a real picker).
-const EOD_PROJECT_NAME_MATCH = /central\s*\/?\s*texas/i
 
 export default function App() {
   const [pilot, setPilot] = useState(null)
@@ -85,17 +77,6 @@ export default function App() {
       sync()
     }
   }, [])
-
-  // Resolve the EOD Project link once per session — see EOD_PROJECT_NAME_MATCH above.
-  useEffect(() => {
-    if (!pilot) return
-    fetchProjects()
-      .then(data => {
-        const match = (data.projects || []).find(p => EOD_PROJECT_NAME_MATCH.test(p.name))
-        if (match) setProjectId(match.id)
-      })
-      .catch(() => {})
-  }, [pilot])
 
   // Flush pending updates when coming online
   useEffect(() => {
@@ -161,6 +142,10 @@ export default function App() {
       setPreflightExists(pf.exists)
       setPreflightTravelDay(pf.travelDay || false)
       setPreflightId(pf.preflightId || null)
+      // The project the pilot actually picked on today's preflight — not a
+      // guess. Alamo pilots work across 15+ regional Verizon projects, so the
+      // EOD must link to whichever one this pilot is actually on today.
+      setProjectId(pf.projectId || null)
 
       // Silently update Current Latitude/Longitude on the preflight record
       if (pf.exists && pf.preflightId && navigator.geolocation) {
@@ -344,6 +329,7 @@ export default function App() {
     setPreflightTravelDay(false)
     setPreflightId(null)
     setPreflightRechecking(false)
+    setProjectId(null)
   }
 
   function handleLogin(data, password) {

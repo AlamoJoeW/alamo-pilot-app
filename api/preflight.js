@@ -69,7 +69,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const todayStr = today()
       const pilotName = (pilot.displayName || pilot.firstName || '').replace(/['"]/g, '')
-      const fields = [F.DATE, F.PILOT, F.TRAVEL_DAY, F.GO_NOGO]
+      const fields = [F.DATE, F.PILOT, F.TRAVEL_DAY, F.GO_NOGO, F.PROJECT]
 
       let records
       if (pilotName) {
@@ -92,6 +92,10 @@ export default async function handler(req, res) {
         preflightId: rec.id,
         travelDay: rec.fields[F.TRAVEL_DAY] || false,
         goNogo: rec.fields[F.GO_NOGO] || null,
+        // Which regional Verizon project this pilot picked on today's preflight
+        // (link to project — multipleRecordLinks, one value). The EOD report
+        // needs to link to the SAME project, not a hardcoded guess — see App.jsx.
+        projectId: (rec.fields[F.PROJECT] || [])[0] || null,
       })
     }
 
