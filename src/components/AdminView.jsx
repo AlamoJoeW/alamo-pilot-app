@@ -23,6 +23,11 @@ function timeAgo(iso) {
   return `${hrs}h ago`
 }
 
+// Same check used in SiteList.jsx / MapView.jsx / SiteDetail.jsx.
+function isReflySite(site) {
+  return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
+}
+
 // Calendar-day match in the admin's local time zone — a site a pilot marked
 // at 11:58pm and one marked at 12:02am both count as "today" relative to
 // whenever the office is actually looking at this screen.
@@ -135,8 +140,11 @@ export default function AdminView() {
       const color = colorForSite(site)
       const marker = L.marker([site.lat, site.lng], { icon: siteIcon(color, site.pinIcon) })
       const pilotNames = (site.pilotNames || []).join(', ') || 'Unassigned'
+      const reflyLine = isReflySite(site) && site.reflyNotes
+        ? `<br><em>Refly: ${site.reflyNotes}</em>`
+        : ''
       marker.bindTooltip(
-        `<strong>${site.siteId || 'Site'}</strong><br>Pilot: ${pilotNames}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}`,
+        `<strong>${site.siteId || 'Site'}</strong><br>Pilot: ${pilotNames}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}${reflyLine}`,
         { direction: 'top', offset: [0, -8] }
       )
       marker.on('click', () => setSelectedSite(site))
@@ -340,6 +348,12 @@ export default function AdminView() {
                       FUZE: {site.fuzeId || '—'} · {site.city || site.state || site.subProject || '—'}
                       {!selectedPilotId && ` · ${pilotNames}`}
                     </div>
+                    {isReflySite(site) && site.reflyNotes && (
+                      <div className="site-row-refly-notes">🔁 {site.reflyNotes}</div>
+                    )}
+                    {site.notes && (
+                      <div className="site-row-notes-preview">📝 {site.notes}</div>
+                    )}
                   </div>
                   <div className="site-row-status" style={{ color }}>
                     {site.mapColor || (site.collectedApp ? 'Collected' : site.partialCollection ? 'Partial' : site.mobFee ? 'MOB Fee' : 'Pending')}

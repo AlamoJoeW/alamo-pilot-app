@@ -20,6 +20,11 @@ function InfoRow({ label, value }) {
   )
 }
 
+// Same check used in SiteList.jsx / MapView.jsx / SiteDetail.jsx.
+function isReflySite(site) {
+  return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
+}
+
 export default function AdminSiteDetail({ site, onClose }) {
   if (!site) return null
 
@@ -52,6 +57,17 @@ export default function AdminSiteDetail({ site, onClose }) {
         {site.collectionStatus && (
           <div className="detail-airtable-status">
             Airtable: {site.collectionStatus}
+          </div>
+        )}
+
+        {isReflySite(site) && site.reflyNotes && (
+          <div className="detail-refly-notes">🔁 Refly: {site.reflyNotes}</div>
+        )}
+
+        {site.notes && (
+          <div className="detail-notes">
+            <div className="detail-notes-label">Notes</div>
+            <div className="detail-notes-view has-note" style={{ cursor: 'default' }}>{site.notes}</div>
           </div>
         )}
 
