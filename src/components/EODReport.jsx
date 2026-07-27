@@ -311,7 +311,7 @@ function StepSignOff({ form, setField }) {
         label="Are your flight logs for today synced in Airdata?"
         value={form.airdataSynced}
         onChange={v => setField('airdataSynced', v)}
-        options={['Yes', 'No']}
+        options={['YES', 'NO']}
         required
       />
       <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: -8, marginBottom: 16 }}>
