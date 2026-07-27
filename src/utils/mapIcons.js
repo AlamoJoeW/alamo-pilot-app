@@ -50,12 +50,16 @@ export function siteIconSvg(color, iconType) {
 }
 
 export function makeSiteIcon(color, iconType, size = 24) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24">${siteIconSvg(color, iconType)}</svg>`
+  // The shaped pins (building/tower/sba/coa/laanc) render a bit small next to
+  // the default status dot at the same nominal size, so bump them up ~35% —
+  // the plain dot (no iconType) stays at the base size passed in.
+  const renderSize = iconType ? Math.round(size * 1.35) : size
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${renderSize}" height="${renderSize}" viewBox="0 0 24 24">${siteIconSvg(color, iconType)}</svg>`
   const url = `data:image/svg+xml;base64,${btoa(svg)}`
   return window.L.icon({
     iconUrl: url,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
+    iconSize: [renderSize, renderSize],
+    iconAnchor: [renderSize / 2, renderSize / 2],
+    popupAnchor: [0, -renderSize / 2],
   })
 }
