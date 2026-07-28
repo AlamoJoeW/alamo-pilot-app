@@ -166,3 +166,25 @@ export async function airtableGetAll(table, filterByFormula, fields, view) {
   } while (offset)
   return records
 }
+
+// Airtable views (on the COLLECTION_ASSETS table) that hold sites for every
+// project the pilot app supports. The pilot map (api/sites.js) and Admin view
+// (api/admin.js) both pull from every view listed here, deduped by record ID.
+// To add support for a new non-Verizon project, add its view name here —
+// no other code changes needed.
+export const SITE_VIEWS = [
+  'Verizon vHive All for KMLs',
+  'UPNY',
+]
+
+// Fetches and merges Collection Assets records across every view in
+// SITE_VIEWS (deduped by record ID — a site should only live in one view,
+// but dedupe defensively in case a site ever ends up in more than one).
+export async function fetchAllSiteRecords() {
+  const byId = new Map()
+  for (const view of SITE_VIEWS) {
+    const records = await airtableGetAll(TABLES.COLLECTION_ASSETS, null, SITE_FIELDS, view)
+    records.forEach(r => byId.set(r.id, r))
+  }
+  return [...byId.values()]
+}

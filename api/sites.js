@@ -1,7 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { BASE_ID, API_KEY, TABLES, FIELDS, SITE_FIELDS, PIN_ICON_AIRTABLE_TO_APP } from './_airtable.js'
-
-const VIEW_NAME = 'Verizon vHive All for KMLs'
+import { FIELDS, PIN_ICON_AIRTABLE_TO_APP, fetchAllSiteRecords } from './_airtable.js'
 
 function verifyToken(req) {
   const auth = req.headers.authorization || ''
@@ -14,27 +12,8 @@ export default async function handler(req, res) {
   try {
     const pilot = verifyToken(req)
 
-    const records = []
-    let offset = null
-
-    do {
-      const qs = new URLSearchParams()
-      qs.set('returnFieldsByFieldId', 'true')
-      qs.set('view', VIEW_NAME)
-      qs.set('pageSize', '100')
-      SITE_FIELDS.forEach(f => qs.append('fields[]', f))
-      if (offset) qs.set('offset', offset)
-
-      const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLES.COLLECTION_ASSETS}?${qs}`
-      const r = await fetch(url, { headers: { Authorization: `Bearer ${API_KEY}` } })
-      if (!r.ok) {
-        const err = await r.text()
-        throw new Error(`Airtable GET error ${r.status}: ${err}`)
-      }
-      const data = await r.json()
-      records.push(...data.records)
-      offset = data.offset || null
-    } while (offset)
+    // Pulls from every project view listed in SITE_VIEWS (Verizon + UPNY, etc.)
+    const records = await fetchAllSiteRecords()
 
     // Filter to only sites assigned to the logged-in pilot.
     // PILOT_APP is a linked record field; the API returns an array of pilot record IDs.

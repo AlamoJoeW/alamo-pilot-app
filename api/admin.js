@@ -1,11 +1,10 @@
 import jwt from 'jsonwebtoken'
-import { BASE_ID, API_KEY, TABLES, FIELDS, SITE_FIELDS, airtableGetAll, PIN_ICON_AIRTABLE_TO_APP } from './_airtable.js'
+import { BASE_ID, API_KEY, TABLES, FIELDS, airtableGetAll, fetchAllSiteRecords, PIN_ICON_AIRTABLE_TO_APP } from './_airtable.js'
 
 // Combined admin endpoint — returns both all-pilot sites and today's pilot locations
 // in a single response. Kept as one file (rather than two) to stay under Vercel's
 // Hobby-plan 12-serverless-function cap.
 
-const VIEW_NAME = 'Verizon vHive All for KMLs'
 const PREFLIGHT_TABLE = 'tbl3XS1n9edeDuLOn'
 
 const PF = {
@@ -46,26 +45,6 @@ async function fetchAllPilots() {
   return records
 }
 
-async function fetchAllSites() {
-  const records = []
-  let offset = null
-  do {
-    const qs = new URLSearchParams()
-    qs.set('returnFieldsByFieldId', 'true')
-    qs.set('view', VIEW_NAME)
-    qs.set('pageSize', '100')
-    SITE_FIELDS.forEach(f => qs.append('fields[]', f))
-    if (offset) qs.set('offset', offset)
-    const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLES.COLLECTION_ASSETS}?${qs}`
-    const r = await fetch(url, { headers: { Authorization: `Bearer ${API_KEY}` } })
-    if (!r.ok) throw new Error(`Airtable GET error ${r.status}: ${await r.text()}`)
-    const data = await r.json()
-    records.push(...data.records)
-    offset = data.offset || null
-  } while (offset)
-  return records
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
@@ -74,7 +53,7 @@ export default async function handler(req, res) {
     if (!pilot.isAdmin) return res.status(403).json({ error: 'Admin access required' })
 
     const [siteRecords, pilotRecords, preflights] = await Promise.all([
-      fetchAllSites(),
+      fetchAllSiteRecords(),
       fetchAllPilots(),
       airtableGetAll(
         PREFLIGHT_TABLE,
