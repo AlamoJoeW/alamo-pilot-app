@@ -137,6 +137,15 @@ function SiteRow({ site, color, badge, checkbox, checked, onToggle }) {
 
 // ─── Step 1: Site Review ──────────────────────────────────────────────────────
 
+// True once the pilot has explicitly typed 0 in BOTH count fields — not on
+// initial load, where both are still '' (unanswered). Matches the real
+// Airtable form's "Notes for zero collections" field, which only makes sense
+// once the pilot has confirmed nothing was collected either way.
+function isZeroCollectionsDay(form) {
+  return form.fullCount !== '' && Number(form.fullCount) === 0 &&
+    form.partialCount !== '' && Number(form.partialCount) === 0
+}
+
 function StepSiteReview({ collected, partial, mob, form, setField }) {
   const total = collected.length + partial.length + mob.length
 
@@ -199,6 +208,17 @@ function StepSiteReview({ collected, partial, mob, form, setField }) {
         value={form.partialCount}
         onChange={v => setField('partialCount', v)}
       />
+
+      {isZeroCollectionsDay(form) && (
+        <TextAreaField
+          label="Notes for zero collections"
+          value={form.zeroCollectionsNotes}
+          onChange={v => setField('zeroCollectionsNotes', v)}
+          placeholder="Explain why nothing was collected today…"
+          rows={3}
+          required
+        />
+      )}
     </div>
   )
 }
@@ -344,6 +364,7 @@ const STEPS = [
 const INITIAL_FORM = {
   fullCount:             '',
   partialCount:          '',
+  zeroCollectionsNotes:  '',
   reflightsYN:           '',
   reflysCount:           '',
   reflySiteIds:          [],
@@ -397,6 +418,11 @@ export default function EODReport({ pilot, sites, preflightId, projectId, onSubm
   }
 
   function validateStep(stepId) {
+    if (stepId === 'sites') {
+      if (isZeroCollectionsDay(form) && !form.zeroCollectionsNotes.trim()) {
+        return 'Please add notes explaining why zero assets were collected today.'
+      }
+    }
     if (stepId === 'reflights') {
       if (!form.reflightsYN) return 'Please answer whether any reflights were completed today.'
       if (form.reflightsYN === 'YES' && (form.reflysCount === '' || !form.reflysNotes.trim())) {
@@ -459,6 +485,8 @@ export default function EODReport({ pilot, sites, preflightId, projectId, onSubm
       setError('Please confirm whether your Airdata flight logs are synced.')
       return
     }
+    const sitesErr = validateStep('sites')
+    if (sitesErr) { setError(sitesErr); return }
     const reflightsErr = validateStep('reflights')
     if (reflightsErr) { setError(reflightsErr); return }
     const mobErr = validateStep('mobilization')
@@ -480,6 +508,7 @@ export default function EODReport({ pilot, sites, preflightId, projectId, onSubm
         endLat: lat,
         endLng: lng,
         eodForm: {
+          zeroCollectionsNotes: form.zeroCollectionsNotes || undefined,
           reflightsYN:          form.reflightsYN || undefined,
           reflysCount:          form.reflysCount !== '' ? Number(form.reflysCount) : undefined,
           reflysNotes:          form.reflysNotes || undefined,

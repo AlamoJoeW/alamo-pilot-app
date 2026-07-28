@@ -58,6 +58,7 @@ export const FIELDS = {
   EOD_MOBILIZATION:     'fldEv1OCPrpOhjMqs',
   EOD_FULL_COUNT:       'fldpCI0Ma5rrmX9MC',
   EOD_PARTIAL_COUNT:    'fld2CPBKoJiPbjKPn',
+  EOD_ZERO_COLLECTIONS_NOTES: 'fldbkj4rREqRh6m3V', // "Notes for zero collections" — required when Full + Partial counts are both 0
   EOD_PROJECT:          'fldvdVxx1eamdRkyM',
   EOD_PREFLIGHT:        'flddNoMMCCEfwxmvZ', // link to today's Preflight risk assessment record
   EOD_REFLIGHTS_YN:     'fldty8tlL12IOged6', // "WERE ANY REFLIGHT'S COMPLETED TODAY?" single select Yes/No

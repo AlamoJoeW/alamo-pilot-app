@@ -114,6 +114,9 @@ export default async function handler(req, res) {
       if (eodForm.mobNotes) {
         fields[FIELDS.EOD_MOB_NOTES] = eodForm.mobNotes
       }
+      if (eodForm.zeroCollectionsNotes) {
+        fields[FIELDS.EOD_ZERO_COLLECTIONS_NOTES] = eodForm.zeroCollectionsNotes
+      }
       if (eodForm.generalNotes) {
         fields[FIELDS.EOD_GENERAL_NOTES] = eodForm.generalNotes
       }
