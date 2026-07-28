@@ -170,7 +170,7 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
         }
 
         // Place quadcopter marker at current location
-        const marker = L.marker([latitude, longitude], { icon: quadcopterIcon('#3b82f6'), zIndexOffset: 1000 })
+        const marker = L.marker([latitude, longitude], { icon: quadcopterIcon(), zIndexOffset: 1000 })
         marker.bindTooltip('You are here', { permanent: false, direction: 'top', offset: [0, -8] })
         marker.addTo(map)
         locateMarkerRef.current = marker

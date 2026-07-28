@@ -3,16 +3,20 @@
 // quadcopter shape stays visually identical everywhere it appears.
 
 // A simple top-down quadcopter silhouette: four rotor circles on diagonal arms
-// around a center body, tinted by `color`.
-export function quadcopterIcon(color, size = 30) {
+// around a center body. Always black — pilots are told apart by the tooltip
+// (name) and, on the Admin map, the color-coded chip strip, not the icon
+// itself.
+const DRONE_COLOR = '#000000'
+
+export function quadcopterIcon(size = 30) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 30 30">
-    <line x1="6" y1="6" x2="24" y2="24" stroke="${color}" stroke-width="2.5"/>
-    <line x1="24" y1="6" x2="6" y2="24" stroke="${color}" stroke-width="2.5"/>
-    <circle cx="6" cy="6" r="4" fill="${color}" fill-opacity="0.85" stroke="white" stroke-width="1.5"/>
-    <circle cx="24" cy="6" r="4" fill="${color}" fill-opacity="0.85" stroke="white" stroke-width="1.5"/>
-    <circle cx="6" cy="24" r="4" fill="${color}" fill-opacity="0.85" stroke="white" stroke-width="1.5"/>
-    <circle cx="24" cy="24" r="4" fill="${color}" fill-opacity="0.85" stroke="white" stroke-width="1.5"/>
-    <circle cx="15" cy="15" r="5.5" fill="${color}" stroke="white" stroke-width="2"/>
+    <line x1="6" y1="6" x2="24" y2="24" stroke="${DRONE_COLOR}" stroke-width="2.5"/>
+    <line x1="24" y1="6" x2="6" y2="24" stroke="${DRONE_COLOR}" stroke-width="2.5"/>
+    <circle cx="6" cy="6" r="4" fill="${DRONE_COLOR}" fill-opacity="0.85" stroke="white" stroke-width="1.5"/>
+    <circle cx="24" cy="6" r="4" fill="${DRONE_COLOR}" fill-opacity="0.85" stroke="white" stroke-width="1.5"/>
+    <circle cx="6" cy="24" r="4" fill="${DRONE_COLOR}" fill-opacity="0.85" stroke="white" stroke-width="1.5"/>
+    <circle cx="24" cy="24" r="4" fill="${DRONE_COLOR}" fill-opacity="0.85" stroke="white" stroke-width="1.5"/>
+    <circle cx="15" cy="15" r="5.5" fill="${DRONE_COLOR}" stroke="white" stroke-width="2"/>
   </svg>`
   const url = `data:image/svg+xml;base64,${btoa(svg)}`
   return window.L.icon({

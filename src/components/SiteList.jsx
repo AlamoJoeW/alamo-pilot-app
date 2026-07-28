@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { statusBucketForSite } from '../utils/mapColors'
-import { checkAccessIssue } from '../utils/api'
 import { sortSites, SORT_OPTIONS } from '../utils/sortSites'
 
 const STATUS_COLORS = {
@@ -31,10 +30,12 @@ function isReflySite(site) {
   return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
 }
 
+// Bulk select only ever marks Collected — Partial and MOB Fee require an
+// access form on file (checked per-site in SiteDetail's single-site flow),
+// so those stay single-site-only rather than risking a pilot bulk-marking
+// sites that don't have one.
 const BULK_ACTIONS = [
   { action: 'collected', label: 'Mark Collected' },
-  { action: 'partial', label: 'Mark Partial' },
-  { action: 'mob', label: 'Mark MOB Fee' },
 ]
 
 function NotesRow({ site, onSave }) {
@@ -133,47 +134,15 @@ export default function SiteList({ sites, onSelect, filter, onFilterChange, onBu
   async function runBulkAction(action) {
     if (bulkBusy || selectedIds.size === 0 || !onBulkUpdate) return
 
-    if ((action === 'partial' || action === 'mob') && !isOnline) {
-      setBulkMessage('Must be online to submit Partial or MOB Fee')
-      return
-    }
-
     setBulkBusy(true)
     setBulkMessage('')
     try {
       const ids = Array.from(selectedIds)
-      let eligibleIds = ids
-      let blockedCount = 0
-
-      // Partial/MOB only bulk-apply to sites that already have an access form on
-      // file — same rule as the single-site flow in SiteDetail, just checked for
-      // every selected site up front instead of one at a time.
-      if (action === 'partial' || action === 'mob') {
-        const checks = await Promise.all(ids.map(async id => {
-          try {
-            const result = await checkAccessIssue(id)
-            return { id, exists: !!result.exists }
-          } catch {
-            return { id, exists: false }
-          }
-        }))
-        eligibleIds = checks.filter(c => c.exists).map(c => c.id)
-        blockedCount = checks.length - eligibleIds.length
-      }
-
-      if (eligibleIds.length > 0) {
-        await onBulkUpdate(eligibleIds, action)
-      }
+      await onBulkUpdate(ids, action)
 
       const label = BULK_ACTIONS.find(a => a.action === action)?.label || action
-      if (blockedCount > 0) {
-        setBulkMessage(`${eligibleIds.length} marked. ${blockedCount} still need the access form submitted first.`)
-      } else if (eligibleIds.length > 0) {
-        setBulkMessage(`${eligibleIds.length} site${eligibleIds.length !== 1 ? 's' : ''} ${label.toLowerCase()}.`)
-      } else {
-        setBulkMessage('No sites updated — access form required for Partial/MOB Fee.')
-      }
-      setSelectedIds(new Set(eligibleIds.length === ids.length ? [] : ids.filter(id => !eligibleIds.includes(id))))
+      setBulkMessage(`${ids.length} site${ids.length !== 1 ? 's' : ''} ${label.toLowerCase()}.`)
+      setSelectedIds(new Set())
     } catch (err) {
       setBulkMessage('Error: ' + (err.message || 'Bulk update failed'))
     } finally {

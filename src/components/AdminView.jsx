@@ -53,11 +53,11 @@ function siteIcon(color, pinIcon) {
   return makeSiteIcon(color, pinIcon, 18)
 }
 
-// Live pilot location marker — same quadcopter shape as the pilot's own "You are
-// here" marker in MapView.jsx, tinted per-pilot via colorForPilot() so they stay
-// visually distinguishable on the admin map.
-function pilotIcon(color) {
-  return quadcopterIcon(color, 30)
+// Live pilot location marker — same black quadcopter shape as the pilot's own
+// "You are here" marker in MapView.jsx. Pilots are told apart by the tooltip
+// (name) and the color-coded chip strip below, not the icon color.
+function pilotIcon() {
+  return quadcopterIcon(30)
 }
 
 export default function AdminView() {
@@ -173,8 +173,7 @@ export default function AdminView() {
 
     const located = pilots.filter(p => p.lat && p.lng && !hiddenPilotIds.has(p.pilotId))
     located.forEach(p => {
-      const color = colorForPilot(p.pilotId)
-      const marker = L.marker([p.lat, p.lng], { icon: pilotIcon(color), zIndexOffset: 500 })
+      const marker = L.marker([p.lat, p.lng], { icon: pilotIcon(), zIndexOffset: 500 })
       const ago = timeAgo(p.updatedAt) || 'unknown'
       marker.bindTooltip(
         `<strong>${p.name}</strong>${p.travelDay ? ' (travel day)' : ''}<br>Updated ${ago}`,
