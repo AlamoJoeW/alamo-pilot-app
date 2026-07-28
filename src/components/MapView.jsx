@@ -10,11 +10,14 @@ function isReflySite(site) {
   return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
 }
 
-export default function MapView({ sites, onSelect }) {
+export default function MapView({ sites, onSelect, highlightedSiteId }) {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
   const tileLayerRef = useRef(null)
-  const markersRef = useRef([])
+  // Keyed by site id so the highlight effect below can find + restyle a
+  // single marker without touching the rest (see markersRef.current).
+  const markersRef = useRef(new Map())
+  const highlightedRef = useRef(null) // site id currently drawn as highlighted, if any
   const locateMarkerRef = useRef(null)
   const [locating, setLocating] = useState(false)
   const [locateError, setLocateError] = useState(null)
@@ -53,39 +56,80 @@ export default function MapView({ sites, onSelect }) {
     tileLayerRef.current = L.tileLayer(tile.url, tile.options).addTo(map)
   }, [satellite])
 
+  // Restyles the previously-highlighted marker back to normal and the newly
+  // highlighted one to the amber-ring icon with its tooltip pinned open.
+  // Called both after a marker rebuild (to re-apply the current highlight to
+  // the fresh marker objects) and whenever `highlightedSiteId` itself
+  // changes — deliberately NOT a map-rebuild trigger on its own, so tapping
+  // a pin never re-fits/re-centers the map.
+  function applyHighlight(id) {
+    const prevId = highlightedRef.current
+    if (prevId && prevId !== id) {
+      const prevEntry = markersRef.current.get(prevId)
+      if (prevEntry) {
+        prevEntry.marker.setIcon(prevEntry.baseIcon)
+        prevEntry.marker.unbindTooltip()
+        prevEntry.marker.bindTooltip(prevEntry.tooltipHtml, { direction: 'top', offset: [0, -8] })
+      }
+    }
+    if (id) {
+      const entry = markersRef.current.get(id)
+      if (entry) {
+        entry.marker.setIcon(entry.highlightIcon)
+        entry.marker.unbindTooltip()
+        entry.marker.bindTooltip(entry.tooltipHtml, { direction: 'top', offset: [0, -8], permanent: true })
+        entry.marker.openTooltip()
+      }
+    }
+    highlightedRef.current = id
+  }
+
   // Update markers when sites change
   useEffect(() => {
     const L = window.L
     const map = mapInstance.current
     if (!map || !L) return
 
-    markersRef.current.forEach(m => m.remove())
-    markersRef.current = []
+    markersRef.current.forEach(({ marker }) => marker.remove())
+    markersRef.current = new Map()
+    highlightedRef.current = null
 
     const mapped = sites.filter(s => s.lat && s.lng)
 
     mapped.forEach(site => {
       const color = colorForSite(site)
-      const marker = L.marker([site.lat, site.lng], { icon: makeSiteIcon(color, site.pinIcon) })
+      const baseIcon = makeSiteIcon(color, site.pinIcon)
+      const highlightIcon = makeSiteIcon(color, site.pinIcon, 24, true)
+      const marker = L.marker([site.lat, site.lng], { icon: baseIcon })
 
       marker.on('click', () => onSelect(site))
       const reflyLine = isReflySite(site) && site.reflyNotes
         ? `<br><em>Refly: ${site.reflyNotes}</em>`
         : ''
-      marker.bindTooltip(
-        `<strong>${site.siteId || 'Site'}</strong><br>FUZE: ${site.fuzeId || '—'}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}${reflyLine}`,
-        { direction: 'top', offset: [0, -8] }
-      )
+      const tooltipHtml = `<strong>${site.siteId || 'Site'}</strong><br>FUZE: ${site.fuzeId || '—'}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}${reflyLine}`
+      marker.bindTooltip(tooltipHtml, { direction: 'top', offset: [0, -8] })
 
       marker.addTo(map)
-      markersRef.current.push(marker)
+      markersRef.current.set(site.id, { marker, baseIcon, highlightIcon, tooltipHtml })
     })
 
     if (mapped.length > 0) {
       const bounds = L.latLngBounds(mapped.map(s => [s.lat, s.lng]))
       map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 })
     }
+
+    // Re-apply the current highlight to the freshly-built markers (e.g. a
+    // status sync refreshed `sites` while a pin was highlighted).
+    applyHighlight(highlightedSiteId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sites, onSelect])
+
+  // Highlight changes on their own — tapping a different pin — restyle just
+  // the two affected markers without rebuilding the rest or moving the map.
+  useEffect(() => {
+    applyHighlight(highlightedSiteId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightedSiteId])
 
   function hideLocation() {
     if (locateMarkerRef.current) {

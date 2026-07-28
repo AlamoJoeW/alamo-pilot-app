@@ -72,17 +72,27 @@ export function siteIconSvg(color, iconType) {
   }
 }
 
-export function makeSiteIcon(color, iconType, size = 24) {
+// `highlighted` draws an amber ring around the pin — used by MapView to mark
+// the site the pilot most recently tapped, so it stays visually findable
+// after they close its detail sheet. The ring lives outside the pin's own
+// 0-24 coordinate space, so highlighted icons render on a wider 30x30
+// viewBox (content stays centered) rather than resizing the pin itself.
+export function makeSiteIcon(color, iconType, size = 24, highlighted = false) {
   // The shaped pins (building/tower/sba/coa/laanc) render a bit small next to
   // the default status dot at the same nominal size, so bump them up ~35% —
   // the plain dot (no iconType) stays at the base size passed in.
   const renderSize = iconType ? Math.round(size * 1.35) : size
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${renderSize}" height="${renderSize}" viewBox="0 0 24 24">${siteIconSvg(color, iconType)}</svg>`
+  const boxSize = highlighted ? Math.round(renderSize * 30 / 24) : renderSize
+  const viewBox = highlighted ? '-3 -3 30 30' : '0 0 24 24'
+  const ring = highlighted
+    ? '<circle cx="12" cy="12" r="12.5" fill="none" stroke="#fbbf24" stroke-width="2.5"/>'
+    : ''
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${boxSize}" height="${boxSize}" viewBox="${viewBox}">${ring}${siteIconSvg(color, iconType)}</svg>`
   const url = `data:image/svg+xml;base64,${btoa(svg)}`
   return window.L.icon({
     iconUrl: url,
-    iconSize: [renderSize, renderSize],
-    iconAnchor: [renderSize / 2, renderSize / 2],
-    popupAnchor: [0, -renderSize / 2],
+    iconSize: [boxSize, boxSize],
+    iconAnchor: [boxSize / 2, boxSize / 2],
+    popupAnchor: [0, -boxSize / 2],
   })
 }

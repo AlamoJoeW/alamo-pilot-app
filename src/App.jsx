@@ -43,6 +43,10 @@ export default function App() {
   const [view, setView] = useState('map')          // 'map' | 'list'
   const [filter, setFilter] = useState('all')
   const [selectedSite, setSelectedSite] = useState(null)
+  // The last site tapped on the Map — kept separate from `selectedSite` so
+  // closing the detail sheet (setSelectedSite(null)) doesn't clear the pin
+  // highlight/tooltip. Only replaced when a different site is selected.
+  const [highlightedSiteId, setHighlightedSiteId] = useState(null)
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState('')
   const [isOnline, setIsOnline] = useState(navigator.onLine)
@@ -308,6 +312,18 @@ export default function App() {
     }
   }, [isOnline])
 
+  // Opens the detail sheet AND marks the site as the map's persistent
+  // highlight — unlike `selectedSite`, this survives closing the sheet, so
+  // the pin the pilot just tapped stays visually distinguishable until they
+  // tap a different one. useCallback keeps this referentially stable across
+  // renders — MapView's marker-build effect depends on `onSelect`, and an
+  // inline function here would rebuild every marker (and re-fit the map)
+  // on every unrelated App re-render.
+  const handleSelectSite = useCallback(site => {
+    setSelectedSite(site)
+    setHighlightedSiteId(site.id)
+  }, [])
+
   async function handleEODSubmit(payload) {
     await submitEOD(payload)
     setShowEOD(false)
@@ -486,12 +502,12 @@ export default function App() {
 
       {/* Main content */}
       <div className="main-content">
-        {view === 'map' && <MapView sites={sites} onSelect={setSelectedSite} />}
-        {view === 'route' && (preflightExists ? <RouteView sites={sites} /> : <MapView sites={sites} onSelect={setSelectedSite} />)}
+        {view === 'map' && <MapView sites={sites} onSelect={handleSelectSite} highlightedSiteId={highlightedSiteId} />}
+        {view === 'route' && (preflightExists ? <RouteView sites={sites} /> : <MapView sites={sites} onSelect={handleSelectSite} highlightedSiteId={highlightedSiteId} />)}
         {view === 'list' && (
           <SiteList
             sites={sites}
-            onSelect={setSelectedSite}
+            onSelect={handleSelectSite}
             filter={filter}
             onFilterChange={setFilter}
             onBulkUpdate={handleBulkUpdate}
