@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { statusBucketForSite } from '../utils/mapColors'
 import { checkAccessIssue } from '../utils/api'
+import { sortSites, SORT_OPTIONS } from '../utils/sortSites'
 
 const STATUS_COLORS = {
   collected: '#22c55e',
@@ -88,11 +89,15 @@ export default function SiteList({ sites, onSelect, filter, onFilterChange, onBu
   const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [bulkBusy, setBulkBusy] = useState(false)
   const [bulkMessage, setBulkMessage] = useState('')
+  const [sortKey, setSortKey] = useState('siteId')
 
-  const filtered = sites.filter(s => {
-    if (filter === 'all') return true
-    return getSiteStatus(s) === filter
-  })
+  const filtered = sortSites(
+    sites.filter(s => {
+      if (filter === 'all') return true
+      return getSiteStatus(s) === filter
+    }),
+    sortKey
+  )
 
   const counts = {
     all: sites.length,
@@ -204,6 +209,17 @@ export default function SiteList({ sites, onSelect, filter, onFilterChange, onBu
             {selectMode ? 'Cancel' : 'Select'}
           </button>
         )}
+        <select
+          className="sort-select"
+          value={sortKey}
+          onChange={e => setSortKey(e.target.value)}
+          title="Sort sites"
+          aria-label="Sort sites"
+        >
+          {SORT_OPTIONS.map(o => (
+            <option key={o.key} value={o.key}>Sort: {o.label}</option>
+          ))}
+        </select>
       </div>
 
       {selectMode && (

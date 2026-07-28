@@ -395,6 +395,18 @@ html, body, #root {
   border-bottom-color: var(--accent);
 }
 
+.sort-select {
+  flex-shrink: 0;
+  margin: 6px 8px 6px auto;
+  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text2);
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .site-list {
   flex: 1;
   overflow-y: auto;

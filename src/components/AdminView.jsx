@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchAdminData } from '../utils/api'
-import { colorForSite, isSiteDone } from '../utils/mapColors'
+import { colorForSite, isSiteDone, statusBucketForSite } from '../utils/mapColors'
 import { tileLayerFor } from '../utils/mapLayers'
 import { quadcopterIcon, makeSiteIcon } from '../utils/mapIcons'
+import { sortSites, SORT_OPTIONS } from '../utils/sortSites'
 import AdminSiteDetail from './AdminSiteDetail'
 
 const PILOT_COLORS = ['#3b82f6', '#a855f7', '#14b8a6', '#f59e0b', '#ec4899', '#84cc16', '#06b6d4', '#f43f5e']
@@ -26,6 +27,12 @@ function timeAgo(iso) {
 // Same check used in SiteList.jsx / MapView.jsx / SiteDetail.jsx.
 function isReflySite(site) {
   return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
+}
+
+// Same bucketing used for the pilot List view's filter tabs — keeps the Admin
+// List's filter tabs and counts consistent with the pilot's own List view.
+function getSiteStatus(site) {
+  return statusBucketForSite(site) || 'none'
 }
 
 // Calendar-day match in the admin's local time zone — a site a pilot marked
@@ -71,6 +78,8 @@ export default function AdminView() {
   const [mode, setMode] = useState('map') // 'map' | 'list'
   const [selectedPilotId, setSelectedPilotId] = useState(null)
   const [selectedSite, setSelectedSite] = useState(null)
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [sortKey, setSortKey] = useState('siteId')
 
   // Applied before the pilot chip strip's own show/hide — "Marked Today" narrows
   // the pool down to sites a pilot touched today, and everything downstream
@@ -237,8 +246,25 @@ export default function AdminView() {
     }
   }
 
+  // Base pool for the List view — pilot chip selection applied, before the
+  // status filter/sort below. Counts on the filter tabs read from this so they
+  // reflect the current pilot selection, same as the tabs' relationship to
+  // `sites` in the pilot List view.
   const listSites = selectedPilotId ? sitesForPilot(selectedPilotId) : visibleSites
   const selectedPilotName = pilots.find(p => p.pilotId === selectedPilotId)?.name
+
+  const listCounts = {
+    all: listSites.length,
+    none: listSites.filter(s => getSiteStatus(s) === 'none').length,
+    collected: listSites.filter(s => getSiteStatus(s) === 'collected').length,
+    partial: listSites.filter(s => getSiteStatus(s) === 'partial').length,
+    mob: listSites.filter(s => getSiteStatus(s) === 'mob').length,
+  }
+
+  const displaySites = sortSites(
+    listSites.filter(s => statusFilter === 'all' || getSiteStatus(s) === statusFilter),
+    sortKey
+  )
 
   return (
     <div className="admin-view">
@@ -327,16 +353,44 @@ export default function AdminView() {
           <div className="admin-list-header">
             {selectedPilotId ? (
               <>
-                Showing <strong>{selectedPilotName || 'pilot'}</strong> · {listSites.length} sites
+                Showing <strong>{selectedPilotName || 'pilot'}</strong> · {displaySites.length} sites
                 <button className="admin-list-clear" onClick={() => setSelectedPilotId(null)}>Show all</button>
               </>
             ) : (
-              <>All pilots · {listSites.length} sites</>
+              <>All pilots · {displaySites.length} sites</>
             )}
           </div>
+          <div className="filter-tabs">
+            {[
+              { key: 'all', label: `All (${listCounts.all})` },
+              { key: 'none', label: `Pending (${listCounts.none})` },
+              { key: 'collected', label: `Done (${listCounts.collected})` },
+              { key: 'partial', label: `Partial (${listCounts.partial})` },
+              { key: 'mob', label: `MOB (${listCounts.mob})` },
+            ].map(f => (
+              <button
+                key={f.key}
+                className={`filter-tab ${statusFilter === f.key ? 'active' : ''}`}
+                onClick={() => setStatusFilter(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+            <select
+              className="sort-select"
+              value={sortKey}
+              onChange={e => setSortKey(e.target.value)}
+              title="Sort sites"
+              aria-label="Sort sites"
+            >
+              {SORT_OPTIONS.map(o => (
+                <option key={o.key} value={o.key}>Sort: {o.label}</option>
+              ))}
+            </select>
+          </div>
           <div className="site-list">
-            {listSites.length === 0 && <div className="empty-state">No sites</div>}
-            {listSites.map(site => {
+            {displaySites.length === 0 && <div className="empty-state">No sites</div>}
+            {displaySites.map(site => {
               const color = colorForSite(site)
               const pilotNames = (site.pilotNames || []).join(', ') || 'Unassigned'
               return (
