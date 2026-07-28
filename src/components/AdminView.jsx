@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { fetchAdminData } from '../utils/api'
+import { fetchAdminData, updateSiteNotes } from '../utils/api'
 import { colorForSite, isSiteDone, statusBucketForSite } from '../utils/mapColors'
 import { tileLayerFor } from '../utils/mapLayers'
 import { quadcopterIcon, makeSiteIcon } from '../utils/mapIcons'
@@ -198,6 +198,15 @@ export default function AdminView() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asOf])
+
+  // Notes edit from the Admin detail sheet — same field/save path as the pilot
+  // app's NotesEditor (api/update-site.js Notes shape), just written straight
+  // through since the Admin view isn't offline-first like the pilot app.
+  async function handleNotesSave(recordId, notes) {
+    setSites(prev => prev.map(s => s.id === recordId ? { ...s, notes } : s))
+    setSelectedSite(prev => prev?.id === recordId ? { ...prev, notes } : prev)
+    await updateSiteNotes(recordId, notes)
+  }
 
   function togglePilot(pilotId) {
     setHiddenPilotIds(prev => {
@@ -419,7 +428,7 @@ export default function AdminView() {
       )}
 
       {selectedSite && (
-        <AdminSiteDetail site={selectedSite} onClose={() => setSelectedSite(null)} />
+        <AdminSiteDetail site={selectedSite} onClose={() => setSelectedSite(null)} onNotesSave={handleNotesSave} />
       )}
     </div>
   )

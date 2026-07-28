@@ -1,8 +1,11 @@
 import { statusBucketForSite, colorForMapColor } from '../utils/mapColors'
+import { NotesEditor } from './SiteDetail'
 
-// Read-only site detail sheet for the Admin view — same visual language as the
-// pilot-facing SiteDetail, but no action buttons and no preflight gating. Admins
-// can look, not touch.
+// Site detail sheet for the Admin view — same visual language as the
+// pilot-facing SiteDetail, no status action buttons and no preflight gating
+// (admins can't mark sites Collected/Partial/MOB from here), but Notes are
+// editable — same field/save path as the pilot app's NotesEditor, wired up
+// from AdminView's onNotesSave.
 
 const BUCKET_LABELS = {
   collected: { label: 'Collected', color: '#22c55e', bg: '#052e16' },
@@ -25,7 +28,7 @@ function isReflySite(site) {
   return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
 }
 
-export default function AdminSiteDetail({ site, onClose }) {
+export default function AdminSiteDetail({ site, onClose, onNotesSave }) {
   if (!site) return null
 
   const bucket = statusBucketForSite(site)
@@ -64,7 +67,9 @@ export default function AdminSiteDetail({ site, onClose }) {
           <div className="detail-refly-notes">🔁 Refly: {site.reflyNotes}</div>
         )}
 
-        {site.notes && (
+        {onNotesSave ? (
+          <NotesEditor site={site} onSave={onNotesSave} />
+        ) : site.notes && (
           <div className="detail-notes">
             <div className="detail-notes-label">Notes</div>
             <div className="detail-notes-view has-note" style={{ cursor: 'default' }}>{site.notes}</div>

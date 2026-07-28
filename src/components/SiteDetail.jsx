@@ -71,7 +71,7 @@ function IconPicker({ value, onChange }) {
 // List view's inline note button (App.jsx handleNotesSave -> api/update-site.js
 // Notes shape), just shown here too since this sheet opens from both Map and
 // List taps and Joe wants Notes visible/editable wherever a site is opened.
-function NotesEditor({ site, onSave }) {
+export function NotesEditor({ site, onSave }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(site.notes || '')
   const [saving, setSaving] = useState(false)
