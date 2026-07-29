@@ -53,6 +53,13 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
       center: [32.7767, -96.7970],
       zoom: 8,
       zoomControl: true,
+      // MarkerClusterGroup.onAdd() reads map.getMaxZoom() the instant it's
+      // added below and throws ("Map has no maxZoom specified") if nothing
+      // has supplied one yet — the street/satellite tile layer normally
+      // would, but that's added a whole effect later, after this one. Set it
+      // here (matches STREET_TILE/SATELLITE_TILE's maxZoom in mapLayers.js)
+      // so it's never undefined regardless of add order.
+      maxZoom: 19,
     })
 
     mapInstance.current = map
