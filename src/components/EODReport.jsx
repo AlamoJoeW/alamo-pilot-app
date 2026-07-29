@@ -29,6 +29,7 @@
  */
 
 import { useState } from 'react'
+import { isReflySite } from '../utils/mapColors'
 
 // ─── Reusable field components ────────────────────────────────────────────────
 
@@ -226,6 +227,12 @@ function StepSiteReview({ collected, partial, mob, form, setField }) {
 // ─── Step 2: Reflights ────────────────────────────────────────────────────────
 
 function StepReflights({ sites, form, setField, toggleReflySite }) {
+  // Only sites flagged as needing a reflight (office REFLY checkbox or Map
+  // Color) are selectable here — narrowing from the full route list so a
+  // pilot picks from the handful of sites that could plausibly be a reflight,
+  // not every site they visited today.
+  const reflySites = sites.filter(isReflySite)
+
   return (
     <div className="pf-step">
       <h2 className="pf-step-heading">Reflights</h2>
@@ -250,10 +257,10 @@ function StepReflights({ sites, form, setField, toggleReflySite }) {
           <div className="pf-field">
             <label className="field-label">Which sites were re-flown? *</label>
             <div style={{ maxHeight: 240, overflowY: 'auto' }}>
-              {sites.length === 0 && (
-                <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>No sites loaded.</div>
+              {reflySites.length === 0 && (
+                <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>No refly sites on today's route.</div>
               )}
-              {sites.map(s => (
+              {reflySites.map(s => (
                 <SiteRow
                   key={s.id}
                   site={s}

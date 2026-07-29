@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { checkAccessIssue } from '../utils/api'
+import { isReflySite } from '../utils/mapColors'
 
 const ACCESS_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrZ1KM4eEKKTyyo6'
 const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6NBl4k'
@@ -16,13 +17,6 @@ function getSiteStatus(site) {
   if (site.partialCollection) return 'partial'
   if (site.mobFee) return 'mob'
   return 'none'
-}
-
-// Same check used in SiteList.jsx / MapView.jsx — a site counts as "needs a
-// reflight" from either the office REFLY checkbox or the Map Color already
-// flagging it.
-function isReflySite(site) {
-  return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
 }
 
 function InfoRow({ label, value }) {
@@ -182,9 +176,19 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
     if (loading || !canEdit) return
     const newAction = action === status ? 'uncollect' : action
 
-    if (newAction === 'partial' || newAction === 'mob') {
+    // Refly sites need a completed access form on file before they can be
+    // marked Collected too, same requirement Partial/MOB already have — a
+    // reflight means the office is re-authorizing access to a site that was
+    // previously flagged, so the pilot can't just tap Collected on the strength
+    // of whatever access was arranged for the original visit.
+    const needsAccessForm = newAction === 'partial' || newAction === 'mob' ||
+      (newAction === 'collected' && isReflySite(site))
+
+    if (needsAccessForm) {
       if (!isOnline) {
-        setToast('Must be online to submit Partial or MOB Fee')
+        setToast(newAction === 'collected'
+          ? 'Must be online to submit the refly access form'
+          : 'Must be online to submit Partial or MOB Fee')
         setTimeout(() => setToast(''), 3000)
         return
       }
@@ -231,8 +235,11 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           </div>
         )}
 
-        {isReflySite(site) && site.reflyNotes && (
-          <div className="detail-refly-notes">🔁 Refly: {site.reflyNotes}</div>
+        {isReflySite(site) && (
+          <div className="detail-refly-notes">
+            🔁 Refly site — access form required before marking Collected.
+            {site.reflyNotes ? ` ${site.reflyNotes}` : ''}
+          </div>
         )}
 
         {onPinIconChange && (
@@ -291,6 +298,11 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           </div>
         ) : pendingAction ? (
           <div className="access-pending">
+            {pendingAction === 'collected' && (
+              <p className="pending-msg" style={{ marginBottom: 8 }}>
+                🔁 This is a refly site — a completed access form is required before it can be marked Collected.
+              </p>
+            )}
             {checkState === 'checking' ? (
               <p className="pending-msg">Checking for access form submission...</p>
             ) : checkState === 'notFound' ? (
@@ -315,7 +327,7 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           <div className="detail-actions">
             <button
               className={`action-btn collected ${status === 'collected' ? 'active' : ''}`}
-              onClick={() => handleAction('collected')}
+              onClick={() => { if (status !== 'collected' && isReflySite(site)) window.open(ACCESS_FORM_URL, '_blank'); handleAction('collected') }}
               disabled={loading}
             >
               {status === 'collected' ? '✓ Collected' : 'Mark Collected'}

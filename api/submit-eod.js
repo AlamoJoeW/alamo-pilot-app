@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { airtableGet, airtablePost, TABLES, FIELDS } from './_airtable.js'
+import { airtableGet, airtablePost, TABLES, FIELDS, centralDateStr } from './_airtable.js'
 
 function verifyToken(req) {
   const auth = req.headers.authorization || ''
@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const pilot = verifyToken(req)
-      const today = new Date().toISOString().split('T')[0]
+      const today = centralDateStr() // see _airtable.js — Central time, not server UTC
       const formula = `AND({${FIELDS.EOD_DATE}}="${today}", FIND("${pilot.pilotRecordId}", ARRAYJOIN({${FIELDS.EOD_PILOT}})))`
       const data = await airtableGet(TABLES.EOD_REPORTS, {
         filterByFormula: formula,
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const pilot = verifyToken(req)
-      const today = new Date().toISOString().split('T')[0]
+      const today = centralDateStr() // see _airtable.js — Central time, not server UTC
       const {
         collectedIds = [], partialIds = [], mobIds = [], reflyIds = [],
         projectId, preflightId, fullCount, partialCount,

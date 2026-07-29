@@ -33,6 +33,16 @@ export function colorForMapColor(mapColor) {
   return MAP_COLOR_HEX[mapColor] || null
 }
 
+// A site counts as "needs a reflight" from either signal — the office-set REFLY
+// checkbox, or the Map Color already flagging it. Single source of truth used
+// by SiteDetail (mandatory access form before marking Collected), SiteList
+// (bulk-collect exclusion + row badge), and EODReport (reflights site picker).
+// MapView/AdminView/AdminSiteDetail keep their own copies of this same check —
+// display-only usages that don't gate an action, lower risk to leave alone.
+export function isReflySite(site) {
+  return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
+}
+
 // Which Map Color choices count as "done" for progress counts (chip strip fractions,
 // the pilot app's progress bar, List filter tabs, etc.) — only the unambiguous ones.
 // Everything else falls back to the pilot-toggled Collected (App) / Partial Collection

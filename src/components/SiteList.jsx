@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { statusBucketForSite } from '../utils/mapColors'
+import { statusBucketForSite, isReflySite } from '../utils/mapColors'
 import { sortSites, SORT_OPTIONS } from '../utils/sortSites'
 
 const STATUS_COLORS = {
@@ -23,17 +23,12 @@ function statusLabel(s) {
   return 'Pending'
 }
 
-// A site counts as "needs a reflight" from either signal — the office-set REFLY
-// checkbox, or the Map Color already flagging it (mapColors.js treats both Refly
-// values as "not done" regardless of stale Collected(App) checkboxes).
-function isReflySite(site) {
-  return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
-}
-
 // Bulk select only ever marks Collected — Partial and MOB Fee require an
 // access form on file (checked per-site in SiteDetail's single-site flow),
 // so those stay single-site-only rather than risking a pilot bulk-marking
-// sites that don't have one.
+// sites that don't have one. Refly sites now have that same access-form
+// requirement for Collected too (see SiteDetail.jsx / runBulkAction below) —
+// same reasoning, single-site-only.
 const BULK_ACTIONS = [
   { action: 'collected', label: 'Mark Collected' },
 ]
@@ -138,10 +133,28 @@ export default function SiteList({ sites, onSelect, filter, onFilterChange, onBu
     setBulkMessage('')
     try {
       const ids = Array.from(selectedIds)
-      await onBulkUpdate(ids, action)
+
+      // Refly sites require a completed access form before they can be marked
+      // Collected (mandatory, same as Partial/MOB) — that confirmation flow
+      // only exists in SiteDetail's single-site path, so keep refly sites out
+      // of the bulk action rather than silently skipping the requirement.
+      let targetIds = ids
+      let skippedRefly = 0
+      if (action === 'collected') {
+        const reflyIds = new Set(sites.filter(isReflySite).map(s => s.id))
+        targetIds = ids.filter(id => !reflyIds.has(id))
+        skippedRefly = ids.length - targetIds.length
+      }
+
+      if (targetIds.length > 0) {
+        await onBulkUpdate(targetIds, action)
+      }
 
       const label = BULK_ACTIONS.find(a => a.action === action)?.label || action
-      setBulkMessage(`${ids.length} site${ids.length !== 1 ? 's' : ''} ${label.toLowerCase()}.`)
+      const parts = []
+      if (targetIds.length > 0) parts.push(`${targetIds.length} site${targetIds.length !== 1 ? 's' : ''} ${label.toLowerCase()}.`)
+      if (skippedRefly > 0) parts.push(`${skippedRefly} refly site${skippedRefly !== 1 ? 's' : ''} skipped — mark individually (access form required).`)
+      setBulkMessage(parts.join(' ') || 'No sites updated.')
       setSelectedIds(new Set())
     } catch (err) {
       setBulkMessage('Error: ' + (err.message || 'Bulk update failed'))

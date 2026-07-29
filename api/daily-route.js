@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { airtableGetAll } from './_airtable.js'
+import { airtableGetAll, centralDateStr } from './_airtable.js'
 
 const DA_TABLE  = 'tblaNln93bTaldquV'
 const DA_PILOT  = 'fld5VShFudYtTQ9pm'
@@ -12,8 +12,9 @@ function verifyToken(req) {
   return jwt.verify(auth.replace('Bearer ', ''), process.env.JWT_SECRET)
 }
 
+// See _airtable.js centralDateStr — must use Central time, not server UTC.
 function today() {
-  return new Date().toISOString().slice(0, 10)
+  return centralDateStr()
 }
 
 export default async function handler(req, res) {

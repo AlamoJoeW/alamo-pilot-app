@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { airtablePost, BASE_ID, API_KEY } from './_airtable.js'
+import { airtablePost, BASE_ID, API_KEY, centralDateStr } from './_airtable.js'
 
 const ACCESS_ISSUES_TABLE = 'tblcL5VbpJLTll09r'
 
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     }
 
     const fields = {
-      [AI_FIELDS.DATE]: new Date().toISOString().split('T')[0],
+      [AI_FIELDS.DATE]: centralDateStr(), // Central time, not server UTC — see _airtable.js
       [AI_FIELDS.ASSET_ID]: [recordId],
       [AI_FIELDS.NOTES]: notes.trim(),
     }

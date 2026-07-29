@@ -3,6 +3,24 @@
 export const BASE_ID = process.env.AIRTABLE_BASE || 'app3uLCFgt3Y0aPaa'
 export const API_KEY = process.env.AIRTABLE_API_KEY
 
+// Alamo Airborne pilots fly on Central time, but Vercel serverless functions
+// run in UTC. UTC's calendar day rolls over at 7pm CDT / 6pm CST — squarely in
+// the middle of a normal flying day. Every "today" comparison used to gate
+// pilot actions (today's preflight, today's EOD, today's route) MUST use this
+// helper instead of new Date().toISOString(), or a pilot still out past that
+// hour gets a spurious "no preflight on file" once the server's UTC date rolls
+// to tomorrow while their submitted-this-morning preflight is still dated
+// today. Confirmed as the cause of two pilots (Lex, Sharee) getting locked out
+// of marking sites/submitting EOD on 2026-07-28 despite having preflighted.
+export function centralDateStr(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
 export const TABLES = {
   PILOTS: 'tblYVHjbcI46iQ4EB',
   COLLECTION_ASSETS: 'tbl1y4oOzEAhf0a4S',

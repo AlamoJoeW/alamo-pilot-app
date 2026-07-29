@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { BASE_ID, API_KEY, TABLES, FIELDS, airtableGetAll, fetchAllSiteRecords, PIN_ICON_AIRTABLE_TO_APP } from './_airtable.js'
+import { BASE_ID, API_KEY, TABLES, FIELDS, airtableGetAll, fetchAllSiteRecords, PIN_ICON_AIRTABLE_TO_APP, centralDateStr } from './_airtable.js'
 
 // Combined admin endpoint — returns both all-pilot sites and today's pilot locations
 // in a single response. Kept as one file (rather than two) to stay under Vercel's
@@ -21,8 +21,9 @@ function verifyToken(req) {
   return jwt.verify(auth.replace('Bearer ', ''), process.env.JWT_SECRET)
 }
 
+// See _airtable.js centralDateStr — must use Central time, not server UTC.
 function today() {
-  return new Date().toISOString().slice(0, 10)
+  return centralDateStr()
 }
 
 async function fetchAllPilots() {
