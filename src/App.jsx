@@ -241,6 +241,16 @@ export default function App() {
       changes.partialCollection = false
       changes.mobFee = false
     }
+    // Stamp locally, same as handleBulkUpdate below — otherwise this site's
+    // "marked today" state (used by EODReport's isMarkedToday check) doesn't
+    // exist until the server round-trip in updateSite() below completes and
+    // a later sync() pulls it back down. On poor cell service that round-trip
+    // can lag or silently fail, so a pilot who marks a site collected and
+    // submits their EOD shortly after (before that sync happens) would have
+    // the site drop out of the EOD's collected list even though it's flagged
+    // collected locally. Stamping here makes "today" true immediately,
+    // independent of connectivity.
+    changes.appStatusUpdatedAt = new Date().toISOString()
 
     await updateSiteLocally(recordId, changes)
     setSites(prev => prev.map(s => s.id === recordId ? { ...s, ...changes } : s))
