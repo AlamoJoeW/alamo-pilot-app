@@ -10,14 +10,33 @@ function isReflySite(site) {
   return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
 }
 
+// Shared by marker creation and the diff check below so both always agree on
+// what counts as a "change" worth re-rendering a tooltip for.
+function tooltipHtmlFor(site) {
+  const reflyLine = isReflySite(site) && site.reflyNotes
+    ? `<br><em>Refly: ${site.reflyNotes}</em>`
+    : ''
+  return `<strong>${site.siteId || 'Site'}</strong><br>FUZE: ${site.fuzeId || '—'}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}${reflyLine}`
+}
+
 export default function MapView({ sites, onSelect, highlightedSiteId }) {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
   const tileLayerRef = useRef(null)
-  // Keyed by site id so the highlight effect below can find + restyle a
-  // single marker without touching the rest (see markersRef.current).
+  // Holds every site marker via leaflet.markercluster so ~3,800+ pins collapse
+  // into count bubbles at lower zoom instead of all rendering individually —
+  // that per-marker DOM cost is what made panning/zooming sluggish with a
+  // pilot's full site list assigned. Falls back to a plain layerGroup (no
+  // clustering, but still functional) if the CDN plugin script didn't load.
+  const clusterGroupRef = useRef(null)
+  // Keyed by site id so the diff effect below can add/update/remove a single
+  // marker without touching the rest (see markersRef.current).
   const markersRef = useRef(new Map())
   const highlightedRef = useRef(null) // site id currently drawn as highlighted, if any
+  // The site-id set actually on the map as of the last diff pass — compared
+  // against the new set each run so fitBounds only fires when sites were
+  // added/removed (reassignment), not on every unrelated field edit.
+  const prevIdsRef = useRef(new Set())
   const locateMarkerRef = useRef(null)
   const [locating, setLocating] = useState(false)
   const [locateError, setLocateError] = useState(null)
@@ -38,9 +57,18 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
 
     mapInstance.current = map
 
+    // chunkedLoading spreads the initial marker load across animation frames
+    // instead of blocking the UI thread when a pilot has thousands of sites.
+    const clusterGroup = L.markerClusterGroup
+      ? L.markerClusterGroup({ chunkedLoading: true })
+      : L.layerGroup() // graceful fallback if the plugin script hasn't loaded
+    clusterGroup.addTo(map)
+    clusterGroupRef.current = clusterGroup
+
     return () => {
       map.remove()
       mapInstance.current = null
+      clusterGroupRef.current = null
     }
   }, [])
 
@@ -58,10 +86,11 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
 
   // Restyles the previously-highlighted marker back to normal and the newly
   // highlighted one to the amber-ring icon with its tooltip pinned open.
-  // Called both after a marker rebuild (to re-apply the current highlight to
-  // the fresh marker objects) and whenever `highlightedSiteId` itself
-  // changes — deliberately NOT a map-rebuild trigger on its own, so tapping
-  // a pin never re-fits/re-centers the map.
+  // Called whenever `highlightedSiteId` itself changes (tapping a pin) —
+  // deliberately NOT a dependency of the marker-diff effect above, so tapping
+  // a pin never re-fits/re-centers or re-diffs the map. The diff effect keeps
+  // any already-highlighted marker's icon correct on its own (see
+  // `isHighlighted` checks above) if that marker's data changes.
   function applyHighlight(id) {
     const prevId = highlightedRef.current
     if (prevId && prevId !== id) {
@@ -84,43 +113,98 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
     highlightedRef.current = id
   }
 
-  // Update markers when sites change
+  // Update markers when sites change — diffs against the previous marker set
+  // instead of tearing down and rebuilding all ~3,800+ pins on every update.
+  // Almost every pilot action (marking collected, notes, pin icon) replaces
+  // the `sites` array reference even though only one site actually changed,
+  // so a full rebuild here was the main cause of the sluggish map — now only
+  // markers that are new, removed, or actually different get touched.
   useEffect(() => {
     const L = window.L
     const map = mapInstance.current
-    if (!map || !L) return
-
-    markersRef.current.forEach(({ marker }) => marker.remove())
-    markersRef.current = new Map()
-    highlightedRef.current = null
+    const clusterGroup = clusterGroupRef.current
+    if (!map || !L || !clusterGroup) return
 
     const mapped = sites.filter(s => s.lat && s.lng)
+    const newIds = new Set(mapped.map(s => s.id))
+
+    // Drop markers whose site no longer belongs on the map (reassigned to
+    // another pilot, lost its coordinates, etc.)
+    for (const [id, entry] of markersRef.current) {
+      if (!newIds.has(id)) {
+        clusterGroup.removeLayer(entry.marker)
+        markersRef.current.delete(id)
+        if (highlightedRef.current === id) highlightedRef.current = null
+      }
+    }
 
     mapped.forEach(site => {
       const color = colorForSite(site)
-      const baseIcon = makeSiteIcon(color, site.pinIcon)
-      const highlightIcon = makeSiteIcon(color, site.pinIcon, 24, true)
-      const marker = L.marker([site.lat, site.lng], { icon: baseIcon })
+      const iconSig = `${color}::${site.pinIcon || ''}`
+      const tooltipHtml = tooltipHtmlFor(site)
+      const isHighlighted = highlightedRef.current === site.id
+      const existing = markersRef.current.get(site.id)
 
-      marker.on('click', () => onSelect(site))
-      const reflyLine = isReflySite(site) && site.reflyNotes
-        ? `<br><em>Refly: ${site.reflyNotes}</em>`
-        : ''
-      const tooltipHtml = `<strong>${site.siteId || 'Site'}</strong><br>FUZE: ${site.fuzeId || '—'}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}${reflyLine}`
-      marker.bindTooltip(tooltipHtml, { direction: 'top', offset: [0, -8] })
+      if (!existing) {
+        const baseIcon = makeSiteIcon(color, site.pinIcon)
+        const highlightIcon = makeSiteIcon(color, site.pinIcon, 24, true)
+        const marker = L.marker([site.lat, site.lng], { icon: isHighlighted ? highlightIcon : baseIcon })
+        const entry = { marker, baseIcon, highlightIcon, tooltipHtml, iconSig, lat: site.lat, lng: site.lng, currentSite: site }
 
-      marker.addTo(map)
-      markersRef.current.set(site.id, { marker, baseIcon, highlightIcon, tooltipHtml })
+        // Closes over `entry` (stable object reference), not `site` — so as
+        // the diff updates entry.currentSite on later passes, a click always
+        // reports the latest data without needing to rebind the listener.
+        marker.on('click', () => onSelect(entry.currentSite))
+        marker.bindTooltip(tooltipHtml, isHighlighted
+          ? { direction: 'top', offset: [0, -8], permanent: true }
+          : { direction: 'top', offset: [0, -8] })
+
+        clusterGroup.addLayer(marker)
+        markersRef.current.set(site.id, entry)
+        return
+      }
+
+      existing.currentSite = site
+
+      if (existing.lat !== site.lat || existing.lng !== site.lng) {
+        existing.marker.setLatLng([site.lat, site.lng])
+        existing.lat = site.lat
+        existing.lng = site.lng
+      }
+
+      if (existing.iconSig !== iconSig) {
+        existing.baseIcon = makeSiteIcon(color, site.pinIcon)
+        existing.highlightIcon = makeSiteIcon(color, site.pinIcon, 24, true)
+        existing.iconSig = iconSig
+        existing.marker.setIcon(isHighlighted ? existing.highlightIcon : existing.baseIcon)
+      }
+
+      if (existing.tooltipHtml !== tooltipHtml) {
+        existing.tooltipHtml = tooltipHtml
+        existing.marker.unbindTooltip()
+        existing.marker.bindTooltip(tooltipHtml, isHighlighted
+          ? { direction: 'top', offset: [0, -8], permanent: true }
+          : { direction: 'top', offset: [0, -8] })
+        if (isHighlighted) existing.marker.openTooltip()
+      }
     })
 
-    if (mapped.length > 0) {
+    // Only re-fit the viewport when the actual set of sites on the map
+    // changed (assignment/reassignment) — not on every unrelated field edit,
+    // so the map doesn't jump/re-zoom every time a pilot taps a status button.
+    const prevIds = prevIdsRef.current
+    let idsChanged = prevIds.size !== newIds.size
+    if (!idsChanged) {
+      for (const id of newIds) {
+        if (!prevIds.has(id)) { idsChanged = true; break }
+      }
+    }
+    prevIdsRef.current = newIds
+
+    if (idsChanged && mapped.length > 0) {
       const bounds = L.latLngBounds(mapped.map(s => [s.lat, s.lng]))
       map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 })
     }
-
-    // Re-apply the current highlight to the freshly-built markers (e.g. a
-    // status sync refreshed `sites` while a pin was highlighted).
-    applyHighlight(highlightedSiteId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sites, onSelect])
 
