@@ -125,85 +125,112 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
     const clusterGroup = clusterGroupRef.current
     if (!map || !L || !clusterGroup) return
 
-    const mapped = sites.filter(s => s.lat && s.lng)
-    const newIds = new Set(mapped.map(s => s.id))
+    // Bulk add/remove — MarkerClusterGroup.addLayer()/removeLayer() rebuild
+    // its spatial index on every single call, so calling either one-by-one in
+    // a loop over ~3,800 sites is what actually froze the app on first load.
+    // addLayers()/removeLayers() do the same work as one batch (and, with
+    // chunkedLoading above, spread it across animation frames). Plain
+    // L.layerGroup() — the no-plugin fallback — only has the singular
+    // methods, so fall back to the loop there.
+    const bulkAdd = typeof clusterGroup.addLayers === 'function'
+      ? layers => clusterGroup.addLayers(layers)
+      : layers => layers.forEach(l => clusterGroup.addLayer(l))
+    const bulkRemove = typeof clusterGroup.removeLayers === 'function'
+      ? layers => clusterGroup.removeLayers(layers)
+      : layers => layers.forEach(l => clusterGroup.removeLayer(l))
 
-    // Drop markers whose site no longer belongs on the map (reassigned to
-    // another pilot, lost its coordinates, etc.)
-    for (const [id, entry] of markersRef.current) {
-      if (!newIds.has(id)) {
-        clusterGroup.removeLayer(entry.marker)
-        markersRef.current.delete(id)
-        if (highlightedRef.current === id) highlightedRef.current = null
+    try {
+      const mapped = sites.filter(s => s.lat && s.lng)
+      const newIds = new Set(mapped.map(s => s.id))
+
+      // Drop markers whose site no longer belongs on the map (reassigned to
+      // another pilot, lost its coordinates, etc.)
+      const toRemove = []
+      for (const [id, entry] of markersRef.current) {
+        if (!newIds.has(id)) {
+          toRemove.push(entry.marker)
+          markersRef.current.delete(id)
+          if (highlightedRef.current === id) highlightedRef.current = null
+        }
       }
-    }
+      if (toRemove.length > 0) bulkRemove(toRemove)
 
-    mapped.forEach(site => {
-      const color = colorForSite(site)
-      const iconSig = `${color}::${site.pinIcon || ''}`
-      const tooltipHtml = tooltipHtmlFor(site)
-      const isHighlighted = highlightedRef.current === site.id
-      const existing = markersRef.current.get(site.id)
+      const toAdd = []
 
-      if (!existing) {
-        const baseIcon = makeSiteIcon(color, site.pinIcon)
-        const highlightIcon = makeSiteIcon(color, site.pinIcon, 24, true)
-        const marker = L.marker([site.lat, site.lng], { icon: isHighlighted ? highlightIcon : baseIcon })
-        const entry = { marker, baseIcon, highlightIcon, tooltipHtml, iconSig, lat: site.lat, lng: site.lng, currentSite: site }
+      mapped.forEach(site => {
+        const color = colorForSite(site)
+        const iconSig = `${color}::${site.pinIcon || ''}`
+        const tooltipHtml = tooltipHtmlFor(site)
+        const isHighlighted = highlightedRef.current === site.id
+        const existing = markersRef.current.get(site.id)
 
-        // Closes over `entry` (stable object reference), not `site` — so as
-        // the diff updates entry.currentSite on later passes, a click always
-        // reports the latest data without needing to rebind the listener.
-        marker.on('click', () => onSelect(entry.currentSite))
-        marker.bindTooltip(tooltipHtml, isHighlighted
-          ? { direction: 'top', offset: [0, -8], permanent: true }
-          : { direction: 'top', offset: [0, -8] })
+        if (!existing) {
+          const baseIcon = makeSiteIcon(color, site.pinIcon)
+          const highlightIcon = makeSiteIcon(color, site.pinIcon, 24, true)
+          const marker = L.marker([site.lat, site.lng], { icon: isHighlighted ? highlightIcon : baseIcon })
+          const entry = { marker, baseIcon, highlightIcon, tooltipHtml, iconSig, lat: site.lat, lng: site.lng, currentSite: site }
 
-        clusterGroup.addLayer(marker)
-        markersRef.current.set(site.id, entry)
-        return
+          // Closes over `entry` (stable object reference), not `site` — so as
+          // the diff updates entry.currentSite on later passes, a click always
+          // reports the latest data without needing to rebind the listener.
+          marker.on('click', () => onSelect(entry.currentSite))
+          marker.bindTooltip(tooltipHtml, isHighlighted
+            ? { direction: 'top', offset: [0, -8], permanent: true }
+            : { direction: 'top', offset: [0, -8] })
+
+          toAdd.push(marker)
+          markersRef.current.set(site.id, entry)
+          return
+        }
+
+        existing.currentSite = site
+
+        if (existing.lat !== site.lat || existing.lng !== site.lng) {
+          existing.marker.setLatLng([site.lat, site.lng])
+          existing.lat = site.lat
+          existing.lng = site.lng
+        }
+
+        if (existing.iconSig !== iconSig) {
+          existing.baseIcon = makeSiteIcon(color, site.pinIcon)
+          existing.highlightIcon = makeSiteIcon(color, site.pinIcon, 24, true)
+          existing.iconSig = iconSig
+          existing.marker.setIcon(isHighlighted ? existing.highlightIcon : existing.baseIcon)
+        }
+
+        if (existing.tooltipHtml !== tooltipHtml) {
+          existing.tooltipHtml = tooltipHtml
+          existing.marker.unbindTooltip()
+          existing.marker.bindTooltip(tooltipHtml, isHighlighted
+            ? { direction: 'top', offset: [0, -8], permanent: true }
+            : { direction: 'top', offset: [0, -8] })
+          if (isHighlighted) existing.marker.openTooltip()
+        }
+      })
+
+      if (toAdd.length > 0) bulkAdd(toAdd)
+
+      // Only re-fit the viewport when the actual set of sites on the map
+      // changed (assignment/reassignment) — not on every unrelated field edit,
+      // so the map doesn't jump/re-zoom every time a pilot taps a status button.
+      const prevIds = prevIdsRef.current
+      let idsChanged = prevIds.size !== newIds.size
+      if (!idsChanged) {
+        for (const id of newIds) {
+          if (!prevIds.has(id)) { idsChanged = true; break }
+        }
       }
+      prevIdsRef.current = newIds
 
-      existing.currentSite = site
-
-      if (existing.lat !== site.lat || existing.lng !== site.lng) {
-        existing.marker.setLatLng([site.lat, site.lng])
-        existing.lat = site.lat
-        existing.lng = site.lng
+      if (idsChanged && mapped.length > 0) {
+        const bounds = L.latLngBounds(mapped.map(s => [s.lat, s.lng]))
+        map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 })
       }
-
-      if (existing.iconSig !== iconSig) {
-        existing.baseIcon = makeSiteIcon(color, site.pinIcon)
-        existing.highlightIcon = makeSiteIcon(color, site.pinIcon, 24, true)
-        existing.iconSig = iconSig
-        existing.marker.setIcon(isHighlighted ? existing.highlightIcon : existing.baseIcon)
-      }
-
-      if (existing.tooltipHtml !== tooltipHtml) {
-        existing.tooltipHtml = tooltipHtml
-        existing.marker.unbindTooltip()
-        existing.marker.bindTooltip(tooltipHtml, isHighlighted
-          ? { direction: 'top', offset: [0, -8], permanent: true }
-          : { direction: 'top', offset: [0, -8] })
-        if (isHighlighted) existing.marker.openTooltip()
-      }
-    })
-
-    // Only re-fit the viewport when the actual set of sites on the map
-    // changed (assignment/reassignment) — not on every unrelated field edit,
-    // so the map doesn't jump/re-zoom every time a pilot taps a status button.
-    const prevIds = prevIdsRef.current
-    let idsChanged = prevIds.size !== newIds.size
-    if (!idsChanged) {
-      for (const id of newIds) {
-        if (!prevIds.has(id)) { idsChanged = true; break }
-      }
-    }
-    prevIdsRef.current = newIds
-
-    if (idsChanged && mapped.length > 0) {
-      const bounds = L.latLngBounds(mapped.map(s => [s.lat, s.lng]))
-      map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 })
+    } catch (err) {
+      // A bad record or a Leaflet edge case shouldn't be able to take down
+      // the whole app (this effect previously had no guard at all) — log it
+      // and leave whatever markers already rendered in place instead.
+      console.error('MapView: failed to update markers', err)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sites, onSelect])
