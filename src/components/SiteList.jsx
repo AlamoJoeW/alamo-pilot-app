@@ -80,17 +80,33 @@ function NotesRow({ site, onSave }) {
   )
 }
 
+// Fields a pilot might actually search by — site ID and FUZE ID are the two
+// they'd have written down or been told over the phone; city/state/sub
+// project cover "what's around Fairport" style lookups.
+function matchesSearch(site, query) {
+  const haystack = [site.siteId, site.fuzeId, site.city, site.state, site.subProject, site.address]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(query)
+}
+
 export default function SiteList({ sites, onSelect, filter, onFilterChange, onBulkUpdate, onNotesSave, canEdit, isOnline }) {
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [bulkBusy, setBulkBusy] = useState(false)
   const [bulkMessage, setBulkMessage] = useState('')
   const [sortKey, setSortKey] = useState('siteId')
+  const [search, setSearch] = useState('')
 
+  // Search narrows within whatever status tab is selected — it doesn't touch
+  // the tab counts below, same as how the tabs themselves don't reset search.
+  const trimmedQuery = search.trim().toLowerCase()
   const filtered = sortSites(
     sites.filter(s => {
-      if (filter === 'all') return true
-      return getSiteStatus(s) === filter
+      if (filter !== 'all' && getSiteStatus(s) !== filter) return false
+      if (trimmedQuery && !matchesSearch(s, trimmedQuery)) return false
+      return true
     }),
     sortKey
   )
@@ -165,6 +181,28 @@ export default function SiteList({ sites, onSelect, filter, onFilterChange, onBu
 
   return (
     <div className="site-list-container">
+      {/* Search */}
+      <div className="site-search-row">
+        <input
+          type="text"
+          inputMode="search"
+          className="site-search-input"
+          placeholder="Search site ID, FUZE, city…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        {search && (
+          <button
+            type="button"
+            className="site-search-clear"
+            onClick={() => setSearch('')}
+            aria-label="Clear search"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       {/* Filter tabs */}
       <div className="filter-tabs">
         {[
@@ -226,7 +264,9 @@ export default function SiteList({ sites, onSelect, filter, onFilterChange, onBu
       {/* Site rows */}
       <div className="site-list">
         {filtered.length === 0 && (
-          <div className="empty-state">No sites in this category</div>
+          <div className="empty-state">
+            {trimmedQuery ? 'No sites match your search' : 'No sites in this category'}
+          </div>
         )}
         {filtered.map(site => {
           const s = getSiteStatus(site)

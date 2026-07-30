@@ -368,6 +368,40 @@ html, body, #root {
   flex-direction: column;
 }
 
+.site-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.site-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+}
+.site-search-input::placeholder { color: var(--text2); }
+
+.site-search-clear {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text2);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.site-search-clear:hover { color: var(--text); border-color: var(--text2); }
+
 .filter-tabs {
   display: flex;
   overflow-x: auto;

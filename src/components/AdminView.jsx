@@ -35,6 +35,17 @@ function getSiteStatus(site) {
   return statusBucketForSite(site) || 'none'
 }
 
+// Same fields/logic as SiteList.jsx's matchesSearch — kept as a local copy
+// rather than a shared import since neither file currently imports from the
+// other (matches how isReflySite is duplicated across these files too).
+function matchesSearch(site, query) {
+  const haystack = [site.siteId, site.fuzeId, site.city, site.state, site.subProject, site.address]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(query)
+}
+
 // Calendar-day match in the admin's local time zone — a site a pilot marked
 // at 11:58pm and one marked at 12:02am both count as "today" relative to
 // whenever the office is actually looking at this screen.
@@ -91,6 +102,7 @@ export default function AdminView() {
   const [selectedSite, setSelectedSite] = useState(null)
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortKey, setSortKey] = useState('siteId')
+  const [listSearch, setListSearch] = useState('')
 
   // Applied before the pilot chip strip's own show/hide — "Marked Today" narrows
   // the pool down to sites a pilot touched today, and everything downstream
@@ -404,8 +416,13 @@ export default function AdminView() {
     mob: listSites.filter(s => getSiteStatus(s) === 'mob').length,
   }
 
+  const trimmedQuery = listSearch.trim().toLowerCase()
   const displaySites = sortSites(
-    listSites.filter(s => statusFilter === 'all' || getSiteStatus(s) === statusFilter),
+    listSites.filter(s => {
+      if (statusFilter !== 'all' && getSiteStatus(s) !== statusFilter) return false
+      if (trimmedQuery && !matchesSearch(s, trimmedQuery)) return false
+      return true
+    }),
     sortKey
   )
 
@@ -531,6 +548,26 @@ export default function AdminView() {
 
       {mode === 'list' && (
         <div className="site-list-container admin-site-list">
+          <div className="site-search-row">
+            <input
+              type="text"
+              inputMode="search"
+              className="site-search-input"
+              placeholder="Search site ID, FUZE, city…"
+              value={listSearch}
+              onChange={e => setListSearch(e.target.value)}
+            />
+            {listSearch && (
+              <button
+                type="button"
+                className="site-search-clear"
+                onClick={() => setListSearch('')}
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <div className="admin-list-header">
             {selectedPilotId ? (
               <>
@@ -570,7 +607,9 @@ export default function AdminView() {
             </select>
           </div>
           <div className="site-list">
-            {displaySites.length === 0 && <div className="empty-state">No sites</div>}
+            {displaySites.length === 0 && (
+              <div className="empty-state">{trimmedQuery ? 'No sites match your search' : 'No sites'}</div>
+            )}
             {displaySites.map(site => {
               const color = colorForSite(site)
               const pilotNames = (site.pilotNames || []).join(', ') || 'Unassigned'
