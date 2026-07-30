@@ -1618,7 +1618,10 @@ html, body, #root {
 
 .map-locate-btn {
   position: absolute;
-  bottom: 24px;
+  /* Matches .toast's clearance below — the .eod-btn pill sits centered at the
+     bottom of the screen on every tab, and at 24px this row visually
+     collided with it on narrower phones. */
+  bottom: calc(80px + var(--safe-bottom));
   right: 12px;
   z-index: 1000;
   width: 40px;
@@ -1654,7 +1657,7 @@ html, body, #root {
 
 .map-layer-btn {
   position: absolute;
-  bottom: 24px;
+  bottom: calc(80px + var(--safe-bottom));
   right: 12px;
   z-index: 1000;
   width: 40px;
@@ -1694,7 +1697,7 @@ html, body, #root {
    Map tab's row also has the locate button, so it needs an extra shift. */
 .map-cluster-btn {
   position: absolute;
-  bottom: 24px;
+  bottom: calc(80px + var(--safe-bottom));
   right: 60px;
   z-index: 1000;
   width: 40px;
@@ -1754,13 +1757,22 @@ html, body, #root {
   color: var(--accent);
 }
 
-/* The Fullscreen API's default UA sizing is usually enough on its own, but
-   some browsers leave a flex/height-constrained wrapper at its pre-fullscreen
-   size — force it to fill the screen explicitly. */
-.map-wrapper:fullscreen,
-.map-wrapper:-webkit-full-screen {
+/* Full screen is implemented as our own fixed-position overlay rather than
+   relying on the browser's Fullscreen API — iOS Safari on iPhone doesn't
+   support Element.requestFullscreen() for anything but <video> at all, so
+   that API alone left phones with no working full-screen button. This class
+   is what actually does the expanding on every platform; MapView/AdminView
+   also opportunistically call the native API where it IS supported, purely
+   for the bonus of hiding the browser chrome — this class doesn't depend on
+   that succeeding. z-index sits above the header/tab bar/.eod-btn (z ≤ 50)
+   but below .detail-overlay/.modal-overlay (z ≥ 100) so tapping a pin while
+   full-screen still opens its sheet on top instead of underneath the map. */
+.map-wrapper.map-wrapper-fullscreen {
+  position: fixed;
+  inset: 0;
   width: 100vw;
   height: 100vh;
+  z-index: 80;
 }
 
 @keyframes spin {
@@ -1770,7 +1782,7 @@ html, body, #root {
 
 .map-locate-error {
   position: absolute;
-  bottom: 72px;
+  bottom: calc(128px + var(--safe-bottom));
   right: 12px;
   z-index: 1000;
   background: var(--surface);

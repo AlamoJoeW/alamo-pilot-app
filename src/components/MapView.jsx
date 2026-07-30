@@ -119,26 +119,62 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
     clusterGroupRef.current = newGroup
   }, [clustered])
 
-  // Fullscreen toggle — tracks the real browser fullscreen state (not just
-  // our own click) so the icon/button stays correct if the pilot exits via
-  // Esc instead of the button. Leaflet needs an explicit invalidateSize()
-  // once the container's on-screen dimensions actually change, since it
-  // doesn't observe resizes from the Fullscreen API on its own.
+  // Whether the *native* browser Fullscreen API is usable at all — computed
+  // once. iOS Safari on iPhone reports no support for this (it only
+  // implements fullscreen for <video>), so `isFullscreen` below is our own
+  // state, driven by the CSS class in index.css (.map-wrapper-fullscreen)
+  // instead of depending on the browser actually granting real fullscreen.
+  // Where the native API IS available we still opportunistically call it too
+  // (see toggleFullscreen), purely for the bonus of hiding the browser
+  // chrome — nothing here depends on that call succeeding.
+  const nativeFsSupportedRef = useRef(
+    typeof document !== 'undefined' && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled)
+  )
+
+  // Only reacts to *exiting* native fullscreen unexpectedly (Esc key, browser
+  // back gesture) so our own state + button icon stay in sync. Entering is
+  // already handled by our own click below, so this won't fight it — and on
+  // iPhone it simply never fires since native fullscreen never engages there.
   useEffect(() => {
     function handleFullscreenChange() {
       const active = document.fullscreenElement === wrapperRef.current
-      setIsFullscreen(active)
-      setTimeout(() => mapInstance.current?.invalidateSize(), 100)
+        || document.webkitFullscreenElement === wrapperRef.current
+      if (!active) setIsFullscreen(false)
     }
     document.addEventListener('fullscreenchange', handleFullscreenChange)
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+    }
   }, [])
 
+  // Leaflet needs an explicit invalidateSize() once the wrapper's on-screen
+  // dimensions actually change, since it doesn't observe that on its own.
+  // Also locks background scroll while our fixed-position overlay is up, so
+  // the page can't bounce-scroll behind it on iOS.
+  useEffect(() => {
+    const t = setTimeout(() => mapInstance.current?.invalidateSize(), 100)
+    const prevOverflow = document.body.style.overflow
+    if (isFullscreen) document.body.style.overflow = 'hidden'
+    return () => {
+      clearTimeout(t)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [isFullscreen])
+
   function toggleFullscreen() {
-    if (document.fullscreenElement) {
-      document.exitFullscreen()
+    const next = !isFullscreen
+    setIsFullscreen(next) // this alone is what actually expands the map — works on every platform
+
+    if (!nativeFsSupportedRef.current) return
+    if (next) {
+      const el = wrapperRef.current
+      const req = el?.requestFullscreen || el?.webkitRequestFullscreen
+      req?.call(el)?.catch?.(() => {}) // best-effort chrome-hiding; our own state above already handles the visual expand regardless
     } else {
-      wrapperRef.current?.requestFullscreen()
+      const active = document.fullscreenElement || document.webkitFullscreenElement
+      if (active) (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)
     }
   }
 
@@ -371,7 +407,7 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
   }
 
   return (
-    <div ref={wrapperRef} className="map-wrapper">
+    <div ref={wrapperRef} className={`map-wrapper${isFullscreen ? ' map-wrapper-fullscreen' : ''}`}>
       <div ref={mapRef} className="map-container" />
       <button
         className={`map-fullscreen-btn`}

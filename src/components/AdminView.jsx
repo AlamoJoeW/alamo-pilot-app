@@ -177,24 +177,51 @@ export default function AdminView() {
     clusterGroupRef.current = newGroup
   }, [clustered])
 
-  // Fullscreen toggle — mirrors the pilot Map tab's implementation, tracking
-  // the real browser fullscreen state and nudging Leaflet to recompute its
-  // size once the container's on-screen dimensions actually change.
+  // Mirrors the pilot Map tab's fullscreen implementation — see the longer
+  // comment there. Short version: iOS Safari has no Fullscreen API for
+  // anything but <video>, so `isFullscreen` is our own state driven by the
+  // .map-wrapper-fullscreen CSS class, and the native API (where supported)
+  // is only called opportunistically as a chrome-hiding bonus.
+  const nativeFsSupportedRef = useRef(
+    typeof document !== 'undefined' && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled)
+  )
+
   useEffect(() => {
     function handleFullscreenChange() {
       const active = document.fullscreenElement === wrapperRef.current
-      setIsFullscreen(active)
-      setTimeout(() => mapInstance.current?.invalidateSize(), 100)
+        || document.webkitFullscreenElement === wrapperRef.current
+      if (!active) setIsFullscreen(false)
     }
     document.addEventListener('fullscreenchange', handleFullscreenChange)
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+    }
   }, [])
 
+  useEffect(() => {
+    const t = setTimeout(() => mapInstance.current?.invalidateSize(), 100)
+    const prevOverflow = document.body.style.overflow
+    if (isFullscreen) document.body.style.overflow = 'hidden'
+    return () => {
+      clearTimeout(t)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [isFullscreen])
+
   function toggleFullscreen() {
-    if (document.fullscreenElement) {
-      document.exitFullscreen()
+    const next = !isFullscreen
+    setIsFullscreen(next)
+
+    if (!nativeFsSupportedRef.current) return
+    if (next) {
+      const el = wrapperRef.current
+      const req = el?.requestFullscreen || el?.webkitRequestFullscreen
+      req?.call(el)?.catch?.(() => {})
     } else {
-      wrapperRef.current?.requestFullscreen()
+      const active = document.fullscreenElement || document.webkitFullscreenElement
+      if (active) (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)
     }
   }
 
@@ -450,7 +477,7 @@ export default function AdminView() {
 
       <div
         ref={wrapperRef}
-        className="map-wrapper admin-map-wrapper"
+        className={`map-wrapper admin-map-wrapper${isFullscreen ? ' map-wrapper-fullscreen' : ''}`}
         style={{ display: mode === 'map' ? 'block' : 'none' }}
       >
         <div ref={mapRef} className="map-container" />
