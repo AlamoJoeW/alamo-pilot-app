@@ -1689,6 +1689,80 @@ html, body, #root {
   right: 60px;
 }
 
+/* Grouping (marker clustering) toggle — sits left of the layer button in the
+   same bottom-right row. Admin's row is [layer(12), cluster(60)]; the pilot
+   Map tab's row also has the locate button, so it needs an extra shift. */
+.map-cluster-btn {
+  position: absolute;
+  bottom: 24px;
+  right: 60px;
+  z-index: 1000;
+  width: 40px;
+  height: 40px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+
+.map-cluster-btn:hover {
+  background: var(--surface2);
+  color: var(--accent);
+}
+
+.map-cluster-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.map-cluster-btn.with-locate {
+  right: 108px;
+}
+
+/* Full screen toggle — top-right corner, clear of Leaflet's zoom control
+   (top-left) and the button row along the bottom. */
+.map-fullscreen-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1000;
+  width: 40px;
+  height: 40px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+
+.map-fullscreen-btn:hover {
+  background: var(--surface2);
+  color: var(--accent);
+}
+
+/* The Fullscreen API's default UA sizing is usually enough on its own, but
+   some browsers leave a flex/height-constrained wrapper at its pre-fullscreen
+   size — force it to fill the screen explicitly. */
+.map-wrapper:fullscreen,
+.map-wrapper:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

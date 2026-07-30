@@ -62,10 +62,19 @@ function pilotIcon() {
 
 export default function AdminView() {
   const mapRef = useRef(null)
+  const wrapperRef = useRef(null)
   const mapInstance = useRef(null)
   const tileLayerRef = useRef(null)
+  // Site markers live in this cluster group (like the pilot Map tab) so admins
+  // can turn grouping on/off for map speed; falls back to a plain layerGroup
+  // if the CDN clustering plugin didn't load. Pilot GPS markers below are
+  // intentionally left out of this group — there are only ever a handful of
+  // pilots and admins need to always see each one individually.
+  const clusterGroupRef = useRef(null)
   const siteMarkersRef = useRef([])
   const pilotMarkersRef = useRef([])
+  const clusterInitRef = useRef(false) // skips the swap effect on first mount
+  const hasFitRef = useRef(false) // fit-to-bounds happens once per view-open, not on every 60s refresh
 
   const [sites, setSites] = useState([])
   const [pilots, setPilots] = useState([])
@@ -75,6 +84,8 @@ export default function AdminView() {
   const [hiddenPilotIds, setHiddenPilotIds] = useState(() => new Set())
   const [markedTodayOnly, setMarkedTodayOnly] = useState(false)
   const [satellite, setSatellite] = useState(false)
+  const [clustered, setClustered] = useState(true)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const [mode, setMode] = useState('map') // 'map' | 'list'
   const [selectedPilotId, setSelectedPilotId] = useState(null)
   const [selectedSite, setSelectedSite] = useState(null)
@@ -113,10 +124,79 @@ export default function AdminView() {
     if (mapInstance.current) return
     const L = window.L
     if (!L) return
-    const map = L.map(mapRef.current, { center: [32.7767, -96.7970], zoom: 7, zoomControl: true })
+    const map = L.map(mapRef.current, {
+      center: [32.7767, -96.7970],
+      zoom: 7,
+      zoomControl: true,
+      // MarkerClusterGroup.onAdd() reads map.getMaxZoom() immediately and
+      // throws if nothing's supplied one yet — same fix as the pilot Map tab.
+      maxZoom: 19,
+    })
     mapInstance.current = map
-    return () => { map.remove(); mapInstance.current = null }
+
+    const clusterGroup = clustered && L.markerClusterGroup
+      ? L.markerClusterGroup({ chunkedLoading: true })
+      : L.layerGroup()
+    clusterGroup.addTo(map)
+    clusterGroupRef.current = clusterGroup
+
+    return () => {
+      map.remove()
+      mapInstance.current = null
+      clusterGroupRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Swaps the site-marker group between clustered and unclustered whenever the
+  // toggle changes — moves existing markers to a fresh group instead of
+  // rebuilding them. Skipped on mount since the init effect above already
+  // creates the correctly-typed group.
+  useEffect(() => {
+    if (!clusterInitRef.current) {
+      clusterInitRef.current = true
+      return
+    }
+    const L = window.L
+    const map = mapInstance.current
+    if (!map || !L) return
+
+    const oldGroup = clusterGroupRef.current
+    if (oldGroup) map.removeLayer(oldGroup)
+
+    const newGroup = clustered && L.markerClusterGroup
+      ? L.markerClusterGroup({ chunkedLoading: true })
+      : L.layerGroup()
+
+    if (siteMarkersRef.current.length > 0) {
+      if (typeof newGroup.addLayers === 'function') newGroup.addLayers(siteMarkersRef.current)
+      else siteMarkersRef.current.forEach(m => newGroup.addLayer(m))
+    }
+
+    newGroup.addTo(map)
+    clusterGroupRef.current = newGroup
+  }, [clustered])
+
+  // Fullscreen toggle — mirrors the pilot Map tab's implementation, tracking
+  // the real browser fullscreen state and nudging Leaflet to recompute its
+  // size once the container's on-screen dimensions actually change.
+  useEffect(() => {
+    function handleFullscreenChange() {
+      const active = document.fullscreenElement === wrapperRef.current
+      setIsFullscreen(active)
+      setTimeout(() => mapInstance.current?.invalidateSize(), 100)
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen()
+    } else {
+      wrapperRef.current?.requestFullscreen()
+    }
+  }
 
   // Swap the tile layer whenever the street/satellite toggle changes (also
   // runs once on mount to add the initial street layer).
@@ -133,9 +213,11 @@ export default function AdminView() {
   useEffect(() => {
     const L = window.L
     const map = mapInstance.current
-    if (!map || !L) return
+    const clusterGroup = clusterGroupRef.current
+    if (!map || !L || !clusterGroup) return
 
-    siteMarkersRef.current.forEach(m => m.remove())
+    if (typeof clusterGroup.clearLayers === 'function') clusterGroup.clearLayers()
+    else siteMarkersRef.current.forEach(m => clusterGroup.removeLayer(m))
     siteMarkersRef.current = []
 
     const mapped = visibleSites.filter(s => {
@@ -145,6 +227,7 @@ export default function AdminView() {
       // their pilots hasn't been toggled off in the chip strip.
       return assigned.length === 0 || assigned.some(id => !hiddenPilotIds.has(id))
     })
+    const toAdd = []
     mapped.forEach(site => {
       const color = colorForSite(site)
       const marker = L.marker([site.lat, site.lng], { icon: siteIcon(color, site.pinIcon) })
@@ -157,9 +240,12 @@ export default function AdminView() {
         { direction: 'top', offset: [0, -8] }
       )
       marker.on('click', () => setSelectedSite(site))
-      marker.addTo(map)
+      toAdd.push(marker)
       siteMarkersRef.current.push(marker)
     })
+
+    if (typeof clusterGroup.addLayers === 'function') clusterGroup.addLayers(toAdd)
+    else toAdd.forEach(m => clusterGroup.addLayer(m))
   }, [visibleSites, hiddenPilotIds])
 
   // Redraw pilot markers
@@ -184,20 +270,42 @@ export default function AdminView() {
     })
   }, [pilots, hiddenPilotIds])
 
-  // Fit bounds to everything we have — only on a fresh data load, not on chip toggles
+  // Fit bounds to everything we have — only once, the first time data loads
+  // after this view opens. The 60s auto-refresh below used to re-fit on every
+  // single pass (it depended on `asOf`, which changes every refresh), which
+  // yanked the map back to the full view and wiped out any pan/zoom the admin
+  // had mid-review. `hasFitRef` makes this a one-shot instead; use the
+  // "Recenter" button for anything after that.
   useEffect(() => {
     const L = window.L
     const map = mapInstance.current
-    if (!map || !L || !asOf) return
+    if (!map || !L || !asOf || hasFitRef.current) return
     const allPts = [
       ...sites.filter(s => s.lat && s.lng).map(s => [s.lat, s.lng]),
       ...pilots.filter(p => p.lat && p.lng).map(p => [p.lat, p.lng]),
     ]
     if (allPts.length > 0) {
       map.fitBounds(L.latLngBounds(allPts), { padding: [30, 30], maxZoom: 12 })
+      hasFitRef.current = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asOf])
+
+  // Manual escape hatch for the one-shot fit above — recenters/refits to
+  // whatever's currently visible (respecting the pilot chip strip + Marked
+  // Today filter), since auto-refresh no longer does this automatically.
+  function recenterMap() {
+    const L = window.L
+    const map = mapInstance.current
+    if (!map || !L) return
+    const allPts = [
+      ...visibleSites.filter(s => s.lat && s.lng).map(s => [s.lat, s.lng]),
+      ...pilots.filter(p => p.lat && p.lng && !hiddenPilotIds.has(p.pilotId)).map(p => [p.lat, p.lng]),
+    ]
+    if (allPts.length > 0) {
+      map.fitBounds(L.latLngBounds(allPts), { padding: [30, 30], maxZoom: 12 })
+    }
+  }
 
   // Notes edit from the Admin detail sheet — same field/save path as the pilot
   // app's NotesEditor (api/update-site.js Notes shape), just written straight
@@ -305,6 +413,9 @@ export default function AdminView() {
               List
             </button>
           </div>
+          <button className="icon-btn" onClick={recenterMap} title="Recenter map to fit all visible pins">
+            ⤢
+          </button>
           <button className="icon-btn" onClick={load} disabled={loading} title="Refresh">
             {loading ? '⏳' : '⟳'}
           </button>
@@ -338,10 +449,45 @@ export default function AdminView() {
       </div>
 
       <div
+        ref={wrapperRef}
         className="map-wrapper admin-map-wrapper"
         style={{ display: mode === 'map' ? 'block' : 'none' }}
       >
         <div ref={mapRef} className="map-container" />
+        <button
+          className="map-fullscreen-btn"
+          onClick={toggleFullscreen}
+          title={isFullscreen ? 'Exit full screen' : 'View full screen'}
+          aria-label={isFullscreen ? 'Exit full screen' : 'View full screen'}
+        >
+          {isFullscreen ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+              <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+              <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+              <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+              <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+              <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+              <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+            </svg>
+          )}
+        </button>
+        <button
+          className={`map-cluster-btn${clustered ? ' active' : ''}`}
+          onClick={() => setClustered(v => !v)}
+          title={clustered ? 'Turn off pin grouping' : 'Turn on pin grouping'}
+          aria-label={clustered ? 'Turn off pin grouping' : 'Turn on pin grouping'}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="9" r="4" />
+            <circle cx="16" cy="9" r="4" />
+            <circle cx="12.5" cy="15" r="4" />
+          </svg>
+        </button>
         <button
           className={`map-layer-btn${satellite ? ' active' : ''}`}
           onClick={() => setSatellite(v => !v)}

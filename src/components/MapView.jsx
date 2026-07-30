@@ -21,6 +21,7 @@ function tooltipHtmlFor(site) {
 
 export default function MapView({ sites, onSelect, highlightedSiteId }) {
   const mapRef = useRef(null)
+  const wrapperRef = useRef(null)
   const mapInstance = useRef(null)
   const tileLayerRef = useRef(null)
   // Holds every site marker via leaflet.markercluster so ~3,800+ pins collapse
@@ -28,6 +29,8 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
   // that per-marker DOM cost is what made panning/zooming sluggish with a
   // pilot's full site list assigned. Falls back to a plain layerGroup (no
   // clustering, but still functional) if the CDN plugin script didn't load.
+  // Pilots can also turn clustering off themselves (see `clustered` state)
+  // if they'd rather see every pin individually.
   const clusterGroupRef = useRef(null)
   // Keyed by site id so the diff effect below can add/update/remove a single
   // marker without touching the rest (see markersRef.current).
@@ -42,6 +45,9 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
   const [locateError, setLocateError] = useState(null)
   const [locationVisible, setLocationVisible] = useState(false)
   const [satellite, setSatellite] = useState(false)
+  const [clustered, setClustered] = useState(true)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const clusterInitRef = useRef(false) // skips the swap effect on first mount, group is already correct
 
   // Initialize map once
   useEffect(() => {
@@ -66,7 +72,9 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
 
     // chunkedLoading spreads the initial marker load across animation frames
     // instead of blocking the UI thread when a pilot has thousands of sites.
-    const clusterGroup = L.markerClusterGroup
+    // Uses the `clustered` state's initial value (true by default) — the
+    // swap effect below takes over from here whenever the toggle changes.
+    const clusterGroup = clustered && L.markerClusterGroup
       ? L.markerClusterGroup({ chunkedLoading: true })
       : L.layerGroup() // graceful fallback if the plugin script hasn't loaded
     clusterGroup.addTo(map)
@@ -77,7 +85,62 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
       mapInstance.current = null
       clusterGroupRef.current = null
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Swaps the marker group between clustered and unclustered whenever the
+  // pilot flips the grouping toggle — moves every existing marker over to a
+  // fresh group instead of rebuilding them, so toggling doesn't refetch or
+  // re-diff anything. Skipped on mount since the init effect above already
+  // creates the correctly-typed group.
+  useEffect(() => {
+    if (!clusterInitRef.current) {
+      clusterInitRef.current = true
+      return
+    }
+    const L = window.L
+    const map = mapInstance.current
+    if (!map || !L) return
+
+    const oldGroup = clusterGroupRef.current
+    if (oldGroup) map.removeLayer(oldGroup)
+
+    const newGroup = clustered && L.markerClusterGroup
+      ? L.markerClusterGroup({ chunkedLoading: true })
+      : L.layerGroup()
+
+    const allMarkers = Array.from(markersRef.current.values()).map(e => e.marker)
+    if (allMarkers.length > 0) {
+      if (typeof newGroup.addLayers === 'function') newGroup.addLayers(allMarkers)
+      else allMarkers.forEach(m => newGroup.addLayer(m))
+    }
+
+    newGroup.addTo(map)
+    clusterGroupRef.current = newGroup
+  }, [clustered])
+
+  // Fullscreen toggle — tracks the real browser fullscreen state (not just
+  // our own click) so the icon/button stays correct if the pilot exits via
+  // Esc instead of the button. Leaflet needs an explicit invalidateSize()
+  // once the container's on-screen dimensions actually change, since it
+  // doesn't observe resizes from the Fullscreen API on its own.
+  useEffect(() => {
+    function handleFullscreenChange() {
+      const active = document.fullscreenElement === wrapperRef.current
+      setIsFullscreen(active)
+      setTimeout(() => mapInstance.current?.invalidateSize(), 100)
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen()
+    } else {
+      wrapperRef.current?.requestFullscreen()
+    }
+  }
 
   // Swap the tile layer whenever the street/satellite toggle changes (also
   // runs once on mount to add the initial street layer).
@@ -308,8 +371,42 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
   }
 
   return (
-    <div className="map-wrapper">
+    <div ref={wrapperRef} className="map-wrapper">
       <div ref={mapRef} className="map-container" />
+      <button
+        className={`map-fullscreen-btn`}
+        onClick={toggleFullscreen}
+        title={isFullscreen ? 'Exit full screen' : 'View full screen'}
+        aria-label={isFullscreen ? 'Exit full screen' : 'View full screen'}
+      >
+        {isFullscreen ? (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+            <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+            <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+            <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+          </svg>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+            <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+            <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+            <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+          </svg>
+        )}
+      </button>
+      <button
+        className={`map-cluster-btn with-locate${clustered ? ' active' : ''}`}
+        onClick={() => setClustered(v => !v)}
+        title={clustered ? 'Turn off pin grouping' : 'Turn on pin grouping'}
+        aria-label={clustered ? 'Turn off pin grouping' : 'Turn on pin grouping'}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="9" cy="9" r="4" />
+          <circle cx="16" cy="9" r="4" />
+          <circle cx="12.5" cy="15" r="4" />
+        </svg>
+      </button>
       <button
         className={`map-layer-btn with-locate${satellite ? ' active' : ''}`}
         onClick={() => setSatellite(v => !v)}
