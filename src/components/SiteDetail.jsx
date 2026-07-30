@@ -287,6 +287,23 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           <InfoRow label="Date Added" value={site.dateAdded ? new Date(site.dateAdded).toLocaleDateString() : ''} />
         </div>
 
+        {/* Universal Google Maps link, not the comgooglemaps:// custom scheme —
+            this opens the Google Maps app directly if it's installed (iOS and
+            Android both honor it as a universal/app link) and falls back to
+            Maps in the browser if it's not, with no platform detection needed.
+            Always visible regardless of preflight/access-form state below,
+            since a pilot may want directions before either of those clears. */}
+        {site.lat && site.lng && (
+          <a
+            className="action-btn navigate"
+            href={`https://www.google.com/maps/dir/?api=1&destination=${site.lat},${site.lng}&travelmode=driving`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            🧭 GO!
+          </a>
+        )}
+
         {!canEdit ? (
           <div className="access-pending">
             <p className="pending-msg">Complete today's preflight before logging site status.</p>

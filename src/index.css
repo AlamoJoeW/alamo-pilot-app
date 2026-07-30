@@ -868,6 +868,26 @@ html, body, #root {
   border-color: var(--orange);
 }
 
+/* Navigate — an <a> instead of a <button> (see SiteDetail.jsx), so it needs
+   its own display/text-decoration reset on top of the shared .action-btn
+   sizing. Sits outside .detail-actions since it's shown in every state
+   (preflight-pending, access-form-pending, etc.), not just the normal
+   mark-collected view, so it carries its own bottom margin instead. */
+.action-btn.navigate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  margin-bottom: 12px;
+  background: rgba(59,130,246,0.15);
+  color: #60a5fa;
+  border-color: rgba(59,130,246,0.3);
+}
+.action-btn.navigate:active {
+  transform: scale(0.97);
+}
+
 .offline-badge {
   text-align: center;
   font-size: 13px;
