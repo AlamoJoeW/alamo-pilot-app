@@ -268,8 +268,14 @@ export default function AdminView() {
     })
     const toAdd = []
     mapped.forEach(site => {
-      const color = colorForSite(site)
-      const marker = L.marker([site.lat, site.lng], { icon: siteIcon(color, site.pinIcon) })
+      // Unassigned sites (no pilot in PILOT_APP) render as a solid black
+      // square regardless of status color or a leftover pin icon choice, so
+      // they jump out on the admin map as "needs a pilot assigned" — see
+      // mapIcons.js siteIconSvg's 'unassigned' case.
+      const unassigned = (site.pilotApp || []).length === 0
+      const color = unassigned ? '#000000' : colorForSite(site)
+      const iconType = unassigned ? 'unassigned' : site.pinIcon
+      const marker = L.marker([site.lat, site.lng], { icon: siteIcon(color, iconType) })
       const pilotNames = (site.pilotNames || []).join(', ') || 'Unassigned'
       const reflyLine = isReflySite(site) && site.reflyNotes
         ? `<br><em>Refly: ${site.reflyNotes}</em>`

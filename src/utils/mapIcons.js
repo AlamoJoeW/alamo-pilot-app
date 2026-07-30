@@ -71,6 +71,13 @@ export function siteIconSvg(color, iconType) {
     case 'laanc':
       return `<rect x="1" y="6" width="22" height="12" rx="4" fill="${color}" stroke="white" stroke-width="2"/>
         <text x="12" y="15" font-size="7" font-weight="700" fill="white" text-anchor="middle" font-family="sans-serif">${iconType.toUpperCase()}</text>`
+    // Admin map only (AdminView.jsx) — flags a site with no pilot in its
+    // PILOT_APP field. Always solid black regardless of the `color` passed
+    // in (status color would otherwise still show through), since the point
+    // is for these to visually jump out from the status-colored pins as
+    // "needs a pilot assigned" rather than blend in as another status.
+    case 'unassigned':
+      return `<rect x="3" y="3" width="18" height="18" rx="2" fill="#000000" stroke="white" stroke-width="2"/>`
     default:
       return `<circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="2"/>`
   }
