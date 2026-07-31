@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { colorForSite } from '../utils/mapColors'
 import { tileLayerFor } from '../utils/mapLayers'
 import { makeSiteIcon, quadcopterIcon } from '../utils/mapIcons'
+import { createAirspaceLayer, AIRSPACE_LEGEND } from '../utils/airspaceLayer'
 
 // A site is flagged "refly" from either the office REFLY checkbox or the Map
 // Color already saying so (see mapColors.js MAP_COLOR_NOT_DONE) — same check
@@ -47,6 +48,8 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
   const [satellite, setSatellite] = useState(false)
   const [clustered, setClustered] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [airspaceOn, setAirspaceOn] = useState(false)
+  const airspaceLayerRef = useRef(null) // esri-leaflet FeatureLayer, created lazily on first toggle-on
   const clusterInitRef = useRef(false) // skips the swap effect on first mount, group is already correct
 
   // Initialize map once
@@ -189,6 +192,24 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
     const tile = tileLayerFor(satellite)
     tileLayerRef.current = L.tileLayer(tile.url, tile.options).addTo(map)
   }, [satellite])
+
+  // Add/remove the FAA Class B/C/D/Surface-E airspace overlay when the
+  // pilot flips the toggle. The FeatureLayer is created once (lazily, on
+  // first toggle-on) and just added/removed from the map after that, so
+  // toggling off and back on doesn't re-fetch anything already cached.
+  useEffect(() => {
+    const map = mapInstance.current
+    if (!map) return
+
+    if (airspaceOn) {
+      if (!airspaceLayerRef.current) {
+        airspaceLayerRef.current = createAirspaceLayer()
+      }
+      airspaceLayerRef.current?.addTo(map)
+    } else if (airspaceLayerRef.current) {
+      map.removeLayer(airspaceLayerRef.current)
+    }
+  }, [airspaceOn])
 
   // Restyles the previously-highlighted marker back to normal and the newly
   // highlighted one to the amber-ring icon with its tooltip pinned open.
@@ -444,6 +465,17 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
         </svg>
       </button>
       <button
+        className={`map-airspace-btn with-locate${airspaceOn ? ' active' : ''}`}
+        onClick={() => setAirspaceOn(v => !v)}
+        title={airspaceOn ? 'Hide FAA airspace (Class B/C/D/Surface E)' : 'Show FAA airspace (Class B/C/D/Surface E)'}
+        aria-label={airspaceOn ? 'Hide FAA airspace overlay' : 'Show FAA airspace overlay'}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="12 2 21 7.5 21 16.5 12 22 3 16.5 3 7.5" />
+          <circle cx="12" cy="12" r="3.5" />
+        </svg>
+      </button>
+      <button
         className={`map-layer-btn with-locate${satellite ? ' active' : ''}`}
         onClick={() => setSatellite(v => !v)}
         title={satellite ? 'Switch to street map' : 'Switch to satellite view'}
@@ -479,6 +511,16 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
       </button>
       {locateError && (
         <div className="map-locate-error">{locateError}</div>
+      )}
+      {airspaceOn && (
+        <div className="map-airspace-legend">
+          {AIRSPACE_LEGEND.map(item => (
+            <div key={item.key} className="map-airspace-legend-row">
+              <span className={`map-airspace-swatch map-airspace-swatch-${item.key}`} />
+              {item.label}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )

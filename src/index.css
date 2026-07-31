@@ -1784,6 +1784,78 @@ html, body, #root {
   right: 108px;
 }
 
+/* Airspace toggle — sits left of the grouping button in the same row.
+   Pilot Map tab's row is [airspace(156), cluster(108), layer(60), locate(12)]. */
+.map-airspace-btn {
+  position: absolute;
+  bottom: calc(80px + var(--safe-bottom));
+  right: 108px;
+  z-index: 1000;
+  width: 40px;
+  height: 40px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+
+.map-airspace-btn:hover {
+  background: var(--surface2);
+  color: var(--accent);
+}
+
+.map-airspace-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.map-airspace-btn.with-locate {
+  right: 156px;
+}
+
+.map-airspace-legend {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.map-airspace-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  white-space: nowrap;
+}
+
+.map-airspace-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.map-airspace-swatch-B { background: #0057b8; opacity: 0.55; border: 2px solid #0057b8; }
+.map-airspace-swatch-C { background: #c0007f; opacity: 0.55; border: 2px solid #c0007f; }
+.map-airspace-swatch-D { background: #0057b8; opacity: 0.3; border: 2px dashed #0057b8; }
+.map-airspace-swatch-E2 { background: #c0007f; opacity: 0.3; border: 2px dashed #c0007f; }
+
 /* Full screen toggle — top-right corner, clear of Leaflet's zoom control
    (top-left) and the button row along the bottom. */
 .map-fullscreen-btn {
