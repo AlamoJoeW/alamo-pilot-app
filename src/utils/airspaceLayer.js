@@ -23,6 +23,19 @@ export const AIRSPACE_SERVICE_URL =
 
 export const AIRSPACE_WHERE = "CLASS IN ('B','C','D') OR LOCAL_TYPE = 'CLASS_E2'"
 
+// Below this zoom, the visible map area is wide enough to span dozens of
+// airports at once — and Class D / Surface E exist at nearly every one of
+// them nationwide, so a zoomed-out view (the app's default zoom 8) was
+// asking esri-leaflet to fetch and render hundreds of overlapping polygon
+// shapes as individual SVG paths, which is what made the overlay feel slow
+// to load. esri-leaflet's FeatureLayer stops firing queries entirely below
+// minZoom (confirmed against esri-leaflet's grid-cell query behavior), and
+// MapView.jsx also gates adding the layer to the map on its own zoom
+// tracking as a second, library-independent safety net. 9 was picked as the
+// zoom where a phone-width view covers roughly one metro area — enough to
+// still be useful for a pilot checking their site, small enough to stay fast.
+export const AIRSPACE_MIN_ZOOM = 9
+
 // Colors follow standard VFR sectional chart convention (solid blue = B,
 // solid magenta = C, dashed blue = D, dashed magenta = Surface E) so the
 // overlay reads the same way pilots already know from ForeFlight/paper
@@ -83,10 +96,15 @@ export function createAirspaceLayer() {
   return L.esri.featureLayer({
     url: AIRSPACE_SERVICE_URL,
     where: AIRSPACE_WHERE,
-    simplifyFactor: 0.5,
+    // Higher simplifyFactor = more server-side geometry simplification
+    // (fewer vertices returned) before esri-leaflet even draws anything —
+    // the biggest lever here besides the zoom gate above, since Class B/C
+    // shelf outlines in particular can carry a lot of points.
+    simplifyFactor: 1.5,
     precision: 5,
     fields: ['CLASS', 'LOCAL_TYPE', 'NAME', 'LOWER_VAL', 'LOWER_UOM', 'LOWER_CODE', 'UPPER_VAL', 'UPPER_UOM'],
     style: airspaceStyle,
     interactive: true,
+    minZoom: AIRSPACE_MIN_ZOOM,
   }).bindPopup(feature => popupHtmlFor(feature.properties))
 }

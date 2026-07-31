@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { colorForSite } from '../utils/mapColors'
 import { tileLayerFor } from '../utils/mapLayers'
 import { makeSiteIcon, quadcopterIcon } from '../utils/mapIcons'
-import { createAirspaceLayer, AIRSPACE_LEGEND } from '../utils/airspaceLayer'
+import { createAirspaceLayer, AIRSPACE_LEGEND, AIRSPACE_MIN_ZOOM } from '../utils/airspaceLayer'
 
 // A site is flagged "refly" from either the office REFLY checkbox or the Map
 // Color already saying so (see mapColors.js MAP_COLOR_NOT_DONE) — same check
@@ -49,6 +49,7 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
   const [clustered, setClustered] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [airspaceOn, setAirspaceOn] = useState(false)
+  const [mapZoom, setMapZoom] = useState(8) // tracked so the airspace effect can gate on AIRSPACE_MIN_ZOOM without relying solely on esri-leaflet's internal zoom handling
   const airspaceLayerRef = useRef(null) // esri-leaflet FeatureLayer, created lazily on first toggle-on
   const clusterInitRef = useRef(false) // skips the swap effect on first mount, group is already correct
 
@@ -72,6 +73,11 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
     })
 
     mapInstance.current = map
+
+    // Feeds `mapZoom` state below, purely so the airspace effect knows when
+    // to add/remove that layer relative to AIRSPACE_MIN_ZOOM — cheap to
+    // track for every map regardless of whether airspace is toggled on.
+    map.on('zoomend', () => setMapZoom(map.getZoom()))
 
     // chunkedLoading spreads the initial marker load across animation frames
     // instead of blocking the UI thread when a pilot has thousands of sites.
@@ -194,14 +200,22 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
   }, [satellite])
 
   // Add/remove the FAA Class B/C/D/Surface-E airspace overlay when the
-  // pilot flips the toggle. The FeatureLayer is created once (lazily, on
-  // first toggle-on) and just added/removed from the map after that, so
-  // toggling off and back on doesn't re-fetch anything already cached.
+  // pilot flips the toggle, or when panning/zooming crosses AIRSPACE_MIN_ZOOM
+  // in either direction. The FeatureLayer is created once (lazily, on first
+  // toggle-on) and just added/removed from the map after that, so toggling
+  // off and back on — or zooming in and out — doesn't re-fetch anything
+  // already cached. Gating on `mapZoom` here (in addition to the layer's own
+  // minZoom option) is what actually stops the slow-to-render, zoomed-out
+  // case: below AIRSPACE_MIN_ZOOM the layer is removed from the map
+  // entirely rather than left attached and relying on esri-leaflet alone to
+  // suppress its queries.
   useEffect(() => {
     const map = mapInstance.current
     if (!map) return
 
-    if (airspaceOn) {
+    const shouldShow = airspaceOn && mapZoom >= AIRSPACE_MIN_ZOOM
+
+    if (shouldShow) {
       if (!airspaceLayerRef.current) {
         airspaceLayerRef.current = createAirspaceLayer()
       }
@@ -209,7 +223,7 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
     } else if (airspaceLayerRef.current) {
       map.removeLayer(airspaceLayerRef.current)
     }
-  }, [airspaceOn])
+  }, [airspaceOn, mapZoom])
 
   // Restyles the previously-highlighted marker back to normal and the newly
   // highlighted one to the amber-ring icon with its tooltip pinned open.
@@ -512,7 +526,10 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
       {locateError && (
         <div className="map-locate-error">{locateError}</div>
       )}
-      {airspaceOn && (
+      {airspaceOn && mapZoom < AIRSPACE_MIN_ZOOM && (
+        <div className="map-airspace-legend">Zoom in to load airspace</div>
+      )}
+      {airspaceOn && mapZoom >= AIRSPACE_MIN_ZOOM && (
         <div className="map-airspace-legend">
           {AIRSPACE_LEGEND.map(item => (
             <div key={item.key} className="map-airspace-legend-row">
