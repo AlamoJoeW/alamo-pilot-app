@@ -68,10 +68,10 @@ function TextAreaField({ label, value, onChange, placeholder, rows = 3, required
   )
 }
 
-function NumberInputField({ label, value, onChange, hint }) {
+function NumberInputField({ label, value, onChange, hint, required }) {
   return (
     <div className="pf-field">
-      <label className="field-label">{label}</label>
+      <label className="field-label">{label}{required && ' *'}</label>
       {hint && <p className="pf-field-hint">{hint}</p>}
       <input
         type="number"
@@ -203,11 +203,13 @@ function StepSiteReview({ collected, partial, mob, form, setField }) {
         hint="Well pads, towers, poles, acres, etc. Do not include re-flys."
         value={form.fullCount}
         onChange={v => setField('fullCount', v)}
+        required
       />
       <NumberInputField
         label="# of Partial Assets Collected"
         value={form.partialCount}
         onChange={v => setField('partialCount', v)}
+        required
       />
 
       {isZeroCollectionsDay(form) && (
@@ -426,6 +428,8 @@ export default function EODReport({ pilot, sites, preflightId, projectId, onSubm
 
   function validateStep(stepId) {
     if (stepId === 'sites') {
+      if (form.fullCount === '') return 'Please enter # of Full Assets Collected (enter 0 if none).'
+      if (form.partialCount === '') return 'Please enter # of Partial Assets Collected (enter 0 if none).'
       if (isZeroCollectionsDay(form) && !form.zeroCollectionsNotes.trim()) {
         return 'Please add notes explaining why zero assets were collected today.'
       }
