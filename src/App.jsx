@@ -442,8 +442,10 @@ export default function App() {
 
       {syncError && <div className="sync-error">{syncError}</div>}
 
-      {/* Preflight gate banner */}
-      {!preflightExists && (
+      {/* Preflight gate banner — hidden on the Admin tab. Admins (e.g. Joe's boss)
+          view all-pilot data there and don't need a nag about their own personal
+          preflight; AdminView shows a small "(no Preflight)" tag per pilot instead. */}
+      {view !== 'admin' && !preflightExists && (
         <div className="preflight-banner">
           <span>Preflight required before logging site status.</span>
           <div className="preflight-banner-btns">
@@ -456,7 +458,7 @@ export default function App() {
           </div>
         </div>
       )}
-      {preflightExists && preflightTravelDay && (
+      {view !== 'admin' && preflightExists && preflightTravelDay && (
         <div className="preflight-banner travel-day">
           <span>🚗 Travel Day — no flight ops scheduled today. Map is read-only.</span>
         </div>

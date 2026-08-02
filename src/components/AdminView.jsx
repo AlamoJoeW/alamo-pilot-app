@@ -493,6 +493,7 @@ export default function AdminView() {
             >
               <span className="admin-pilot-dot" style={{ background: colorForPilot(p.pilotId) }} />
               {p.name} · {done}/{s.length}
+              {!p.hasPreflightToday && <span className="admin-pilot-no-preflight"> (no Preflight)</span>}
             </button>
           )
         })}
