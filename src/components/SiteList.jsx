@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { statusBucketForSite, isReflySite } from '../utils/mapColors'
+import { statusBucketForSite, isReflySite, needsAccessFormToCollect } from '../utils/mapColors'
 import { sortSites, SORT_OPTIONS } from '../utils/sortSites'
 
 const STATUS_COLORS = {
@@ -26,9 +26,10 @@ function statusLabel(s) {
 // Bulk select only ever marks Collected — Partial and MOB Fee require an
 // access form on file (checked per-site in SiteDetail's single-site flow),
 // so those stay single-site-only rather than risking a pilot bulk-marking
-// sites that don't have one. Refly sites now have that same access-form
-// requirement for Collected too (see SiteDetail.jsx / runBulkAction below) —
-// same reasoning, single-site-only.
+// sites that don't have one. Refly sites, and sites currently sitting at
+// Partial/MOB (a recollect), have that same access-form requirement for
+// Collected too (see needsAccessFormToCollect in mapColors.js / runBulkAction
+// below) — same reasoning, single-site-only.
 const BULK_ACTIONS = [
   { action: 'collected', label: 'Mark Collected' },
 ]
@@ -150,16 +151,19 @@ export default function SiteList({ sites, onSelect, filter, onFilterChange, onBu
     try {
       const ids = Array.from(selectedIds)
 
-      // Refly sites require a completed access form before they can be marked
-      // Collected (mandatory, same as Partial/MOB) — that confirmation flow
-      // only exists in SiteDetail's single-site path, so keep refly sites out
-      // of the bulk action rather than silently skipping the requirement.
+      // Refly sites, and sites currently Partial/MOB (a recollect), require a
+      // completed access form before they can be marked Collected (mandatory)
+      // — that confirmation flow only exists in SiteDetail's single-site path,
+      // so keep those sites out of the bulk action rather than silently
+      // skipping the requirement.
       let targetIds = ids
-      let skippedRefly = 0
+      let skippedForForm = 0
       if (action === 'collected') {
-        const reflyIds = new Set(sites.filter(isReflySite).map(s => s.id))
-        targetIds = ids.filter(id => !reflyIds.has(id))
-        skippedRefly = ids.length - targetIds.length
+        const needsFormIds = new Set(
+          sites.filter(s => needsAccessFormToCollect(s, getSiteStatus(s))).map(s => s.id)
+        )
+        targetIds = ids.filter(id => !needsFormIds.has(id))
+        skippedForForm = ids.length - targetIds.length
       }
 
       if (targetIds.length > 0) {
@@ -169,7 +173,7 @@ export default function SiteList({ sites, onSelect, filter, onFilterChange, onBu
       const label = BULK_ACTIONS.find(a => a.action === action)?.label || action
       const parts = []
       if (targetIds.length > 0) parts.push(`${targetIds.length} site${targetIds.length !== 1 ? 's' : ''} ${label.toLowerCase()}.`)
-      if (skippedRefly > 0) parts.push(`${skippedRefly} refly site${skippedRefly !== 1 ? 's' : ''} skipped — mark individually (access form required).`)
+      if (skippedForForm > 0) parts.push(`${skippedForForm} site${skippedForForm !== 1 ? 's' : ''} skipped — mark individually (access form required).`)
       setBulkMessage(parts.join(' ') || 'No sites updated.')
       setSelectedIds(new Set())
     } catch (err) {

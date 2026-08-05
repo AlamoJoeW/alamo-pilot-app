@@ -126,8 +126,16 @@ export async function updateSitePinIcon(recordId, pinIcon) {
   return res.json()
 }
 
-export async function checkAccessIssue(siteRecordId) {
-  const res = await fetch(`${BASE}/api/check-access-issue?siteRecordId=${encodeURIComponent(siteRecordId)}`, {
+// `since` (ISO timestamp, optional) restricts the check to access-issue forms
+// created after that moment — pass the time the pilot tapped the status
+// button, not just any form on file. Without it, an already-existing form
+// (e.g. the one that put a site into Partial/MOB in the first place) would
+// satisfy the check for a same-day recollect without the pilot actually
+// submitting a new one. See SiteDetail.jsx's pendingSince.
+export async function checkAccessIssue(siteRecordId, since) {
+  const qs = new URLSearchParams({ siteRecordId })
+  if (since) qs.set('since', since)
+  const res = await fetch(`${BASE}/api/check-access-issue?${qs}`, {
     headers: authHeaders(),
   })
   if (res.status === 401) throw new Error('AUTH_EXPIRED')

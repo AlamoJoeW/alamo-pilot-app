@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { checkAccessIssue } from '../utils/api'
-import { isReflySite } from '../utils/mapColors'
+import { isReflySite, needsAccessFormToCollect } from '../utils/mapColors'
 
 const ACCESS_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrZ1KM4eEKKTyyo6'
 const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6NBl4k'
@@ -122,8 +122,22 @@ export function NotesEditor({ site, onSave }) {
 export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingCount, canEdit, onPinIconChange, onNotesSave }) {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState('')
-  const [pendingAction, setPendingAction] = useState(null) // null | 'partial' | 'mob'
+  const [pendingAction, setPendingAction] = useState(null) // null | 'partial' | 'mob' | 'collected'
   const [checkState, setCheckState] = useState('idle')    // 'idle' | 'checking' | 'notFound'
+  // True when the pending 'collected' action is a recollect of a site that was
+  // Partial or MOB Fee (as opposed to a fresh collect or a refly) — captured at
+  // the moment the pilot taps the button, before status can change, so it's
+  // reliable even though the checkbox that told us so gets overwritten by the
+  // eventual onUpdate call. Passed through to onUpdate so App.jsx can stamp the
+  // site for the EOD's automatic re-link (see handleUpdate in src/App.jsx).
+  const [pendingWasRecollect, setPendingWasRecollect] = useState(false)
+  // Timestamp captured the moment the pilot taps the button, before the
+  // access-form tab even opens — sent to checkAccessIssue so it only counts a
+  // form created after this point. Without it, a site already sitting at
+  // Partial/MOB (which necessarily already has an access-issue record on file
+  // from when it was originally marked) would immediately "pass" the check
+  // for a same-day recollect without the pilot submitting a new form at all.
+  const [pendingSince, setPendingSince] = useState(null)
 
   const status = getSiteStatus(site)
   const statusStyle = STATUS_LABELS[status]
@@ -132,13 +146,15 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
     if (checkState === 'checking' || !pendingAction) return
     setCheckState('checking')
     try {
-      const result = await checkAccessIssue(site.id)
+      const result = await checkAccessIssue(site.id, pendingSince)
       if (result.exists) {
         setLoading(true)
         try {
-          await onUpdate(site.id, pendingAction)
-          const label = pendingAction === 'partial' ? 'Partial' : 'MOB Fee'
+          await onUpdate(site.id, pendingAction, pendingWasRecollect ? { recollected: true } : undefined)
+          const label = pendingAction === 'partial' ? 'Partial' : pendingAction === 'mob' ? 'MOB Fee' : 'Collected'
           setPendingAction(null)
+          setPendingWasRecollect(false)
+          setPendingSince(null)
           setCheckState('idle')
           setToast(`✓ ${label} confirmed`)
           setTimeout(() => setToast(''), 3000)
@@ -155,7 +171,7 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
     } catch {
       setCheckState('notFound')
     }
-  }, [checkState, pendingAction, site.id, onUpdate])
+  }, [checkState, pendingAction, pendingWasRecollect, pendingSince, site.id, onUpdate])
 
   // Auto-check when pilot switches back to this tab
   useEffect(() => {
@@ -169,6 +185,8 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
 
   function cancelPending() {
     setPendingAction(null)
+    setPendingWasRecollect(false)
+    setPendingSince(null)
     setCheckState('idle')
   }
 
@@ -180,20 +198,26 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
     // marked Collected too, same requirement Partial/MOB already have — a
     // reflight means the office is re-authorizing access to a site that was
     // previously flagged, so the pilot can't just tap Collected on the strength
-    // of whatever access was arranged for the original visit.
+    // of whatever access was arranged for the original visit. Same logic
+    // applies to a site currently sitting at Partial or MOB Fee: recollecting
+    // it means going back for a second visit, so it needs its own fresh access
+    // form too, not a ride on whatever access was arranged for the first one.
+    const wasRecollect = newAction === 'collected' && (status === 'partial' || status === 'mob')
     const needsAccessForm = newAction === 'partial' || newAction === 'mob' ||
-      (newAction === 'collected' && isReflySite(site))
+      (newAction === 'collected' && needsAccessFormToCollect(site, status))
 
     if (needsAccessForm) {
       if (!isOnline) {
         setToast(newAction === 'collected'
-          ? 'Must be online to submit the refly access form'
+          ? 'Must be online to submit the access form'
           : 'Must be online to submit Partial or MOB Fee')
         setTimeout(() => setToast(''), 3000)
         return
       }
       // window.open is called synchronously in the button onClick
       setPendingAction(newAction)
+      setPendingWasRecollect(wasRecollect)
+      setPendingSince(new Date().toISOString())
       setCheckState('idle')
       return
     }
@@ -317,7 +341,9 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           <div className="access-pending">
             {pendingAction === 'collected' && (
               <p className="pending-msg" style={{ marginBottom: 8 }}>
-                🔁 This is a refly site — a completed access form is required before it can be marked Collected.
+                {pendingWasRecollect
+                  ? '🔁 This site was previously marked Partial or MOB Fee — a completed access form is required before it can be marked Collected.'
+                  : '🔁 This is a refly site — a completed access form is required before it can be marked Collected.'}
               </p>
             )}
             {checkState === 'checking' ? (
@@ -344,7 +370,7 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           <div className="detail-actions">
             <button
               className={`action-btn collected ${status === 'collected' ? 'active' : ''}`}
-              onClick={() => { if (status !== 'collected' && isReflySite(site)) window.open(ACCESS_FORM_URL, '_blank'); handleAction('collected') }}
+              onClick={() => { if (status !== 'collected' && needsAccessFormToCollect(site, status)) window.open(ACCESS_FORM_URL, '_blank'); handleAction('collected') }}
               disabled={loading}
             >
               {status === 'collected' ? '✓ Collected' : 'Mark Collected'}

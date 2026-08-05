@@ -43,6 +43,20 @@ export function isReflySite(site) {
   return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
 }
 
+// A site needs a completed access form before it can be marked Collected if
+// either: it's office-flagged as a refly (see isReflySite above), OR the
+// pilot is recollecting it today after it was previously left as Partial or
+// MOB Fee — Joe's reasoning is the same in both cases: whatever access was
+// arranged for the earlier visit doesn't automatically cover a second one,
+// so the office needs a fresh access-form submission on file. `currentStatus`
+// is the site's status ('collected' | 'partial' | 'mob' | 'none') from
+// *before* the pilot's tap is applied — pass the pre-update value, not what
+// it's about to become. Used by SiteDetail (single-site gating) and
+// SiteList (bulk-collect exclusion).
+export function needsAccessFormToCollect(site, currentStatus) {
+  return isReflySite(site) || currentStatus === 'partial' || currentStatus === 'mob'
+}
+
 // Which Map Color choices count as "done" for progress counts (chip strip fractions,
 // the pilot app's progress bar, List filter tabs, etc.) — only the unambiguous ones.
 // Everything else falls back to the pilot-toggled Collected (App) / Partial Collection
