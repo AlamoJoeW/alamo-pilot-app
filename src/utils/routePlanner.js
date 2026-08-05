@@ -200,6 +200,22 @@ export function scheduleStops(startLat, startLng, orderedSites, opsStart, opsEnd
   return { scheduled, leftover }
 }
 
+// Whether a site is even reachable today on its own — straight-line drive
+// from the pilot's current position, plus a full collection, finishing
+// before the ops window closes. Used to pre-filter the "which sites can you
+// hit today" checklist so it doesn't list sites that are obviously too far
+// away to make it, before the pilot has picked anything. This is a
+// same-day distance check, not a full multi-stop guarantee — checking off
+// several borderline sites can still push some into "didn't fit" once
+// Generate Route actually chains them together in order.
+export function directFitsToday(startLat, startLng, lat, lng, opsStart, opsEnd, durationMin = 80) {
+  const cur = new Date(Math.max(opsStart.getTime(), Date.now()))
+  const { minutes: driveMin } = driveEstimate(startLat, startLng, lat, lng)
+  const arrive = new Date(cur.getTime() + driveMin * 60000)
+  const finish = new Date(arrive.getTime() + durationMin * 60000)
+  return finish <= opsEnd
+}
+
 // Full pipeline: order the pilot's checked sites from their current position,
 // then fit as many as possible into today's ops window.
 export function buildRoutePlan({ sites, startLat, startLng, date = new Date() }) {

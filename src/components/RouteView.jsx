@@ -27,7 +27,7 @@ import { useEffect, useRef, useState } from 'react'
 import { fetchDailyRoute, saveDailyRoute } from '../utils/api'
 import { tileLayerFor } from '../utils/mapLayers'
 import { isRouteEligible, statusBucketForSite } from '../utils/mapColors'
-import { haversineMiles, buildRoutePlan, pepTalkFor, formatDriveMinutes } from '../utils/routePlanner'
+import { haversineMiles, buildRoutePlan, pepTalkFor, formatDriveMinutes, opsWindowFor, directFitsToday } from '../utils/routePlanner'
 import { getMeta, setMeta } from '../utils/db'
 
 // ── Numbered SVG marker ──────────────────────────────────────────────────────
@@ -69,6 +69,7 @@ export default function RouteView({ sites = [] }) {
 
   const [position, setPosition] = useState(null) // { lat, lng } — pilot's start point
   const [checklistSites, setChecklistSites] = useState([])
+  const [checklistFilteredCount, setChecklistFilteredCount] = useState(0) // eligible sites hidden for being out of today's reach
   const [checked, setChecked] = useState(() => new Set())
   const [plan, setPlan] = useState(null) // { date, stops, leftover, pepTalk, generatedAt }
   const [generating, setGenerating] = useState(false)
@@ -158,12 +159,20 @@ export default function RouteView({ sites = [] }) {
   // ── Actions ──────────────────────────────────────────────────────────────
 
   function buildChecklist(lat, lng, preselectIds) {
-    const eligible = sites
-      .filter(isRouteEligible)
+    const { opsStart, opsEnd } = opsWindowFor(new Date(), lat, lng)
+    const allEligible = sites.filter(isRouteEligible)
+    // Only list sites actually reachable today — a straight-line drive from
+    // here plus a full collection has to finish before the ops window
+    // closes. Sites too far away for today's remaining daylight just don't
+    // show up on the checklist at all, rather than getting checked and then
+    // bumped to "didn't fit" after Generate Route.
+    const reachable = allEligible
+      .filter(s => directFitsToday(lat, lng, s.lat, s.lng, opsStart, opsEnd))
       .map(s => ({ ...s, distanceMi: haversineMiles(lat, lng, s.lat, s.lng) }))
       .sort((a, b) => a.distanceMi - b.distanceMi)
-    setChecklistSites(eligible)
-    setChecked(new Set(preselectIds ? eligible.filter(s => preselectIds.has(s.id)).map(s => s.id) : []))
+    setChecklistSites(reachable)
+    setChecklistFilteredCount(allEligible.length - reachable.length)
+    setChecked(new Set(preselectIds ? reachable.filter(s => preselectIds.has(s.id)).map(s => s.id) : []))
     setMode('checklist')
   }
 
@@ -283,7 +292,9 @@ export default function RouteView({ sites = [] }) {
         <div className="route-checklist-header">
           <div>
             <div className="route-checklist-title">Which sites can you hit today?</div>
-            <div className="route-checklist-sub">Sorted by distance from your current location. Uncheck anything you know isn't doable.</div>
+            <div className="route-checklist-sub">
+              Sorted by distance from your current location — only sites within today's remaining driving distance are listed. Uncheck anything you know isn't doable.
+            </div>
           </div>
         </div>
         <div className="route-checklist-toolbar">
@@ -291,9 +302,18 @@ export default function RouteView({ sites = [] }) {
           <button className="route-checklist-link" onClick={selectNone}>Clear</button>
           <button className="route-checklist-link route-checklist-cancel" onClick={cancelChecklist}>Cancel</button>
         </div>
+        {checklistFilteredCount > 0 && (
+          <div className="route-checklist-note">
+            {checklistFilteredCount} other assigned site{checklistFilteredCount === 1 ? '' : 's'} hidden — too far to reach within today's remaining daylight.
+          </div>
+        )}
         <div className="route-checklist-list">
           {checklistSites.length === 0 && (
-            <div className="empty-state">No eligible sites found for your account.</div>
+            <div className="empty-state">
+              {checklistFilteredCount > 0
+                ? "None of your assigned sites are within today's remaining driving distance."
+                : 'No eligible sites found for your account.'}
+            </div>
           )}
           {checklistSites.map(site => (
             <label key={site.id} className="route-checklist-row">
