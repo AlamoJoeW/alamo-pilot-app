@@ -27,7 +27,7 @@ import { useEffect, useRef, useState } from 'react'
 import { fetchDailyRoute, saveDailyRoute } from '../utils/api'
 import { tileLayerFor } from '../utils/mapLayers'
 import { isRouteEligible, statusBucketForSite } from '../utils/mapColors'
-import { haversineMiles, buildRoutePlan, pepTalkFor } from '../utils/routePlanner'
+import { haversineMiles, buildRoutePlan, pepTalkFor, formatDriveMinutes } from '../utils/routePlanner'
 import { getMeta, setMeta } from '../utils/db'
 
 // ── Numbered SVG marker ──────────────────────────────────────────────────────
@@ -224,12 +224,19 @@ export default function RouteView({ sites = [] }) {
     try {
       const chosen = checklistSites.filter(s => checked.has(s.id))
       const built = buildRoutePlan({ sites: chosen, startLat: position.lat, startLng: position.lng })
+      const fmt = d => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
       const planObj = {
         date: todayStr(),
         stops: built.stops,
         leftover: built.leftover,
         pepTalk: pepTalkFor(built.stops.length),
         generatedAt: built.generatedAt,
+        // Same header info the skill's Word doc shows per pilot — sunrise/sunset
+        // and the padded ops window they were scheduled against.
+        sunriseLabel: fmt(built.sunrise),
+        sunsetLabel: fmt(built.sunset),
+        opsStartLabel: fmt(built.opsStart),
+        opsEndLabel: fmt(built.opsEnd),
       }
       setPlan(planObj)
       await setMeta('routePlan', planObj)
@@ -349,18 +356,35 @@ export default function RouteView({ sites = [] }) {
         <button className="route-replan-btn" onClick={handleReplan}>Replan</button>
       </div>
 
+      {/* Same at-a-glance line the skill's Word doc puts at the top of each
+          pilot's section — only available on a freshly-generated plan (a
+          route hydrated cold from the server won't have it). */}
+      {plan.sunriseLabel && (
+        <div className="route-sun-info">
+          Sunrise {plan.sunriseLabel} · Ops {plan.opsStartLabel}–{plan.opsEndLabel} · Sunset {plan.sunsetLabel}
+        </div>
+      )}
+
       <div className="route-list">
         {plan.stops.map((stop, i) => {
           const m = sites.find(s => s.id === stop.recordId || s.siteId === stop.siteId)
           const done = m && statusBucketForSite(m) !== null
+          const collectWindow = stop.scheduledArrival && stop.scheduledFinish
+            ? `${stop.scheduledArrival} – ${stop.scheduledFinish}`
+            : stop.scheduledArrival || ''
           return (
             <div key={stop.recordId || i} className={`route-stop${done ? ' done' : ''}`}>
-              <div className="route-stop-num" style={{ background: stopColor(stop, sites) }}>{i + 1}</div>
-              <div className="route-stop-info">
+              <div className="route-stop-top">
+                <div className="route-stop-num" style={{ background: stopColor(stop, sites) }}>{i + 1}</div>
                 <div className="route-stop-id">{stop.siteId || `Stop ${i + 1}`}</div>
-                <div className="route-stop-addr">{[stop.address, stop.city, stop.state].filter(Boolean).join(', ')}</div>
+                {stop.mapColor && <span className="route-checklist-badge">{stop.mapColor}</span>}
               </div>
-              {stop.scheduledArrival && <div className="route-stop-time">{stop.scheduledArrival}</div>}
+              <div className="route-stop-addr">{[stop.address, stop.city, stop.state].filter(Boolean).join(', ')}</div>
+              <div className="route-stop-stats">
+                {stop.driveMinutes != null && <span>Drive {formatDriveMinutes(stop.driveMinutes)}</span>}
+                {stop.scheduledArrival && <span>Arrive {stop.scheduledArrival}</span>}
+                {collectWindow && <span>Collect {collectWindow}</span>}
+              </div>
             </div>
           )
         })}
@@ -370,8 +394,11 @@ export default function RouteView({ sites = [] }) {
             <div className="route-leftover-title">Didn't fit today's window ({plan.leftover.length})</div>
             {plan.leftover.map((stop, i) => (
               <div key={stop.recordId || i} className="route-leftover-row">
-                <span>{stop.siteId || 'Site'}</span>
-                <span className="route-leftover-sub">{[stop.city, stop.state].filter(Boolean).join(', ')}</span>
+                <div className="route-leftover-top">
+                  <span>{stop.siteId || 'Site'}</span>
+                  {stop.mapColor && <span className="route-checklist-badge">{stop.mapColor}</span>}
+                </div>
+                <span className="route-leftover-sub">{[stop.address, stop.city, stop.state].filter(Boolean).join(', ')}</span>
               </div>
             ))}
           </div>

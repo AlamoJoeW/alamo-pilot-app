@@ -111,6 +111,13 @@ function formatClock(date) {
   return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
+// "1h 05m" / "45 min" — same format the skill's Word doc uses (fmtDrive in make_docx.js).
+export function formatDriveMinutes(min) {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`
+}
+
 // ── Routing ───────────────────────────────────────────────────────────────────
 
 // Greedy nearest-neighbor from a starting point — same approach as the skill.

@@ -531,15 +531,19 @@ export default function App() {
         {view === 'admin' && pilot.isAdmin && <AdminView />}
       </div>
 
-      {/* EOD Report button — requires preflight and not a travel day */}
-      <button
-        className="eod-btn"
-        onClick={() => canEdit && setShowEOD(true)}
-        disabled={!canEdit}
-        title={!canEdit ? 'Complete preflight to submit an EOD report' : ''}
-      >
-        End of Day Report
-      </button>
+      {/* EOD Report button — requires preflight and not a travel day. Hidden on
+          the Route tab (Joe: route planning and EOD are separate workflows,
+          and the pep-talk footer sits where this button would go). */}
+      {view !== 'route' && (
+        <button
+          className="eod-btn"
+          onClick={() => canEdit && setShowEOD(true)}
+          disabled={!canEdit}
+          title={!canEdit ? 'Complete preflight to submit an EOD report' : ''}
+        >
+          End of Day Report
+        </button>
+      )}
 
       {/* Site detail sheet */}
       {selectedSite && (

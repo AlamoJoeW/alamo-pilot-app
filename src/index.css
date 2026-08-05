@@ -1725,29 +1725,46 @@ html, body, #root {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* "Sunrise 6:52 AM · Ops 8:22 AM–7:38 PM · Sunset 9:08 PM" — same at-a-glance
+   line the skill's Word doc puts at the top of each pilot's section. */
+.route-sun-info {
+  padding: 6px 16px;
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text2);
+  text-align: center;
+}
+
 .route-list {
-  max-height: 260px;
+  max-height: 320px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   border-top: 1px solid var(--border);
   background: var(--surface);
 }
 
+/* Each stop mirrors the skill doc's table columns (#, Site ID, Address,
+   Status, Drive, Arrive, Collect) as a stacked mobile card instead of a
+   literal table. */
 .route-stop {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
 }
 .route-stop.done { opacity: 0.55; }
 
+.route-stop-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .route-stop-num {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   color: white;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -1755,9 +1772,9 @@ html, body, #root {
   flex-shrink: 0;
 }
 
-.route-stop-info { flex: 1; min-width: 0; }
-
 .route-stop-id {
+  flex: 1;
+  min-width: 0;
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
@@ -1768,14 +1785,17 @@ html, body, #root {
 .route-stop-addr {
   font-size: 12px;
   color: var(--text2);
-  margin-top: 1px;
+  margin: 4px 0 0 36px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.route-stop-time {
-  flex-shrink: 0;
+.route-stop-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 6px 0 0 36px;
   font-size: 12px;
   color: var(--text2);
   font-variant-numeric: tabular-nums;
@@ -1795,14 +1815,24 @@ html, body, #root {
 }
 
 .route-leftover-row {
-  display: flex;
-  justify-content: space-between;
+  padding: 6px 0;
   font-size: 13px;
-  padding: 5px 0;
   color: var(--text2);
 }
 
-.route-leftover-sub { color: var(--text2); }
+.route-leftover-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.route-leftover-sub {
+  display: block;
+  color: var(--text2);
+  margin-top: 2px;
+}
 
 .route-pep-talk {
   padding: 10px 16px;
