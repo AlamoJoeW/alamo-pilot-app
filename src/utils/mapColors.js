@@ -122,3 +122,30 @@ export function colorForSite(site) {
   if (appOverrideActive(site)) return PILOT_STATUS_COLORS[pilotStatusBucket(site)]
   return colorForMapColor(site.mapColor) || PILOT_STATUS_COLORS[pilotStatusBucket(site)]
 }
+
+// ── Route planning eligibility (RouteView.jsx "Plan My Route") ─────────────────
+//
+// Which Map Color statuses a pilot can even consider when self-planning a
+// route. Deliberately permissive per Joe: office Map Color can be stale, and
+// the pilot has ground-truth (site tech contact, access, airspace) that isn't
+// tracked anywhere else — so the checklist shows almost everything not
+// already done, and the pilot decides. Only genuinely non-flyable statuses
+// are hidden outright (confirmed with Joe 2026-08-05).
+const ROUTE_EXCLUDED_MAP_COLORS = new Set([
+  'Cancelled by customer',
+  'No further visits required',
+  'Too Tall',
+  'SBA Site Waiting on Authorization',
+  'Not Authorized for inspection yet',
+  'Ready But Not Assigned',
+])
+
+// A site is routable if it has coordinates, isn't already fully collected
+// (office Map Color OR the pilot's own Collected (App) checkbox — either one
+// counts as done), and isn't in the small hard-exclude list above.
+export function isRouteEligible(site) {
+  if (!site.lat || !site.lng) return false
+  if (statusBucketForSite(site) === 'collected') return false
+  if (ROUTE_EXCLUDED_MAP_COLORS.has(site.mapColor)) return false
+  return true
+}

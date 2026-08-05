@@ -239,6 +239,21 @@ export async function fetchDailyRoute() {
   return res.json()
 }
 
+// Writes a pilot-generated route (built client-side in routePlanner.js) back
+// to the same Daily Assignments table/fields the pilot-daily-schedule skill
+// writes to, so Admin/office still sees each pilot's planned route for the day.
+export async function saveDailyRoute(route) {
+  const res = await fetch(`${BASE}/api/daily-route`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ route }),
+  })
+  if (res.status === 401) throw new Error('AUTH_EXPIRED')
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Failed to save route')
+  return data
+}
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 // Sites + pilot locations are served from one combined endpoint (api/admin.js) to
 // stay under Vercel's Hobby-plan 12-serverless-function limit.
