@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchAdminData, updateSiteNotes } from '../utils/api'
 import { colorForSite, isSiteDone, statusBucketForSite } from '../utils/mapColors'
+import { isMarkedToday } from '../utils/centralTime'
 import { tileLayerFor } from '../utils/mapLayers'
 import { quadcopterIcon, makeSiteIcon } from '../utils/mapIcons'
 import { sortSites, SORT_OPTIONS } from '../utils/sortSites'
@@ -44,18 +45,6 @@ function matchesSearch(site, query) {
     .join(' ')
     .toLowerCase()
   return haystack.includes(query)
-}
-
-// Calendar-day match in the admin's local time zone — a site a pilot marked
-// at 11:58pm and one marked at 12:02am both count as "today" relative to
-// whenever the office is actually looking at this screen.
-function isMarkedToday(site) {
-  if (!site.appStatusUpdatedAt) return false
-  const d = new Date(site.appStatusUpdatedAt)
-  const now = new Date()
-  return d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
 }
 
 // Site marker — same shape-per-icon-type as the pilot's own map (utils/mapIcons.js),
