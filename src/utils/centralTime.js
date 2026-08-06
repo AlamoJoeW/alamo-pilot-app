@@ -23,6 +23,17 @@ export function centralDateStr(date = new Date()) {
   }).format(date)
 }
 
+// Adds `days` calendar days to a YYYY-MM-DD string via pure UTC date-component
+// arithmetic — no timezone conversion, so it can't drift a day off whatever
+// centralDateStr() produced (DST transitions, etc. don't apply to plain Y-M-D
+// math). Used by RouteView's "Plan Tomorrow's Route" to compute tomorrow's
+// Central calendar date from today's, for both the sunrise/sunset calc and
+// the date-keyed Daily Assignments record it saves to.
+export function addDaysToDateStr(dateStr, days) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10)
+}
+
 // True if the site's last app-status timestamp (APP_STATUS_SET_AT) falls on
 // today's Central calendar date. A site's Collected/Partial/MOB checkbox can
 // have been true for months — set by the old Airtable form, a legacy data

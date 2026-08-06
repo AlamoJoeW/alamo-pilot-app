@@ -20,6 +20,7 @@ import {
   checkPreflight,
   updatePreflightLocation,
   submitEOD,
+  fetchEODSummary,
 } from './utils/api'
 import {
   saveSites,
@@ -72,6 +73,12 @@ export default function App() {
   const [preflightTravelDay, setPreflightTravelDay] = useState(false)
   const [preflightId, setPreflightId] = useState(null)
   const [preflightRechecking, setPreflightRechecking] = useState(false)
+  // Whether an EOD report is already on file for today — gates RouteView's
+  // "Tomorrow" planning tab (Joe: next-day routing should only be offered
+  // once today's flying is actually wrapped up). Re-checked on mount/login
+  // like preflight, and flipped true immediately on a successful in-app EOD
+  // submit so the tab unlocks without waiting on a resync.
+  const [eodSubmittedToday, setEodSubmittedToday] = useState(false)
 
   // Online/offline detection
   useEffect(() => {
@@ -89,6 +96,7 @@ export default function App() {
       setPilot(info)
       loadFromCache()
       checkAndSetPreflight()
+      checkAndSetEODStatus()
       sync()
     }
   }, [])
@@ -190,6 +198,17 @@ export default function App() {
     setPreflightRechecking(true)
     await checkAndSetPreflight()
     setPreflightRechecking(false)
+  }
+
+  // Checks Airtable for today's EOD report — see eodSubmittedToday above.
+  async function checkAndSetEODStatus() {
+    try {
+      const data = await fetchEODSummary()
+      setEodSubmittedToday(!!data.submitted)
+    } catch {
+      // Non-fatal — worst case the Tomorrow tab stays locked until the next
+      // successful check (e.g. on the next sync or login).
+    }
   }
 
   async function sync() {
@@ -365,6 +384,9 @@ export default function App() {
   async function handleEODSubmit(payload) {
     await submitEOD(payload)
     setShowEOD(false)
+    // Unlocks RouteView's "Tomorrow" tab immediately — no need to wait on a
+    // resync or app reopen to re-check Airtable.
+    setEodSubmittedToday(true)
     // Recollected sites have now been linked in the submitted EOD (see
     // EODReport.jsx) — clear the tracking so they don't get re-linked into a
     // second EOD later today.
@@ -390,6 +412,7 @@ export default function App() {
     setPreflightRechecking(false)
     setProjectId(null)
     setRecollectedSiteIds([])
+    setEodSubmittedToday(false)
   }
 
   function handleLogin(data, password) {
@@ -397,6 +420,7 @@ export default function App() {
     setPilot(info || data)
     if (password) setPendingPassword(password)
     checkAndSetPreflight()
+    checkAndSetEODStatus()
     sync()
   }
 
@@ -550,7 +574,7 @@ export default function App() {
       {/* Main content */}
       <div className="main-content">
         {view === 'map' && <MapView sites={sites} onSelect={handleSelectSite} highlightedSiteId={highlightedSiteId} />}
-        {view === 'route' && (preflightExists ? <RouteView sites={sites} /> : <MapView sites={sites} onSelect={handleSelectSite} highlightedSiteId={highlightedSiteId} />)}
+        {view === 'route' && (preflightExists ? <RouteView sites={sites} eodSubmittedToday={eodSubmittedToday} /> : <MapView sites={sites} onSelect={handleSelectSite} highlightedSiteId={highlightedSiteId} />)}
         {view === 'list' && (
           <SiteList
             sites={sites}

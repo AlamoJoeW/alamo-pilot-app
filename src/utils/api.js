@@ -241,8 +241,12 @@ export async function fetchProjects() {
 
 // ── Daily Route ────────────────────────────────────────────────────────────────
 
-export async function fetchDailyRoute() {
-  const res = await fetch(`${BASE}/api/daily-route`, { headers: authHeaders() })
+// `date` (YYYY-MM-DD, optional) fetches a specific day's route instead of
+// today's — used by RouteView's "Tomorrow" planning mode to read/hydrate a
+// route already saved for tomorrow. Omit it for the normal "today" flow.
+export async function fetchDailyRoute(date) {
+  const qs = date ? `?date=${encodeURIComponent(date)}` : ''
+  const res = await fetch(`${BASE}/api/daily-route${qs}`, { headers: authHeaders() })
   if (res.status === 401) throw new Error('AUTH_EXPIRED')
   return res.json()
 }
@@ -250,11 +254,13 @@ export async function fetchDailyRoute() {
 // Writes a pilot-generated route (built client-side in routePlanner.js) back
 // to the same Daily Assignments table/fields the pilot-daily-schedule skill
 // writes to, so Admin/office still sees each pilot's planned route for the day.
-export async function saveDailyRoute(route) {
+// `date` (YYYY-MM-DD, optional) targets a specific day's record — used by
+// RouteView's "Tomorrow" mode; omit it to save against today, as before.
+export async function saveDailyRoute(route, date) {
   const res = await fetch(`${BASE}/api/daily-route`, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ route }),
+    body: JSON.stringify(date ? { route, date } : { route }),
   })
   if (res.status === 401) throw new Error('AUTH_EXPIRED')
   const data = await res.json().catch(() => ({}))

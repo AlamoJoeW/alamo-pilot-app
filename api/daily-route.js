@@ -7,6 +7,8 @@ const DA_DATE   = 'fldP9zDqFfLSt1qqw'
 const DA_ROUTE  = 'fldeg8UtYSPRn4IaN'
 const DA_STATUS = 'fldgp2sUUDa9SoMbz'
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
 function verifyToken(req) {
   const auth = req.headers.authorization || ''
   return jwt.verify(auth.replace('Bearer ', ''), process.env.JWT_SECRET)
@@ -17,15 +19,25 @@ function today() {
   return centralDateStr()
 }
 
-async function findTodayRecord(pilotRecordId) {
-  const filter = `AND({${DA_DATE}}='${today()}', FIND('${pilotRecordId}', ARRAYJOIN({${DA_PILOT}})))`
+// Resolves the Daily Assignments date a request targets. Defaults to today
+// (Central) when omitted or malformed, so every pre-existing caller (which
+// never sent a date) keeps working unchanged. An explicit YYYY-MM-DD is what
+// RouteView's "Tomorrow" planning mode sends, so it reads/writes tomorrow's
+// record instead of today's — see src/components/RouteView.jsx.
+function resolveDate(raw) {
+  return typeof raw === 'string' && DATE_RE.test(raw) ? raw : today()
+}
+
+async function findRecordForDate(pilotRecordId, dateStr) {
+  const filter = `AND({${DA_DATE}}='${dateStr}', FIND('${pilotRecordId}', ARRAYJOIN({${DA_PILOT}})))`
   const records = await airtableGetAll(DA_TABLE, filter, [DA_PILOT, DA_DATE, DA_ROUTE, DA_STATUS])
   return records[0] || null
 }
 
 async function handleGet(req, res, pilot) {
-  const rec = await findTodayRecord(pilot.pilotRecordId)
-  if (!rec) return res.json({ exists: false, route: [] })
+  const dateStr = resolveDate(req.query?.date)
+  const rec = await findRecordForDate(pilot.pilotRecordId, dateStr)
+  if (!rec) return res.json({ exists: false, route: [], date: dateStr })
 
   let route = []
   try {
@@ -38,6 +50,7 @@ async function handleGet(req, res, pilot) {
   return res.json({
     exists: true,
     route,
+    date: dateStr,
     status: rec.fields[DA_STATUS] || 'Assigned',
   })
 }
@@ -45,27 +58,31 @@ async function handleGet(req, res, pilot) {
 // Pilot-generated route (built client-side in src/utils/routePlanner.js) —
 // upserts into the same Daily Assignments record/fields the pilot-daily-
 // schedule skill writes to, so Admin/office still sees the plan for the day.
+// Accepts an optional `date` (YYYY-MM-DD) so a route planned the night before
+// for tomorrow lands on tomorrow's record — once that date becomes "today"
+// server-side, the normal no-date GET call finds it automatically.
 async function handlePost(req, res, pilot) {
-  const { route } = req.body || {}
+  const { route, date } = req.body || {}
   if (!Array.isArray(route)) {
     return res.status(400).json({ error: 'route array is required' })
   }
+  const dateStr = resolveDate(date)
 
-  const existing = await findTodayRecord(pilot.pilotRecordId)
+  const existing = await findRecordForDate(pilot.pilotRecordId, dateStr)
   const routeJson = JSON.stringify(route)
 
   if (existing) {
     await airtablePatch(DA_TABLE, existing.id, { [DA_ROUTE]: routeJson })
   } else {
     await airtablePost(DA_TABLE, {
-      [DA_DATE]: today(),
+      [DA_DATE]: dateStr,
       [DA_PILOT]: [pilot.pilotRecordId],
       [DA_ROUTE]: routeJson,
       [DA_STATUS]: 'Assigned',
     })
   }
 
-  return res.json({ success: true })
+  return res.json({ success: true, date: dateStr })
 }
 
 export default async function handler(req, res) {

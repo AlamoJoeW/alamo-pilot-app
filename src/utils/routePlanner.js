@@ -250,11 +250,14 @@ const PEP_TALK_LINES = [
   "That's the plan. Now go fly it.",
 ]
 
-export function pepTalkFor(stopCount) {
+// `dayLabel` defaults to "today's" so every existing call site (the Route
+// tab's normal same-day flow) reads exactly as before. RouteView's
+// "Tomorrow" planning mode passes "tomorrow's" instead — see RouteView.jsx.
+export function pepTalkFor(stopCount, dayLabel = "today's") {
   if (stopCount <= 0) {
     return "Nothing fit the window this time — regroup and replan when you're ready."
   }
   const phrase = PEP_TALK_LINES[Math.floor(Math.random() * PEP_TALK_LINES.length)]
   const siteWord = stopCount === 1 ? 'site' : 'sites'
-  return `${stopCount} ${siteWord} on today's route — ${phrase}`
+  return `${stopCount} ${siteWord} on ${dayLabel} route — ${phrase}`
 }

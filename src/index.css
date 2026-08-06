@@ -1524,6 +1524,58 @@ html, body, #root {
    Route View
    ======================================== */
 
+/* Today / Tomorrow segmented control — sits above every RouteView state once
+   sites/plans are loaded. Tomorrow is disabled (with a lock glyph baked into
+   its label in RouteView.jsx) until today's EOD is on file. */
+.route-day-toggle {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.route-day-btn {
+  flex: 1;
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.route-day-btn.active {
+  color: white;
+  background: var(--accent);
+}
+
+.route-day-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Wraps idle/locating states once the Today/Tomorrow toggle sits above them —
+   route-state below keeps its own centering, just no longer assumes it owns
+   100% of the tab's height by itself. */
+.route-view-shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.route-view-shell .route-state {
+  height: auto;
+  flex: 1;
+  min-height: 0;
+}
+
 /* Idle / locating / loading state screens */
 .route-state {
   height: 100%;
