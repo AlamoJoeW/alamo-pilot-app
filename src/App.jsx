@@ -211,14 +211,51 @@ export default function App() {
     }
   }
 
+  // A site recollected today (Partial/MOB Fee -> Collected, tracked in the
+  // 'recollectedToday' meta store — see handleUpdate below) can fall out of
+  // the Airtable view(s) this app pulls from (fetchAllSiteRecords) the moment
+  // its status flips to something the office's KML view doesn't carry
+  // "done" sites for. That's expected/fine on the Airtable side — but it
+  // means a plain fresh fetch silently drops the site from `sites` on the
+  // pilot's very next resync (app reopen, flushPending, etc.), before
+  // they've had a chance to submit today's EOD, which is what actually
+  // records it for pay. Since IndexedDB's 'sites' store is put()-only (see
+  // saveSites in db.js — it never deletes), the pilot's own last-known copy
+  // of the site (already carrying collectedApp: true from the optimistic
+  // update in handleUpdate) is still sitting in the cache even after it
+  // disappears from a fresh fetch. This stitches that cached copy back into
+  // the fresh list for as long as recollectedToday still flags it —
+  // handleEODSubmit clears that flag on submit, so this stops covering for
+  // it (and the site is free to actually drop off) right after the EOD that
+  // needed it goes in.
+  async function mergeRecollectedSites(freshSites) {
+    const recollected = (await getMeta('recollectedToday')) || []
+    if (recollected.length === 0) return freshSites
+
+    const today = centralDateStr()
+    const stillPendingIds = recollected
+      .filter(e => centralDateStr(new Date(e.timestamp)) === today)
+      .map(e => e.id)
+
+    const freshIds = new Set(freshSites.map(s => s.id))
+    const missingIds = stillPendingIds.filter(id => !freshIds.has(id))
+    if (missingIds.length === 0) return freshSites
+
+    const cached = await getSites()
+    const cachedById = new Map(cached.map(s => [s.id, s]))
+    const restored = missingIds.map(id => cachedById.get(id)).filter(Boolean)
+    return restored.length > 0 ? [...freshSites, ...restored] : freshSites
+  }
+
   async function sync() {
     if (syncing) return
     setSyncing(true)
     setSyncError('')
     try {
       const data = await fetchSites()
-      await saveSites(data.sites)
-      setSites(data.sites)
+      const merged = await mergeRecollectedSites(data.sites)
+      await saveSites(merged)
+      setSites(merged)
       setSyncedAt(data.syncedAt)
       await flushPending()
     } catch (err) {
@@ -260,8 +297,9 @@ export default function App() {
       // Re-sync to get fresh data
       const data = await fetchSites().catch(() => null)
       if (data) {
-        await saveSites(data.sites)
-        setSites(data.sites)
+        const merged = await mergeRecollectedSites(data.sites)
+        await saveSites(merged)
+        setSites(merged)
       }
     }
   }
