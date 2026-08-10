@@ -20,6 +20,13 @@
  * Props:
  *   pilot       – pilot info object from auth
  *   sites       – all sites array
+ *   recollected – [{ id, reason }] sites recollected today (Partial/MOB Fee ->
+ *                 Collected), reason is 'partial' | 'mob'. Auto-linked into
+ *                 EOD_PARTIAL_COLLECTION / EOD_MOBILIZATION on submit below —
+ *                 matching whichever field currently-Partial/MOB sites already
+ *                 use — instead of the Reflys field, since a recollect isn't a
+ *                 reflight. Genuine reflys are unaffected: still the pilot's
+ *                 manual pick in the Reflights step, unchanged.
  *   preflightId – ID of today's preflight record (for linking)
  *   projectId   – ID of the Airtable Project record (resolved automatically in
  *                 App.jsx — Alamo pilots are all on one project, so unlike the
@@ -229,7 +236,7 @@ function StepSiteReview({ collected, partial, mob, form, setField }) {
 
 // ─── Step 2: Reflights ────────────────────────────────────────────────────────
 
-function StepReflights({ sites, form, setField, toggleReflySite, recollected }) {
+function StepReflights({ sites, form, setField, toggleReflySite }) {
   // Only sites flagged as needing a reflight (office REFLY checkbox or Map
   // Color) are selectable here — narrowing from the full route list so a
   // pilot picks from the handful of sites that could plausibly be a reflight,
@@ -239,22 +246,6 @@ function StepReflights({ sites, form, setField, toggleReflySite, recollected }) 
   return (
     <div className="pf-step">
       <h2 className="pf-step-heading">Reflights</h2>
-
-      {recollected.length > 0 && (
-        <div className="pf-field">
-          <label className="field-label">Recollected today (access form completed)</label>
-          <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: -4, marginBottom: 8 }}>
-            {recollected.length} site{recollected.length !== 1 ? 's' : ''} previously Partial or MOB Fee, marked
-            Collected today. Linked automatically below — no need to select {recollected.length !== 1 ? 'them' : 'it'} again.
-          </p>
-          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-            {recollected.map(s => (
-              <SiteRow key={s.id} site={s} />
-            ))}
-          </div>
-          <div className="pf-divider" style={{ marginTop: 12 }} />
-        </div>
-      )}
 
       <SelectField
         label="Were any reflight's completed today?"
@@ -404,7 +395,7 @@ const INITIAL_FORM = {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function EODReport({ pilot, sites, recollectedSiteIds = [], preflightId, projectId, onSubmit, onCancel }) {
+export default function EODReport({ pilot, sites, recollected = [], preflightId, projectId, onSubmit, onCancel }) {
   const [form, setFormState] = useState(INITIAL_FORM)
   const [stepIndex, setStepIndex] = useState(0)
   const [submitting, setSubmitting] = useState(false)
@@ -414,10 +405,17 @@ export default function EODReport({ pilot, sites, recollectedSiteIds = [], prefl
   const partial   = sites.filter(s => s.partialCollection && isMarkedToday(s))
   const mob       = sites.filter(s => s.mobFee && isMarkedToday(s))
   // Sites recollected today (Partial/MOB -> Collected) — access form already
-  // completed at the time of the tap (SiteDetail.jsx), so these get linked
-  // into EOD_REFLYS_SITES automatically on submit below, independent of
-  // whatever the pilot answers on the Reflights Yes/No gate.
-  const recollected = sites.filter(s => recollectedSiteIds.includes(s.id) && isMarkedToday(s))
+  // completed at the time of the tap (SiteDetail.jsx). Split by which status
+  // they were recollected from so each links into the matching EOD field on
+  // submit below (EOD_PARTIAL_COLLECTION / EOD_MOBILIZATION), independent of
+  // whatever the pilot answers on the Reflights Yes/No gate. Re-filtered
+  // against isMarkedToday the same way partial/mob above are, in case a site
+  // fell out of "marked today" between the tap and this render.
+  const recollectedReasonById = new Map(recollected.map(r => [r.id, r.reason]))
+  const recollectedIds = new Set(recollected.map(r => r.id))
+  const recollectedToday = sites.filter(s => recollectedIds.has(s.id) && isMarkedToday(s))
+  const recollectedPartialIds = recollectedToday.filter(s => recollectedReasonById.get(s.id) === 'partial').map(s => s.id)
+  const recollectedMobIds     = recollectedToday.filter(s => recollectedReasonById.get(s.id) === 'mob').map(s => s.id)
 
   function setField(key, val) {
     setFormState(prev => ({ ...prev, [key]: val }))
@@ -515,12 +513,19 @@ export default function EODReport({ pilot, sites, recollectedSiteIds = [], prefl
       const { lat, lng } = await captureGPS()
       await onSubmit({
         collectedIds: collected.map(s => s.id),
-        partialIds:   partial.map(s => s.id),
-        mobIds:       mob.map(s => s.id),
-        // Union of the pilot's manual Reflights picks and today's auto-tracked
-        // recollects — recollects are mandatory links, not optional, so they
-        // go in regardless of the reflightsYN answer above.
-        reflyIds:     [...new Set([...form.reflySiteIds, ...recollected.map(s => s.id)])],
+        // Recollects (Partial -> Collected today) are mandatory links into the
+        // same field currently-Partial sites already use — Joe reviews this
+        // field each morning to confirm a recollect was handled correctly, so
+        // it needs to show up here regardless of anything else on the form.
+        partialIds:   [...new Set([...partial.map(s => s.id), ...recollectedPartialIds])],
+        // Same idea for MOB Fee recollects.
+        mobIds:       [...new Set([...mob.map(s => s.id), ...recollectedMobIds])],
+        // Only the pilot's manual Reflights picks now — recollects are routed
+        // to partialIds/mobIds above instead, since that's what they actually
+        // were, not a reflight. A site that's both Partial/MOB *and*
+        // office-flagged Refly can still be ticked here too, so it lands in
+        // both fields if both are true.
+        reflyIds:     form.reflySiteIds,
         preflightId,
         projectId,
         fullCount:    form.fullCount !== '' ? Number(form.fullCount) : undefined,
@@ -588,7 +593,7 @@ export default function EODReport({ pilot, sites, recollectedSiteIds = [], prefl
           <StepSiteReview collected={collected} partial={partial} mob={mob} form={form} setField={setField} />
         )}
         {currentStep.id === 'reflights' && (
-          <StepReflights sites={sites} form={form} setField={setField} toggleReflySite={toggleReflySite} recollected={recollected} />
+          <StepReflights sites={sites} form={form} setField={setField} toggleReflySite={toggleReflySite} />
         )}
         {currentStep.id === 'mobilization' && (
           <StepMobilization form={form} setField={setField} />

@@ -57,15 +57,16 @@ export default function App() {
   const [syncedAt, setSyncedAt] = useState(null)
   const [showEOD, setShowEOD] = useState(false)
   const [projectId, setProjectId] = useState(null)
-  // IDs of sites recollected today (marked Collected after being Partial/MOB
-  // Fee) — persisted separately from `sites` in the meta store, not on the
-  // site record itself, because a sites resync (sync()/flushPending() below)
-  // fully replaces `sites` from the server and would silently drop a flag
-  // stored there before the pilot gets to submit their EOD. Passed to
-  // EODReport so those sites get auto-linked without the pilot having to
-  // remember to tick them in the Reflights step. See handleUpdate below and
-  // SiteDetail.jsx's pendingWasRecollect for where this originates.
-  const [recollectedSiteIds, setRecollectedSiteIds] = useState([])
+  // Sites recollected today (marked Collected after being Partial/MOB Fee) —
+  // { id, reason: 'partial' | 'mob' } pairs, persisted separately from `sites`
+  // in the meta store, not on the site record itself, because a sites resync
+  // (sync()/flushPending() below) fully replaces `sites` from the server and
+  // would silently drop a flag stored there before the pilot gets to submit
+  // their EOD. `reason` is which one it was, so EODReport can link it into the
+  // matching EOD field (Partial Collection vs Mobilization) instead of lumping
+  // every recollect into Reflys. See handleUpdate below and SiteDetail.jsx's
+  // pendingRecollectReason for where this originates.
+  const [recollectedSites, setRecollectedSites] = useState([])
 
   // Preflight state
   const [preflightChecked, setPreflightChecked] = useState(false)
@@ -137,8 +138,10 @@ export default function App() {
     const recollected = await getMeta('recollectedToday')
     if (Array.isArray(recollected)) {
       const today = centralDateStr()
-      setRecollectedSiteIds(
-        recollected.filter(e => centralDateStr(new Date(e.timestamp)) === today).map(e => e.id)
+      setRecollectedSites(
+        recollected
+          .filter(e => centralDateStr(new Date(e.timestamp)) === today)
+          .map(e => ({ id: e.id, reason: e.reason }))
       )
     }
   }
@@ -333,12 +336,16 @@ export default function App() {
 
     // Recollect tracking for the EOD's automatic re-link (see EODReport.jsx) —
     // meta.recollected comes from SiteDetail.jsx marking a site Collected that
-    // was previously Partial or MOB Fee.
+    // was previously Partial or MOB Fee; meta.recollectReason ('partial' |
+    // 'mob') says which one, so it can be linked into the matching EOD field.
     if (meta?.recollected) {
       const existing = (await getMeta('recollectedToday')) || []
-      const next = [...existing.filter(e => e.id !== recordId), { id: recordId, timestamp: new Date().toISOString() }]
+      const next = [
+        ...existing.filter(e => e.id !== recordId),
+        { id: recordId, timestamp: new Date().toISOString(), reason: meta.recollectReason },
+      ]
       await setMeta('recollectedToday', next)
-      setRecollectedSiteIds(next.map(e => e.id))
+      setRecollectedSites(next.map(e => ({ id: e.id, reason: e.reason })))
     }
 
     if (isOnline) {
@@ -429,7 +436,7 @@ export default function App() {
     // EODReport.jsx) — clear the tracking so they don't get re-linked into a
     // second EOD later today.
     await setMeta('recollectedToday', [])
-    setRecollectedSiteIds([])
+    setRecollectedSites([])
     // Re-sync so the office-side view (and this pilot's own progress bar) reflects
     // whatever the EOD just wrote.
     sync()
@@ -449,7 +456,7 @@ export default function App() {
     setPreflightId(null)
     setPreflightRechecking(false)
     setProjectId(null)
-    setRecollectedSiteIds([])
+    setRecollectedSites([])
     setEodSubmittedToday(false)
   }
 
@@ -504,7 +511,7 @@ export default function App() {
       <EODReport
         pilot={pilot}
         sites={sites}
-        recollectedSiteIds={recollectedSiteIds}
+        recollected={recollectedSites}
         preflightId={preflightId}
         projectId={projectId}
         onSubmit={handleEODSubmit}

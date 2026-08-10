@@ -124,13 +124,15 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
   const [toast, setToast] = useState('')
   const [pendingAction, setPendingAction] = useState(null) // null | 'partial' | 'mob' | 'collected'
   const [checkState, setCheckState] = useState('idle')    // 'idle' | 'checking' | 'notFound'
-  // True when the pending 'collected' action is a recollect of a site that was
-  // Partial or MOB Fee (as opposed to a fresh collect or a refly) — captured at
-  // the moment the pilot taps the button, before status can change, so it's
-  // reliable even though the checkbox that told us so gets overwritten by the
-  // eventual onUpdate call. Passed through to onUpdate so App.jsx can stamp the
-  // site for the EOD's automatic re-link (see handleUpdate in src/App.jsx).
-  const [pendingWasRecollect, setPendingWasRecollect] = useState(false)
+  // Set when the pending 'collected' action is a recollect of a site that was
+  // Partial or MOB Fee (as opposed to a fresh collect or a refly) — 'partial' |
+  // 'mob' | null. Captured at the moment the pilot taps the button, before
+  // status can change, so it's reliable even though the checkbox that told us
+  // so gets overwritten by the eventual onUpdate call. Passed through to
+  // onUpdate so App.jsx can stamp the site with *which* field it needs to link
+  // into on the EOD (Partial Collection vs Mobilization — see handleUpdate in
+  // src/App.jsx).
+  const [pendingRecollectReason, setPendingRecollectReason] = useState(null)
   // Timestamp captured the moment the pilot taps the button, before the
   // access-form tab even opens — sent to checkAccessIssue so it only counts a
   // form created after this point. Without it, a site already sitting at
@@ -150,10 +152,10 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
       if (result.exists) {
         setLoading(true)
         try {
-          await onUpdate(site.id, pendingAction, pendingWasRecollect ? { recollected: true } : undefined)
+          await onUpdate(site.id, pendingAction, pendingRecollectReason ? { recollected: true, recollectReason: pendingRecollectReason } : undefined)
           const label = pendingAction === 'partial' ? 'Partial' : pendingAction === 'mob' ? 'MOB Fee' : 'Collected'
           setPendingAction(null)
-          setPendingWasRecollect(false)
+          setPendingRecollectReason(null)
           setPendingSince(null)
           setCheckState('idle')
           setToast(`✓ ${label} confirmed`)
@@ -171,7 +173,7 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
     } catch {
       setCheckState('notFound')
     }
-  }, [checkState, pendingAction, pendingWasRecollect, pendingSince, site.id, onUpdate])
+  }, [checkState, pendingAction, pendingRecollectReason, pendingSince, site.id, onUpdate])
 
   // Auto-check when pilot switches back to this tab
   useEffect(() => {
@@ -185,7 +187,7 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
 
   function cancelPending() {
     setPendingAction(null)
-    setPendingWasRecollect(false)
+    setPendingRecollectReason(null)
     setPendingSince(null)
     setCheckState('idle')
   }
@@ -202,7 +204,10 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
     // applies to a site currently sitting at Partial or MOB Fee: recollecting
     // it means going back for a second visit, so it needs its own fresh access
     // form too, not a ride on whatever access was arranged for the first one.
-    const wasRecollect = newAction === 'collected' && (status === 'partial' || status === 'mob')
+    // 'partial' | 'mob' | null — which field this recollect needs to link into
+    // on the EOD (EOD_PARTIAL_COLLECTION vs EOD_MOBILIZATION), not just whether
+    // it was a recollect at all.
+    const recollectReason = newAction === 'collected' && (status === 'partial' || status === 'mob') ? status : null
     const needsAccessForm = newAction === 'partial' || newAction === 'mob' ||
       (newAction === 'collected' && needsAccessFormToCollect(site, status))
 
@@ -216,7 +221,7 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
       }
       // window.open is called synchronously in the button onClick
       setPendingAction(newAction)
-      setPendingWasRecollect(wasRecollect)
+      setPendingRecollectReason(recollectReason)
       setPendingSince(new Date().toISOString())
       setCheckState('idle')
       return
@@ -341,8 +346,10 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           <div className="access-pending">
             {pendingAction === 'collected' && (
               <p className="pending-msg" style={{ marginBottom: 8 }}>
-                {pendingWasRecollect
-                  ? '🔁 This site was previously marked Partial or MOB Fee — a completed access form is required before it can be marked Collected.'
+                {pendingRecollectReason === 'partial'
+                  ? '🔁 This site was previously marked Partial — a completed access form is required before it can be marked Collected.'
+                  : pendingRecollectReason === 'mob'
+                  ? '🔁 This site was previously marked MOB Fee — a completed access form is required before it can be marked Collected.'
                   : '🔁 This is a refly site — a completed access form is required before it can be marked Collected.'}
               </p>
             )}
@@ -373,7 +380,23 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
               onClick={() => { if (status !== 'collected' && needsAccessFormToCollect(site, status)) window.open(ACCESS_FORM_URL, '_blank'); handleAction('collected') }}
               disabled={loading}
             >
-              {status === 'collected' ? '✓ Collected' : 'Mark Collected'}
+              {/* Label reflects why this tap needs an access form, so a pilot
+                  closing out a Partial/MOB/Refly site sees wording that matches
+                  what they're looking at instead of a generic "Mark Collected"
+                  that reads the same for a brand-new site. Priority when more
+                  than one applies (e.g. a refly site that's also sitting at
+                  Partial): Refi > Partial > MOB, matching needsAccessFormToCollect's
+                  own precedence. Purely a label — the tap does the same thing
+                  regardless of which text is showing. */}
+              {status === 'collected'
+                ? '✓ Collected'
+                : isReflySite(site)
+                ? 'Refi Completed'
+                : status === 'partial'
+                ? 'Partial Completed'
+                : status === 'mob'
+                ? 'MOB Completed'
+                : 'Mark Collected'}
             </button>
             <div className="action-row-2">
               <button
