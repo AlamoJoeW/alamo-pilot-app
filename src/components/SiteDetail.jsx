@@ -391,7 +391,7 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
               {status === 'collected'
                 ? '✓ Collected'
                 : isReflySite(site)
-                ? 'Refi Completed'
+                ? 'Re-fly Completed'
                 : status === 'partial'
                 ? 'Partial Completed'
                 : status === 'mob'
