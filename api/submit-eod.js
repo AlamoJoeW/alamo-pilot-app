@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken'
-import { airtableGet, airtablePost, TABLES, FIELDS, centralDateStr } from './_airtable.js'
+import { airtableGet, airtablePost, airtableGetAll, TABLES, FIELDS, centralDateStr } from './_airtable.js'
+import { PREFLIGHT_TABLE, F as PREFLIGHT_FIELDS } from './preflight.js'
 
 function verifyToken(req) {
   const auth = req.headers.authorization || ''
@@ -87,8 +88,33 @@ export default async function handler(req, res) {
       if (projectId && isValidId(projectId)) {
         fields[FIELDS.EOD_PROJECT] = [projectId]
       }
-      if (preflightId && isValidId(preflightId)) {
-        fields[FIELDS.EOD_PREFLIGHT] = [preflightId]
+      // Resolve today's Preflight record server-side by pilot record ID,
+      // rather than trusting the client-supplied `preflightId`. That value
+      // is cached React state (App.jsx's checkAndSetPreflight), set once at
+      // login or when a pilot taps "I've Submitted It" — if a pilot
+      // completes today's Preflight (external Airtable form) *after* the
+      // app already loaded and never re-triggers that check, the app can
+      // submit the EOD with a stale/missing preflightId. The EOD record
+      // still gets created (looks "submitted" to the pilot), but its
+      // Preflight link comes up empty — which is exactly what the
+      // 9pm/11pm/1am "MISSING END OF DAY REPORT" Airtable automations check
+      // (they filter the Preflight table's own "End of Day Reports" field
+      // for isEmpty), so pilots who did submit still get nagged. Matching
+      // by pilot.pilotRecordId (not name) also sidesteps any display-name
+      // formatting mismatch between the Pilots table and today's Preflight
+      // record.
+      let resolvedPreflightId = null
+      try {
+        const pfFilter = `DATESTR({${PREFLIGHT_FIELDS.DATE}})="${today}"`
+        const pfRecords = await airtableGetAll(PREFLIGHT_TABLE, pfFilter, [PREFLIGHT_FIELDS.PILOT])
+        const match = pfRecords.find(r => (r.fields[PREFLIGHT_FIELDS.PILOT] || []).includes(pilot.pilotRecordId))
+        if (match) resolvedPreflightId = match.id
+      } catch (err) {
+        console.error('EOD preflight resolve error:', err)
+      }
+      const finalPreflightId = resolvedPreflightId || (preflightId && isValidId(preflightId) ? preflightId : null)
+      if (finalPreflightId) {
+        fields[FIELDS.EOD_PREFLIGHT] = [finalPreflightId]
       }
       if (endLat != null && !isNaN(Number(endLat))) {
         fields[FIELDS.EOD_END_LAT] = Number(endLat)

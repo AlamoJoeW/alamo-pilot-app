@@ -3,9 +3,12 @@ import { airtableGet, airtablePost, airtablePatch, airtableGetAll, centralDateSt
 
 export const config = { api: { bodyParser: { sizeLimit: '10mb' } } }
 
-const PREFLIGHT_TABLE = 'tbl3XS1n9edeDuLOn'
+// Exported so submit-eod.js can resolve today's preflight server-side
+// (by pilot record ID) instead of trusting a possibly-stale client value —
+// see the comment in submit-eod.js POST handler for why.
+export const PREFLIGHT_TABLE = 'tbl3XS1n9edeDuLOn'
 
-const F = {
+export const F = {
   DATE:           'fld3e4DOx5yYCgbYe',
   PILOT:          'fldiapaRvwWUjBC4x',
   PROJECT:        'fldH8N230tZWXxxZr',
