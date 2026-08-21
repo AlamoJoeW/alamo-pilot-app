@@ -409,12 +409,21 @@ export default function AdminView() {
     collected: listSites.filter(s => getSiteStatus(s) === 'collected').length,
     partial: listSites.filter(s => getSiteStatus(s) === 'partial').length,
     mob: listSites.filter(s => getSiteStatus(s) === 'mob').length,
+    // Reflys are a status-independent flag (mapColor Refly/Refly Further
+    // Coordination Required, or the office REFLY checkbox) — a refly site
+    // still buckets as 'none' (Pending) in getSiteStatus above, so this tab
+    // filters on isReflySite directly rather than joining the status buckets.
+    refly: listSites.filter(isReflySite).length,
   }
 
   const trimmedQuery = listSearch.trim().toLowerCase()
   const displaySites = sortSites(
     listSites.filter(s => {
-      if (statusFilter !== 'all' && getSiteStatus(s) !== statusFilter) return false
+      if (statusFilter === 'refly') {
+        if (!isReflySite(s)) return false
+      } else if (statusFilter !== 'all' && getSiteStatus(s) !== statusFilter) {
+        return false
+      }
       if (trimmedQuery && !matchesSearch(s, trimmedQuery)) return false
       return true
     }),
@@ -581,6 +590,7 @@ export default function AdminView() {
               { key: 'collected', label: `Done (${listCounts.collected})` },
               { key: 'partial', label: `Partial (${listCounts.partial})` },
               { key: 'mob', label: `MOB (${listCounts.mob})` },
+              { key: 'refly', label: `Reflys (${listCounts.refly})` },
             ].map(f => (
               <button
                 key={f.key}
