@@ -105,6 +105,7 @@ export default async function handler(req, res) {
         reflyNotes:          (r.fields[FIELDS.REFLY_NOTES] && typeof r.fields[FIELDS.REFLY_NOTES] === 'object')
                                 ? (r.fields[FIELDS.REFLY_NOTES].value || '')
                                 : (r.fields[FIELDS.REFLY_NOTES] || ''),
+        reflyAttachments:    r.fields[FIELDS.REFLY_NOTICE]         || [],
         refly:               r.fields[FIELDS.REFLY]                || false,
         reflyCompleted:      r.fields[FIELDS.REFLY_COMPLETED]      || false,
       }

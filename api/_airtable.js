@@ -64,6 +64,7 @@ export const FIELDS = {
   APP_STATUS_SET_AT:    'fldBIOnu0qAMwzrCk', // dateTime, stamped by update-site.js — drives the 24h pin color override
   NOTES:                'fld1nnUo9UIBHxLct', // single-line text — pilot-editable freeform notes (field description mentions an unrelated date calc; per Joe, that's stale/meaningless — field is used as plain notes)
   REFLY_NOTES:          'fldfUVeri43DvQACa', // AI-generated text — why this site needs a reflight
+  REFLY_NOTICE:         'fld1DkgAuJCatHIJv', // attachment(s) — the source notice/photo REFLY_NOTES (AI text) is generated from
   REFLY:                'fldozaucwq5gpZsun', // checkbox
   REFLY_COMPLETED:      'fldhJKccNPreDZQsh', // checkbox
   PIN_ICON:             'fldYV0oHpkm43kwLd', // single select: Building/Tower/SBA/COA/LAANC — set from SiteDetail's icon picker, shown on both pilot map and Admin
@@ -102,7 +103,7 @@ export const SITE_FIELDS = Object.values(FIELDS).filter(id =>
     'fldBRvkT3ZwBIJS05', 'fldvZjxOCRfcT055V', 'fldd8KeiQAeFXc2cR',
     'fldOTBMryx9tr8hSf', 'fldZDb14q18VOR2De', 'fldcD4EwDU5HkDFua',
     'fldNK7WyoeYeDhgE6', 'fld2N9NqZJLUBUp9U', 'fldBIOnu0qAMwzrCk',
-    'fld1nnUo9UIBHxLct', 'fldfUVeri43DvQACa', 'fldozaucwq5gpZsun', 'fldhJKccNPreDZQsh',
+    'fld1nnUo9UIBHxLct', 'fldfUVeri43DvQACa', 'fld1DkgAuJCatHIJv', 'fldozaucwq5gpZsun', 'fldhJKccNPreDZQsh',
     'fldYV0oHpkm43kwLd',
   ].includes(id)
 )

@@ -271,6 +271,35 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           </div>
         )}
 
+        {isReflySite(site) && site.reflyAttachments && site.reflyAttachments.length > 0 && (
+          <div className="detail-refly-attachments">
+            {site.reflyAttachments.map((att, i) => {
+              const isImage = (att.type || '').startsWith('image/')
+              return isImage ? (
+                <a
+                  key={att.id || i}
+                  href={att.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="detail-refly-attachment-thumb"
+                >
+                  <img src={att.thumbnails?.large?.url || att.url} alt={att.filename || 'Refly notice'} />
+                </a>
+              ) : (
+                <a
+                  key={att.id || i}
+                  href={att.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="detail-refly-attachment-file"
+                >
+                  📎 {att.filename || `Refly Notice ${i + 1}`}
+                </a>
+              )
+            })}
+          </div>
+        )}
+
         {onPinIconChange && (
           <IconPicker value={site.pinIcon} onChange={type => onPinIconChange(site.id, type)} />
         )}
