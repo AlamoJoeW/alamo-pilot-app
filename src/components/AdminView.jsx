@@ -75,6 +75,8 @@ export default function AdminView() {
   const pilotMarkersRef = useRef([])
   const clusterInitRef = useRef(false) // skips the swap effect on first mount
   const hasFitRef = useRef(false) // fit-to-bounds happens once per view-open, not on every 60s refresh
+  const pilotStripRef = useRef(null) // the scrollable pilot chip strip itself
+  const pilotScrollbarRef = useRef(null) // the custom slider track rendered below it
 
   const [sites, setSites] = useState([])
   const [pilots, setPilots] = useState([])
@@ -92,6 +94,11 @@ export default function AdminView() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortKey, setSortKey] = useState('siteId')
   const [listSearch, setListSearch] = useState('')
+  // Drives the custom pilot-strip slider below — native scrollbars on the strip
+  // are hidden (see .filter-tabs CSS), so a desktop mouse user has no visible
+  // way to grab-scroll it otherwise; this tracks scrollLeft/scrollWidth/clientWidth
+  // so the slider thumb can mirror the strip's real scroll position/size.
+  const [pilotStripMetrics, setPilotStripMetrics] = useState({ scrollLeft: 0, scrollWidth: 0, clientWidth: 0 })
 
   // Applied before the pilot chip strip's own show/hide — "Marked Today" narrows
   // the pool down to sites a pilot touched today, and everything downstream
@@ -119,6 +126,35 @@ export default function AdminView() {
     const interval = setInterval(load, 60000)
     return () => clearInterval(interval)
   }, [load])
+
+  // Keeps the custom pilot-strip slider in sync with the strip's actual scroll
+  // position/size. Re-measures on scroll, on element resize (e.g. window resize
+  // changing available width), and whenever the pilot/site data changes (new
+  // chips can change scrollWidth without the strip's own box size changing, which
+  // ResizeObserver alone wouldn't catch).
+  useEffect(() => {
+    const strip = pilotStripRef.current
+    if (!strip) return
+
+    const measure = () => {
+      setPilotStripMetrics({
+        scrollLeft: strip.scrollLeft,
+        scrollWidth: strip.scrollWidth,
+        clientWidth: strip.clientWidth,
+      })
+    }
+
+    measure()
+    strip.addEventListener('scroll', measure, { passive: true })
+
+    const ro = new ResizeObserver(measure)
+    ro.observe(strip)
+
+    return () => {
+      strip.removeEventListener('scroll', measure)
+      ro.disconnect()
+    }
+  }, [pilots, visibleSites])
 
   // Initialize map once
   useEffect(() => {
@@ -359,6 +395,47 @@ export default function AdminView() {
     })
   }
 
+  // Drag-to-scroll thumb for the pilot chip strip's custom slider track. Uses
+  // Pointer Events so it works for mouse, pen, or touch alike, though touch
+  // users can already swipe the strip directly the way they would on mobile.
+  function handlePilotStripThumbPointerDown(e) {
+    e.preventDefault()
+    e.stopPropagation()
+    const strip = pilotStripRef.current
+    const track = pilotScrollbarRef.current
+    if (!strip || !track) return
+
+    const trackWidth = track.getBoundingClientRect().width
+    const maxScroll = strip.scrollWidth - strip.clientWidth
+    const startX = e.clientX
+    const startScrollLeft = strip.scrollLeft
+
+    function onMove(ev) {
+      const dx = ev.clientX - startX
+      const deltaScroll = (dx / trackWidth) * strip.scrollWidth
+      strip.scrollLeft = Math.min(maxScroll, Math.max(0, startScrollLeft + deltaScroll))
+    }
+    function onUp() {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
+  // Click anywhere on the track itself (not the thumb) to jump straight there.
+  function handlePilotStripTrackClick(e) {
+    if (e.target !== e.currentTarget) return
+    const strip = pilotStripRef.current
+    const track = pilotScrollbarRef.current
+    if (!strip || !track) return
+
+    const rect = track.getBoundingClientRect()
+    const maxScroll = strip.scrollWidth - strip.clientWidth
+    const clickFraction = (e.clientX - rect.left) / rect.width
+    strip.scrollLeft = Math.min(maxScroll, Math.max(0, clickFraction * strip.scrollWidth - strip.clientWidth / 2))
+  }
+
   function sitesForPilot(pilotId) {
     return visibleSites.filter(s => (s.pilotApp || []).includes(pilotId))
   }
@@ -475,7 +552,7 @@ export default function AdminView() {
       {/* Pilot chip strip — every pilot with at least one site in the "Verizon vHive
           All for KMLs" view, regardless of preflight status. Tap a chip to show/hide
           that pilot's pin + sites on the map; map pins default to everyone visible. */}
-      <div className="filter-tabs admin-pilot-strip">
+      <div className="filter-tabs admin-pilot-strip" ref={pilotStripRef}>
         {pilots.filter(p => sitesForPilot(p.pilotId).length > 0).map(p => {
           const s = sitesForPilot(p.pilotId)
           const done = s.filter(isSiteDone).length
@@ -496,6 +573,27 @@ export default function AdminView() {
           )
         })}
       </div>
+
+      {/* Custom horizontal slider for the pilot chip strip above — the strip's
+          native scrollbar is hidden (see .filter-tabs CSS) so on desktop there was
+          no visible/draggable way to scroll it, forcing arrow keys that sometimes
+          land on the map instead. Only rendered once content actually overflows. */}
+      {pilotStripMetrics.scrollWidth > pilotStripMetrics.clientWidth + 1 && (
+        <div
+          className="admin-pilot-scrollbar"
+          ref={pilotScrollbarRef}
+          onClick={handlePilotStripTrackClick}
+        >
+          <div
+            className="admin-pilot-scrollbar-thumb"
+            style={{
+              width: `${Math.max(8, (pilotStripMetrics.clientWidth / pilotStripMetrics.scrollWidth) * 100)}%`,
+              left: `${(pilotStripMetrics.scrollLeft / (pilotStripMetrics.scrollWidth - pilotStripMetrics.clientWidth)) * (100 - Math.max(8, (pilotStripMetrics.clientWidth / pilotStripMetrics.scrollWidth) * 100))}%`,
+            }}
+            onPointerDown={handlePilotStripThumbPointerDown}
+          />
+        </div>
+      )}
 
       <div
         ref={wrapperRef}

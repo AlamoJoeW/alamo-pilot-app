@@ -429,6 +429,35 @@ html, body, #root {
   border-bottom-color: var(--accent);
 }
 
+/* Custom drag-scroll slider for the Admin pilot chip strip (.admin-pilot-strip).
+   The strip's own scrollbar is intentionally hidden (::-webkit-scrollbar above),
+   which works fine on touch (swipe) but leaves desktop mouse users with nothing
+   to grab, and arrow-key scrolling that can land on the map instead. This bar
+   is only rendered by AdminView.jsx when the strip actually overflows. */
+.admin-pilot-scrollbar {
+  position: relative;
+  height: 10px;
+  padding: 3px 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.admin-pilot-scrollbar-thumb {
+  position: absolute;
+  top: 3px;
+  height: 4px;
+  min-width: 24px;
+  border-radius: 2px;
+  background: var(--text2);
+  cursor: grab;
+  touch-action: none;
+}
+.admin-pilot-scrollbar-thumb:hover,
+.admin-pilot-scrollbar-thumb:active {
+  background: var(--accent);
+  cursor: grabbing;
+}
+
 .sort-select {
   flex-shrink: 0;
   margin: 6px 8px 6px auto;
