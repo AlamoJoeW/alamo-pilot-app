@@ -44,3 +44,18 @@ export function isMarkedToday(site) {
   if (!site.appStatusUpdatedAt) return false
   return centralDateStr(new Date(site.appStatusUpdatedAt)) === centralDateStr()
 }
+
+// Formats a Date as a short "as of HH:MM" clock string pinned to Central
+// time regardless of device timezone — same reasoning as centralDateStr()
+// above. Shared by the on-demand weather check (SiteDetail.jsx) and the
+// radar overlay's staleness label (MapView.jsx) so a pilot always sees one
+// consistent clock for "how old is this reading," not whatever the device
+// happens to think local time is.
+export function formatCentralTime(date) {
+  if (!date) return ''
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date) + ' CT'
+}

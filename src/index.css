@@ -903,6 +903,84 @@ html, body, #root {
   word-break: break-word;
 }
 
+/* On-demand wind/temp check (SiteDetail.jsx WeatherCheck), sits above Map
+   Color in .detail-info — same row rhythm as .info-row but its own layout
+   since it carries a button/readings instead of a label/value pair. */
+.weather-row {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.weather-check-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
+.weather-check-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.weather-loading {
+  font-size: 13px;
+  color: var(--text2);
+}
+
+.weather-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--red);
+}
+
+.weather-retry-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.weather-readings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.weather-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text2);
+}
+
+.weather-refresh-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
 /* Action Buttons */
 .detail-actions {
   display: flex;
@@ -2186,6 +2264,80 @@ html, body, #root {
 
 .map-airspace-btn.with-locate {
   right: 156px;
+}
+
+/* Radar toggle — sits left of the airspace button in the same row.
+   Pilot Map tab's row is [radar(204), airspace(156), cluster(108), layer(60), locate(12)]. */
+.map-radar-btn {
+  position: absolute;
+  bottom: calc(80px + var(--safe-bottom));
+  right: 156px;
+  z-index: 1000;
+  width: 40px;
+  height: 40px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+
+.map-radar-btn:hover {
+  background: var(--surface2);
+  color: var(--accent);
+}
+
+.map-radar-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.map-radar-btn.with-locate {
+  right: 204px;
+}
+
+/* Radar "as of HH:MM" chip — doubles as the manual refresh button (tap to
+   re-fetch). Bottom-left, opposite the button row and clear of the
+   top-left airspace legend, so both overlays can be on at once without
+   colliding. */
+.map-radar-legend {
+  position: absolute;
+  bottom: calc(12px + var(--safe-bottom));
+  left: 12px;
+  z-index: 1000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.map-radar-legend:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.map-radar-legend-error {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.map-radar-refresh-icon {
+  font-size: 14px;
 }
 
 .map-airspace-legend {

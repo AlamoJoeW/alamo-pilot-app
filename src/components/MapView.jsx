@@ -3,6 +3,8 @@ import { colorForSite } from '../utils/mapColors'
 import { tileLayerFor } from '../utils/mapLayers'
 import { makeSiteIcon, quadcopterIcon } from '../utils/mapIcons'
 import { createAirspaceLayer, AIRSPACE_LEGEND, AIRSPACE_MIN_ZOOM } from '../utils/airspaceLayer'
+import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
+import { formatCentralTime } from '../utils/centralTime'
 
 // A site is flagged "refly" from either the office REFLY checkbox or the Map
 // Color already saying so (see mapColors.js MAP_COLOR_NOT_DONE) — same check
@@ -51,6 +53,15 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
   const [airspaceOn, setAirspaceOn] = useState(false)
   const [mapZoom, setMapZoom] = useState(8) // tracked so the airspace effect can gate on AIRSPACE_MIN_ZOOM without relying solely on esri-leaflet's internal zoom handling
   const airspaceLayerRef = useRef(null) // esri-leaflet FeatureLayer, created lazily on first toggle-on
+  // Radar overlay — off by default, pilot-toggled, and deliberately never
+  // auto-refreshing (see refreshRadar below): a stale radar frame left on
+  // screen without the pilot asking for a new one is worse than no radar at
+  // all for a go/no-go call, so the "as of HH:MM" label is load-bearing, not
+  // decorative.
+  const [radarOn, setRadarOn] = useState(false)
+  const [radarStatus, setRadarStatus] = useState('idle') // idle | loading | ready | error
+  const [radarTime, setRadarTime] = useState(null) // Date of the currently-displayed radar frame
+  const radarLayerRef = useRef(null) // esri-leaflet ImageMapLayer, created lazily on first toggle-on
   const clusterInitRef = useRef(false) // skips the swap effect on first mount, group is already correct
 
   // Initialize map once
@@ -224,6 +235,52 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
       map.removeLayer(airspaceLayerRef.current)
     }
   }, [airspaceOn, mapZoom])
+
+  // Fetches the latest available radar scan time from NOAA and (re)points
+  // the radar layer at it — creates the layer lazily on first call, updates
+  // its pinned time via setTimeRange() on every call after that. Never
+  // called on a timer; only from the toggle-on effect below and the pilot's
+  // own tap on the "Radar as of HH:MM" chip, so the displayed frame only
+  // ever moves when the pilot asks it to.
+  async function refreshRadar() {
+    const map = mapInstance.current
+    if (!map) return
+    setRadarStatus('loading')
+    try {
+      const timeMs = await fetchLatestRadarTime()
+      const time = new Date(timeMs)
+      if (radarLayerRef.current) {
+        radarLayerRef.current.setTimeRange(time, time)
+      } else {
+        radarLayerRef.current = createRadarLayer(time)
+        radarLayerRef.current?.addTo(map)
+      }
+      setRadarTime(time)
+      setRadarStatus('ready')
+    } catch (err) {
+      setRadarStatus('error')
+    }
+  }
+
+  // Add/remove the radar layer when the pilot flips its toggle. Turning it
+  // on always triggers one fetch (via refreshRadar) so the frame shown is
+  // never older than "whenever it was last turned on"; turning it off tears
+  // the layer down entirely rather than just hiding it, so a stale frame
+  // can't linger in memory only to reappear un-refreshed next time.
+  useEffect(() => {
+    const map = mapInstance.current
+    if (!map) return
+
+    if (radarOn) {
+      refreshRadar()
+    } else if (radarLayerRef.current) {
+      map.removeLayer(radarLayerRef.current)
+      radarLayerRef.current = null
+      setRadarStatus('idle')
+      setRadarTime(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [radarOn])
 
   // Restyles the previously-highlighted marker back to normal and the newly
   // highlighted one to the amber-ring icon with its tooltip pinned open.
@@ -490,6 +547,19 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
         </svg>
       </button>
       <button
+        className={`map-radar-btn with-locate${radarOn ? ' active' : ''}`}
+        onClick={() => setRadarOn(v => !v)}
+        title={radarOn ? 'Hide radar' : 'Show radar'}
+        aria-label={radarOn ? 'Hide radar overlay' : 'Show radar overlay'}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="5" />
+          <circle cx="12" cy="12" r="1" fill="currentColor" />
+          <line x1="12" y1="12" x2="18" y2="7" />
+        </svg>
+      </button>
+      <button
         className={`map-layer-btn with-locate${satellite ? ' active' : ''}`}
         onClick={() => setSatellite(v => !v)}
         title={satellite ? 'Switch to street map' : 'Switch to satellite view'}
@@ -538,6 +608,21 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
             </div>
           ))}
         </div>
+      )}
+      {radarOn && (
+        <button
+          type="button"
+          className={`map-radar-legend${radarStatus === 'error' ? ' map-radar-legend-error' : ''}`}
+          onClick={refreshRadar}
+          disabled={radarStatus === 'loading'}
+          title="Tap to refresh radar"
+        >
+          {radarStatus === 'loading' && 'Loading radar…'}
+          {radarStatus === 'error' && 'Radar unavailable — tap to retry'}
+          {radarStatus === 'ready' && radarTime && (
+            <>Radar as of {formatCentralTime(radarTime)} <span className="map-radar-refresh-icon">⟳</span></>
+          )}
+        </button>
       )}
     </div>
   )

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { checkAccessIssue } from '../utils/api'
 import { isReflySite, needsAccessFormToCollect } from '../utils/mapColors'
+import { fetchNwsConditions } from '../utils/weather'
+import { formatCentralTime } from '../utils/centralTime'
 
 const ACCESS_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrZ1KM4eEKKTyyo6'
 const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6NBl4k'
@@ -114,6 +116,87 @@ export function NotesEditor({ site, onSave }) {
       <div className="detail-notes-btns">
         <button className="btn-check-again" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
         <button className="btn-cancel-pending" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
+// On-demand current wind + temperature for this site, shown above Map Color
+// in the info list per Joe's request — deliberately gated behind a button
+// tap rather than fetched automatically, since the site list runs into the
+// thousands and a pilot only needs this for the one site they're standing
+// at right now. See utils/weather.js for the NWS nearest-station lookup
+// this calls, and airspaceLayer.js for the same "free, no-key, official
+// government source" precedent this follows.
+function WeatherCheck({ site }) {
+  const [state, setState] = useState('idle') // idle | loading | done | error
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+
+  // Reset whenever the pilot opens a different site's sheet, so stale
+  // conditions from the previously-viewed site never show under a new one.
+  useEffect(() => {
+    setState('idle')
+    setData(null)
+    setError('')
+  }, [site.id])
+
+  if (site.lat == null || site.lng == null) return null
+
+  async function check() {
+    setState('loading')
+    setError('')
+    try {
+      const result = await fetchNwsConditions(site.lat, site.lng)
+      setData(result)
+      setState('done')
+    } catch (err) {
+      setError(err.message || 'Weather unavailable')
+      setState('error')
+    }
+  }
+
+  if (state === 'idle') {
+    return (
+      <div className="weather-row">
+        <button type="button" className="weather-check-btn" onClick={check}>
+          Check current wind &amp; temp
+        </button>
+      </div>
+    )
+  }
+
+  if (state === 'loading') {
+    return (
+      <div className="weather-row">
+        <div className="weather-loading">Checking nearest station…</div>
+      </div>
+    )
+  }
+
+  if (state === 'error') {
+    return (
+      <div className="weather-row">
+        <div className="weather-error">
+          <span>{error}</span>
+          <button type="button" className="weather-retry-btn" onClick={check}>Retry</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="weather-row weather-row-done">
+      <div className="weather-readings">
+        <span>{data.tempF}°F</span>
+        <span>
+          {data.windMph != null ? `${data.windMph} mph${data.windDir ? ' ' + data.windDir : ''}` : 'Wind N/A'}
+          {data.windGustMph != null ? ` (gust ${data.windGustMph})` : ''}
+        </span>
+      </div>
+      <div className="weather-meta">
+        <span>{data.stationName}{data.obsTime ? ` · as of ${formatCentralTime(data.obsTime)}` : ''}</span>
+        <button type="button" className="weather-refresh-btn" onClick={check} title="Refresh">⟳</button>
       </div>
     </div>
   )
@@ -341,6 +424,7 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
             </div>
           )}
           <InfoRow label="Pilot Assigned" value={site.pilotAssigned} />
+          <WeatherCheck site={site} />
           <InfoRow label="Map Color" value={site.mapColor} />
           <InfoRow label="Date Added" value={site.dateAdded ? new Date(site.dateAdded).toLocaleDateString() : ''} />
         </div>
