@@ -128,7 +128,7 @@ export function NotesEditor({ site, onSave }) {
 // at right now. See utils/weather.js for the NWS nearest-station lookup
 // this calls, and airspaceLayer.js for the same "free, no-key, official
 // government source" precedent this follows.
-function WeatherCheck({ site }) {
+export function WeatherCheck({ site }) {
   const [state, setState] = useState('idle') // idle | loading | done | error
   const [data, setData] = useState(null)
   const [error, setError] = useState('')

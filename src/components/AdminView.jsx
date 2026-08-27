@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchAdminData, updateSiteNotes } from '../utils/api'
 import { colorForSite, isSiteDone, statusBucketForSite } from '../utils/mapColors'
-import { isMarkedToday } from '../utils/centralTime'
+import { isMarkedToday, formatCentralTime } from '../utils/centralTime'
+import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
 import { tileLayerFor } from '../utils/mapLayers'
 import { quadcopterIcon, makeSiteIcon } from '../utils/mapIcons'
 import { sortSites, SORT_OPTIONS } from '../utils/sortSites'
@@ -88,6 +89,14 @@ export default function AdminView() {
   const [satellite, setSatellite] = useState(false)
   const [clustered, setClustered] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  // Radar overlay — same on-demand, pilot/admin-toggled, never-auto-refreshing
+  // behavior as the pilot Map tab (see MapView.jsx's identical block): a
+  // stale frame nobody asked to refresh is worse than no radar for a go/no-go
+  // read, so the "as of HH:MM" chip is load-bearing, not decorative.
+  const [radarOn, setRadarOn] = useState(false)
+  const [radarStatus, setRadarStatus] = useState('idle') // idle | loading | ready | error
+  const [radarTime, setRadarTime] = useState(null)
+  const radarLayerRef = useRef(null)
   const [mode, setMode] = useState('map') // 'map' | 'list'
   const [selectedPilotId, setSelectedPilotId] = useState(null)
   const [selectedSite, setSelectedSite] = useState(null)
@@ -272,6 +281,47 @@ export default function AdminView() {
     const tile = tileLayerFor(satellite)
     tileLayerRef.current = L.tileLayer(tile.url, tile.options).addTo(map)
   }, [satellite])
+
+  // Fetches the latest available radar scan time from NOAA and (re)points
+  // the radar layer at it — same function shape as MapView.jsx's version,
+  // just against AdminView's own map instance. Never called on a timer.
+  async function refreshRadar() {
+    const map = mapInstance.current
+    if (!map) return
+    setRadarStatus('loading')
+    try {
+      const timeMs = await fetchLatestRadarTime()
+      const time = new Date(timeMs)
+      if (radarLayerRef.current) {
+        radarLayerRef.current.setTimeRange(time, time)
+      } else {
+        radarLayerRef.current = createRadarLayer(time)
+        radarLayerRef.current?.addTo(map)
+      }
+      setRadarTime(time)
+      setRadarStatus('ready')
+    } catch (err) {
+      setRadarStatus('error')
+    }
+  }
+
+  // Add/remove the radar layer when the toggle flips — same behavior as the
+  // pilot Map tab's identical effect: turning on always triggers one fetch,
+  // turning off tears the layer down entirely rather than just hiding it.
+  useEffect(() => {
+    const map = mapInstance.current
+    if (!map) return
+
+    if (radarOn) {
+      refreshRadar()
+    } else if (radarLayerRef.current) {
+      map.removeLayer(radarLayerRef.current)
+      radarLayerRef.current = null
+      setRadarStatus('idle')
+      setRadarTime(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [radarOn])
 
   // Redraw site markers
   useEffect(() => {
@@ -636,6 +686,19 @@ export default function AdminView() {
           </svg>
         </button>
         <button
+          className={`map-radar-btn${radarOn ? ' active' : ''}`}
+          onClick={() => setRadarOn(v => !v)}
+          title={radarOn ? 'Hide radar' : 'Show radar'}
+          aria-label={radarOn ? 'Hide radar overlay' : 'Show radar overlay'}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="5" />
+            <circle cx="12" cy="12" r="1" fill="currentColor" />
+            <line x1="12" y1="12" x2="18" y2="7" />
+          </svg>
+        </button>
+        <button
           className={`map-layer-btn${satellite ? ' active' : ''}`}
           onClick={() => setSatellite(v => !v)}
           title={satellite ? 'Switch to street map' : 'Switch to satellite view'}
@@ -647,6 +710,21 @@ export default function AdminView() {
             <polyline points="2 12 12 17 22 12" />
           </svg>
         </button>
+        {radarOn && (
+          <button
+            type="button"
+            className={`map-radar-legend${radarStatus === 'error' ? ' map-radar-legend-error' : ''}`}
+            onClick={refreshRadar}
+            disabled={radarStatus === 'loading'}
+            title="Tap to refresh radar"
+          >
+            {radarStatus === 'loading' && 'Loading radar…'}
+            {radarStatus === 'error' && 'Radar unavailable — tap to retry'}
+            {radarStatus === 'ready' && radarTime && (
+              <>Radar as of {formatCentralTime(radarTime)} <span className="map-radar-refresh-icon">⟳</span></>
+            )}
+          </button>
+        )}
       </div>
 
       {mode === 'list' && (

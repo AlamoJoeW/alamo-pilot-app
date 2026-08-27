@@ -1,5 +1,5 @@
 import { statusBucketForSite, colorForMapColor } from '../utils/mapColors'
-import { NotesEditor } from './SiteDetail'
+import { NotesEditor, WeatherCheck } from './SiteDetail'
 
 // Site detail sheet for the Admin view — same visual language as the
 // pilot-facing SiteDetail, no status action buttons and no preflight gating
@@ -51,6 +51,8 @@ export default function AdminSiteDetail({ site, onClose, onNotesSave }) {
             {badge.label}
           </div>
         </div>
+
+        <WeatherCheck site={site} />
 
         {site.mapColor && (
           <div className="detail-airtable-status" style={{ color: mapColorHex || undefined }}>
