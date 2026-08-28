@@ -100,6 +100,8 @@ export default async function handler(req, res) {
         coaAttachments:      r.fields[FIELDS.COA]                  || [],
         appStatusUpdatedAt:  r.fields[FIELDS.APP_STATUS_SET_AT]    || null,
         pinIcon:             PIN_ICON_AIRTABLE_TO_APP[r.fields[FIELDS.PIN_ICON]] || null,
+        forecastDate:        r.fields[FIELDS.FORECAST_DATE]         || '',
+        prePost:             r.fields[FIELDS.PRE_POST]             || '',
         notes:               r.fields[FIELDS.NOTES]                || '',
         // AI-generated text fields come back as { value, isStale, ... } rather than a plain string
         reflyNotes:          (r.fields[FIELDS.REFLY_NOTES] && typeof r.fields[FIELDS.REFLY_NOTES] === 'object')

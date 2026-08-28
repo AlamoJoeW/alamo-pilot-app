@@ -5,6 +5,7 @@ import { makeSiteIcon, quadcopterIcon } from '../utils/mapIcons'
 import { createAirspaceLayer, AIRSPACE_LEGEND, AIRSPACE_MIN_ZOOM } from '../utils/airspaceLayer'
 import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
 import { formatCentralTime } from '../utils/centralTime'
+import { formatDateOnly } from '../utils/formatDate'
 
 // A site is flagged "refly" from either the office REFLY checkbox or the Map
 // Color already saying so (see mapColors.js MAP_COLOR_NOT_DONE) — same check
@@ -19,7 +20,10 @@ function tooltipHtmlFor(site) {
   const reflyLine = isReflySite(site) && site.reflyNotes
     ? `<br><em>Refly: ${site.reflyNotes}</em>`
     : ''
-  return `<strong>${site.siteId || 'Site'}</strong><br>FUZE: ${site.fuzeId || '—'}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}${reflyLine}`
+  const forecastLine = (site.forecastDate || site.prePost)
+    ? `<br>${[site.prePost, site.forecastDate ? formatDateOnly(site.forecastDate) : ''].filter(Boolean).join(' — ')}`
+    : ''
+  return `<strong>${site.siteId || 'Site'}</strong><br>FUZE: ${site.fuzeId || '—'}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}${forecastLine}${reflyLine}`
 }
 
 export default function MapView({ sites, onSelect, highlightedSiteId }) {

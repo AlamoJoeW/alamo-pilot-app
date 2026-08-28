@@ -3,6 +3,7 @@ import { checkAccessIssue } from '../utils/api'
 import { isReflySite, needsAccessFormToCollect } from '../utils/mapColors'
 import { fetchNwsConditions } from '../utils/weather'
 import { formatCentralTime } from '../utils/centralTime'
+import { formatDateOnly } from '../utils/formatDate'
 
 const ACCESS_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrZ1KM4eEKKTyyo6'
 const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6NBl4k'
@@ -426,6 +427,8 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
           <InfoRow label="Pilot Assigned" value={site.pilotAssigned} />
           <WeatherCheck site={site} />
           <InfoRow label="Map Color" value={site.mapColor} />
+          <InfoRow label="Forecast Date" value={site.forecastDate ? formatDateOnly(site.forecastDate) : ''} />
+          <InfoRow label="Pre/Post" value={site.prePost} />
           <InfoRow label="Date Added" value={site.dateAdded ? new Date(site.dateAdded).toLocaleDateString() : ''} />
         </div>
 

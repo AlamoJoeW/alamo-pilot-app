@@ -1,5 +1,6 @@
 import { statusBucketForSite, colorForMapColor } from '../utils/mapColors'
 import { NotesEditor, WeatherCheck } from './SiteDetail'
+import { formatDateOnly } from '../utils/formatDate'
 
 // Site detail sheet for the Admin view — same visual language as the
 // pilot-facing SiteDetail, no status action buttons and no preflight gating
@@ -141,6 +142,8 @@ export default function AdminSiteDetail({ site, onClose, onNotesSave }) {
             </div>
           )}
           <InfoRow label="Pilot Assigned (legacy field)" value={site.pilotAssigned} />
+          <InfoRow label="Forecast Date" value={site.forecastDate ? formatDateOnly(site.forecastDate) : ''} />
+          <InfoRow label="Pre/Post" value={site.prePost} />
           <InfoRow label="Date Added" value={site.dateAdded ? new Date(site.dateAdded).toLocaleDateString() : ''} />
         </div>
 

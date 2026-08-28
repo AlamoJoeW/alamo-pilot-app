@@ -68,6 +68,8 @@ export const FIELDS = {
   REFLY:                'fldozaucwq5gpZsun', // checkbox
   REFLY_COMPLETED:      'fldhJKccNPreDZQsh', // checkbox
   PIN_ICON:             'fldYV0oHpkm43kwLd', // single select: Building/Tower/SBA/COA/LAANC — set from SiteDetail's icon picker, shown on both pilot map and Admin
+  FORECAST_DATE:        'fldraRq13fwkMLWbI', // formula, plain YYYY-MM-DD string — mirrors whichever of Pre/Post CX Drone Flight (F) applies
+  PRE_POST:             'fldYBjSthEljSCWZV', // single line text: 'Pre' or 'Post'
 
   // EOD Reports
   EOD_DATE:             'fldHhWbzHpjzQIQ3n',
@@ -104,7 +106,7 @@ export const SITE_FIELDS = Object.values(FIELDS).filter(id =>
     'fldOTBMryx9tr8hSf', 'fldZDb14q18VOR2De', 'fldcD4EwDU5HkDFua',
     'fldNK7WyoeYeDhgE6', 'fld2N9NqZJLUBUp9U', 'fldBIOnu0qAMwzrCk',
     'fld1nnUo9UIBHxLct', 'fldfUVeri43DvQACa', 'fld1DkgAuJCatHIJv', 'fldozaucwq5gpZsun', 'fldhJKccNPreDZQsh',
-    'fldYV0oHpkm43kwLd',
+    'fldYV0oHpkm43kwLd', 'fldraRq13fwkMLWbI', 'fldYBjSthEljSCWZV',
   ].includes(id)
 )
 

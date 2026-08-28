@@ -57,6 +57,8 @@ export default async function handler(req, res) {
       refly:               r.fields[FIELDS.REFLY]                || false,
       reflyCompleted:      r.fields[FIELDS.REFLY_COMPLETED]      || false,
       pinIcon:             PIN_ICON_AIRTABLE_TO_APP[r.fields[FIELDS.PIN_ICON]] || null,
+      forecastDate:       r.fields[FIELDS.FORECAST_DATE]         || '',
+      prePost:            r.fields[FIELDS.PRE_POST]             || '',
     }))
 
     return res.json({ sites, syncedAt: new Date().toISOString() })

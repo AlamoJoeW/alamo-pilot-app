@@ -6,6 +6,7 @@ import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
 import { tileLayerFor } from '../utils/mapLayers'
 import { quadcopterIcon, makeSiteIcon } from '../utils/mapIcons'
 import { sortSites, SORT_OPTIONS } from '../utils/sortSites'
+import { formatDateOnly } from '../utils/formatDate'
 import AdminSiteDetail from './AdminSiteDetail'
 
 const PILOT_COLORS = ['#3b82f6', '#a855f7', '#14b8a6', '#f59e0b', '#ec4899', '#84cc16', '#06b6d4', '#f43f5e']
@@ -355,8 +356,11 @@ export default function AdminView() {
       const reflyLine = isReflySite(site) && site.reflyNotes
         ? `<br><em>Refly: ${site.reflyNotes}</em>`
         : ''
+      const forecastLine = (site.forecastDate || site.prePost)
+        ? `<br>${[site.prePost, site.forecastDate ? formatDateOnly(site.forecastDate) : ''].filter(Boolean).join(' — ')}`
+        : ''
       marker.bindTooltip(
-        `<strong>${site.siteId || 'Site'}</strong><br>Pilot: ${pilotNames}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}${reflyLine}`,
+        `<strong>${site.siteId || 'Site'}</strong><br>Pilot: ${pilotNames}<br>${site.mapColor || ''}<br>${site.city || ''} ${site.state || ''}${forecastLine}${reflyLine}`,
         { direction: 'top', offset: [0, -8] }
       )
       marker.on('click', () => setSelectedSite(site))
