@@ -34,12 +34,11 @@ export function quadcopterIcon(size = 30) {
 //
 // `isNew` flags a site whose "Date Added" is today (utils/centralTime.js's
 // isAddedToday) — Joe wanted a way to spot brand-new sites on the map without
-// opening the List view. For the plain status dot (no iconType) that means
-// filling solid black instead of the status color, same as the "unassigned"
-// treatment below — there's no text to repurpose. For the sba/coa/laanc badge
-// shapes, turning the whole badge black would hide the status color, so
-// instead just the letters flip to black — the badge keeps telling you the
-// status, the black text tells you it's new.
+// opening the List view. Fills solid black instead of the status color, same
+// as the "unassigned" treatment below — trades the status color for an
+// unmissable "just added" signal. For the sba/coa/laanc badge shapes the
+// letters stay white (readable on black) rather than flipping to black
+// themselves.
 export function siteIconSvg(color, iconType, isNew = false) {
   switch (iconType) {
     case 'building':
@@ -78,8 +77,8 @@ export function siteIconSvg(color, iconType, isNew = false) {
     case 'sba':
     case 'coa':
     case 'laanc':
-      return `<rect x="1" y="6" width="22" height="12" rx="4" fill="${color}" stroke="white" stroke-width="2"/>
-        <text x="12" y="15" font-size="7" font-weight="700" fill="${isNew ? '#000000' : 'white'}" text-anchor="middle" font-family="sans-serif">${iconType.toUpperCase()}</text>`
+      return `<rect x="1" y="6" width="22" height="12" rx="4" fill="${isNew ? '#000000' : color}" stroke="white" stroke-width="2"/>
+        <text x="12" y="15" font-size="7" font-weight="700" fill="white" text-anchor="middle" font-family="sans-serif">${iconType.toUpperCase()}</text>`
     // Admin map only (AdminView.jsx) — flags a site with no pilot in its
     // PILOT_APP field. Always solid black regardless of the `color` passed
     // in (status color would otherwise still show through), since the point
