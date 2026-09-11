@@ -29,11 +29,20 @@ function recentCompare(a, b) {
   return bTime - aTime
 }
 
+// Newest-added first (site's "Date Added" field from Airtable). Sites with
+// no date on file sink to the bottom rather than sorting to the top.
+function dateAddedCompare(a, b) {
+  const aTime = a.dateAdded ? new Date(a.dateAdded).getTime() : -Infinity
+  const bTime = b.dateAdded ? new Date(b.dateAdded).getTime() : -Infinity
+  return bTime - aTime
+}
+
 export const SORT_OPTIONS = [
   { key: 'siteId', label: 'Site ID' },
   { key: 'status', label: 'Status' },
   { key: 'city', label: 'City/State' },
   { key: 'recent', label: 'Recently updated' },
+  { key: 'dateAdded', label: 'Date Added' },
 ]
 
 export function sortSites(sites, sortKey) {
@@ -47,6 +56,9 @@ export function sortSites(sites, sortKey) {
       break
     case 'recent':
       copy.sort(recentCompare)
+      break
+    case 'dateAdded':
+      copy.sort(dateAddedCompare)
       break
     case 'siteId':
     default:
