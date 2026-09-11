@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { statusBucketForSite, isReflySite, needsAccessFormToCollect } from '../utils/mapColors'
 import { sortSites, SORT_OPTIONS } from '../utils/sortSites'
+import { formatDateOnly } from '../utils/formatDate'
+import { isAddedToday } from '../utils/centralTime'
 
 const STATUS_COLORS = {
   collected: '#22c55e',
@@ -299,6 +301,11 @@ export default function SiteList({ sites, onSelect, filter, onFilterChange, onBu
                   <div className="site-row-sub">
                     FUZE: {site.fuzeId || '—'} · {site.city || site.state || site.subProject || '—'}
                   </div>
+                  {site.dateAdded && (
+                    <div className={`site-row-added ${isAddedToday(site) ? 'site-row-added-today' : ''}`}>
+                      Added {isAddedToday(site) ? 'today' : formatDateOnly(site.dateAdded)}
+                    </div>
+                  )}
                   {refly && site.reflyNotes && (
                     <div className="site-row-refly-notes">🔁 {site.reflyNotes}</div>
                   )}

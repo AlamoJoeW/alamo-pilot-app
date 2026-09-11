@@ -31,7 +31,16 @@ export function quadcopterIcon(size = 30) {
 // synced via the Airtable "App Pin Icon" field (api/_airtable.js FIELDS.PIN_ICON).
 // Still tinted by the site's status color — the shape is an extra display
 // dimension, not a replacement for it.
-export function siteIconSvg(color, iconType) {
+//
+// `isNew` flags a site whose "Date Added" is today (utils/centralTime.js's
+// isAddedToday) — Joe wanted a way to spot brand-new sites on the map without
+// opening the List view. For the plain status dot (no iconType) that means
+// filling solid black instead of the status color, same as the "unassigned"
+// treatment below — there's no text to repurpose. For the sba/coa/laanc badge
+// shapes, turning the whole badge black would hide the status color, so
+// instead just the letters flip to black — the badge keeps telling you the
+// status, the black text tells you it's new.
+export function siteIconSvg(color, iconType, isNew = false) {
   switch (iconType) {
     case 'building':
       return `<rect x="4" y="3" width="16" height="19" rx="2" fill="${color}" stroke="white" stroke-width="2"/>
@@ -70,7 +79,7 @@ export function siteIconSvg(color, iconType) {
     case 'coa':
     case 'laanc':
       return `<rect x="1" y="6" width="22" height="12" rx="4" fill="${color}" stroke="white" stroke-width="2"/>
-        <text x="12" y="15" font-size="7" font-weight="700" fill="white" text-anchor="middle" font-family="sans-serif">${iconType.toUpperCase()}</text>`
+        <text x="12" y="15" font-size="7" font-weight="700" fill="${isNew ? '#000000' : 'white'}" text-anchor="middle" font-family="sans-serif">${iconType.toUpperCase()}</text>`
     // Admin map only (AdminView.jsx) — flags a site with no pilot in its
     // PILOT_APP field. Always solid black regardless of the `color` passed
     // in (status color would otherwise still show through), since the point
@@ -79,7 +88,7 @@ export function siteIconSvg(color, iconType) {
     case 'unassigned':
       return `<rect x="3" y="3" width="18" height="18" rx="2" fill="#000000" stroke="white" stroke-width="2"/>`
     default:
-      return `<circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="2"/>`
+      return `<circle cx="12" cy="12" r="10" fill="${isNew ? '#000000' : color}" stroke="white" stroke-width="2"/>`
   }
 }
 
@@ -88,7 +97,7 @@ export function siteIconSvg(color, iconType) {
 // after they close its detail sheet. The ring lives outside the pin's own
 // 0-24 coordinate space, so highlighted icons render on a wider 30x30
 // viewBox (content stays centered) rather than resizing the pin itself.
-export function makeSiteIcon(color, iconType, size = 24, highlighted = false) {
+export function makeSiteIcon(color, iconType, size = 24, highlighted = false, isNew = false) {
   // The shaped pins (building/tower/sba/coa/laanc) render a bit small next to
   // the default status dot at the same nominal size, so bump them up ~35% —
   // the plain dot (no iconType) stays at the base size passed in.
@@ -98,7 +107,7 @@ export function makeSiteIcon(color, iconType, size = 24, highlighted = false) {
   const ring = highlighted
     ? '<circle cx="12" cy="12" r="12.5" fill="none" stroke="#fbbf24" stroke-width="2.5"/>'
     : ''
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${boxSize}" height="${boxSize}" viewBox="${viewBox}">${ring}${siteIconSvg(color, iconType)}</svg>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${boxSize}" height="${boxSize}" viewBox="${viewBox}">${ring}${siteIconSvg(color, iconType, isNew)}</svg>`
   const url = `data:image/svg+xml;base64,${btoa(svg)}`
   return window.L.icon({
     iconUrl: url,

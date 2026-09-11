@@ -45,6 +45,17 @@ export function isMarkedToday(site) {
   return centralDateStr(new Date(site.appStatusUpdatedAt)) === centralDateStr()
 }
 
+// True if the site's "Date Added" field (from Airtable) falls on today's
+// Central calendar date. Used to flag brand-new sites on the Map/Admin Map
+// (MapView.jsx, AdminView.jsx via mapIcons.js's `isNew` param) so a pilot can
+// spot what just got added without opening the List view. Same day-comparison
+// approach as isMarkedToday() above, for the same reasons (device timezone
+// can't be trusted).
+export function isAddedToday(site) {
+  if (!site.dateAdded) return false
+  return centralDateStr(new Date(site.dateAdded)) === centralDateStr()
+}
+
 // Formats a Date as a short "as of HH:MM" clock string pinned to Central
 // time regardless of device timezone — same reasoning as centralDateStr()
 // above. Shared by the on-demand weather check (SiteDetail.jsx) and the

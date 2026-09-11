@@ -587,6 +587,17 @@ html, body, #root {
   background: var(--surface2);
 }
 
+.site-row-added {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+
+.site-row-added-today {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .site-row-refly-notes {
   font-size: 12px;
   color: #a855f7;
