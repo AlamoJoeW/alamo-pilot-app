@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { FIELDS, PIN_ICON_AIRTABLE_TO_APP, fetchAllSiteRecords } from './_airtable.js'
+import { FIELDS, PIN_ICON_AIRTABLE_TO_APP, fetchAllSiteRecords, fetchCoaRequestByAssetId } from './_airtable.js'
 
 function verifyToken(req) {
   const auth = req.headers.authorization || ''
@@ -13,7 +13,10 @@ export default async function handler(req, res) {
     const pilot = verifyToken(req)
 
     // Pulls from every project view listed in SITE_VIEWS (Verizon + UPNY, etc.)
-    const records = await fetchAllSiteRecords()
+    const [records, coaByAssetId] = await Promise.all([
+      fetchAllSiteRecords(),
+      fetchCoaRequestByAssetId(),
+    ])
 
     // Filter to only sites assigned to the logged-in pilot.
     // PILOT_APP is a linked record field; the API returns an array of pilot record IDs.
@@ -59,6 +62,8 @@ export default async function handler(req, res) {
       pinIcon:             PIN_ICON_AIRTABLE_TO_APP[r.fields[FIELDS.PIN_ICON]] || null,
       forecastDate:       r.fields[FIELDS.FORECAST_DATE]         || '',
       prePost:            r.fields[FIELDS.PRE_POST]             || '',
+      coaRequestStatus:       coaByAssetId.get(r.id)?.status || '',
+      coaRequestConfirmation: coaByAssetId.get(r.id)?.confirmation || '',
     }))
 
     return res.json({ sites, syncedAt: new Date().toISOString() })

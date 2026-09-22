@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { BASE_ID, API_KEY, TABLES, FIELDS, airtableGetAll, fetchAllSiteRecords, PIN_ICON_AIRTABLE_TO_APP, centralDateStr } from './_airtable.js'
+import { BASE_ID, API_KEY, TABLES, FIELDS, airtableGetAll, fetchAllSiteRecords, fetchCoaRequestByAssetId, PIN_ICON_AIRTABLE_TO_APP, centralDateStr } from './_airtable.js'
 
 // Combined admin endpoint — returns both all-pilot sites and today's pilot locations
 // in a single response. Kept as one file (rather than two) to stay under Vercel's
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     const pilot = verifyToken(req)
     if (!pilot.isAdmin) return res.status(403).json({ error: 'Admin access required' })
 
-    const [siteRecords, pilotRecords, preflights] = await Promise.all([
+    const [siteRecords, pilotRecords, preflights, coaByAssetId] = await Promise.all([
       fetchAllSiteRecords(),
       fetchAllPilots(),
       airtableGetAll(
@@ -61,6 +61,7 @@ export default async function handler(req, res) {
         "DATESTR({" + PF.DATE + "})='" + today() + "'",
         [PF.PILOT, PF.TRAVEL_DAY, PF.START_LAT, PF.START_LNG, PF.LOCATION_UPDATED_AT]
       ),
+      fetchCoaRequestByAssetId(),
     ])
 
     const pilotNameById = {}
@@ -110,6 +111,8 @@ export default async function handler(req, res) {
         reflyAttachments:    r.fields[FIELDS.REFLY_NOTICE]         || [],
         refly:               r.fields[FIELDS.REFLY]                || false,
         reflyCompleted:      r.fields[FIELDS.REFLY_COMPLETED]      || false,
+        coaRequestStatus:       coaByAssetId.get(r.id)?.status || '',
+        coaRequestConfirmation: coaByAssetId.get(r.id)?.confirmation || '',
       }
     })
 

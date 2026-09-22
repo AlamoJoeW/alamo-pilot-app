@@ -25,6 +25,7 @@ export const TABLES = {
   PILOTS: 'tblYVHjbcI46iQ4EB',
   COLLECTION_ASSETS: 'tbl1y4oOzEAhf0a4S',
   EOD_REPORTS: 'tblxlNUqgFy251qha',
+  COA_REQUESTS: 'tbl5YPTeafqBK0KwN',
 }
 
 export const FIELDS = {
@@ -209,4 +210,46 @@ export async function fetchAllSiteRecords() {
     records.forEach(r => byId.set(r.id, r))
   }
   return [...byId.values()]
+}
+
+
+// COA Requests table (FAA airspace authorizations) - read by the
+// coa-auto-submit / coa-status-sync automation skills, and now also by the
+// pilot app's Site Detail pane (COA-pin-iconed sites only) to show whether a
+// request is on file and its current status.
+export const COA_FIELDS = {
+  LINK_TO_ASSET:          'fldCmHqCO4IkJKUuf', // multipleRecordLinks back to Collection Assets
+  STATUS:                 'fldcAvYsTp3aPHWl3', // single select: Pending Submission/Submitted/Approved/Denied/Error - Review Needed/Expired/Under Review/Canceled (FAA)
+  DRONEZONE_CONFIRMATION: 'fldzgdbhIWR0sasRQ', // single line text, set by coa-auto-submit once submitted
+  CREATED:                'fldZPTJ6yZXXkuRbT', // createdTime - used to pick the current request when a site has more than one on file
+}
+
+// Fetches every COA Requests record and reduces it to one "current" request
+// per linked Collection Assets record. A site can end up with more than one
+// COA Requests record over time (e.g. resubmitted after Expired/Denied) - the
+// most recently created one wins. Returns a Map keyed by Collection Assets
+// record ID; a site with no request on file simply has no entry.
+export async function fetchCoaRequestByAssetId() {
+  const records = await airtableGetAll(TABLES.COA_REQUESTS, null, [
+    COA_FIELDS.LINK_TO_ASSET,
+    COA_FIELDS.STATUS,
+    COA_FIELDS.DRONEZONE_CONFIRMATION,
+    COA_FIELDS.CREATED,
+  ])
+  const byAssetId = new Map()
+  for (const r of records) {
+    const assetIds = r.fields[COA_FIELDS.LINK_TO_ASSET] || []
+    const created = r.fields[COA_FIELDS.CREATED] || null
+    for (const assetId of assetIds) {
+      const existing = byAssetId.get(assetId)
+      if (!existing || (created && (!existing.created || created > existing.created))) {
+        byAssetId.set(assetId, {
+          status: r.fields[COA_FIELDS.STATUS] || '',
+          confirmation: r.fields[COA_FIELDS.DRONEZONE_CONFIRMATION] || '',
+          created,
+        })
+      }
+    }
+  }
+  return byAssetId
 }

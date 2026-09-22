@@ -7,6 +7,7 @@ import { formatDateOnly } from '../utils/formatDate'
 
 const ACCESS_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrZ1KM4eEKKTyyo6'
 const PREFLIGHT_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shrvIwEMGXL6NBl4k'
+const COA_REQUEST_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shr5HQ8wN5lUqWFQl'
 
 const STATUS_LABELS = {
   collected: { label: 'Collected', color: '#22c55e', bg: '#052e16' },
@@ -423,6 +424,28 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
                 ))}
               </span>
             </div>
+          )}
+          {site.pinIcon === 'coa' && (
+            site.coaRequestStatus ? (
+              <InfoRow
+                label="COA Request"
+                value={site.coaRequestConfirmation ? `${site.coaRequestStatus} — DZ# ${site.coaRequestConfirmation}` : site.coaRequestStatus}
+              />
+            ) : (
+              <div className="info-row">
+                <span className="info-label">COA Request</span>
+                <span className="info-value">
+                  <a
+                    href={COA_REQUEST_FORM_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#60a5fa', textDecoration: 'underline' }}
+                  >
+                    No COA request on file — submit one
+                  </a>
+                </span>
+              </div>
+            )
           )}
           <InfoRow label="Pilot Assigned" value={site.pilotAssigned} />
           <WeatherCheck site={site} />
