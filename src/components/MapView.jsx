@@ -6,6 +6,7 @@ import { createAirspaceLayer, AIRSPACE_LEGEND, AIRSPACE_MIN_ZOOM } from '../util
 import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
 import { formatCentralTime, isAddedToday } from '../utils/centralTime'
 import { formatDateOnly } from '../utils/formatDate'
+import { matchesSearch } from '../utils/searchSites'
 
 // A site is flagged "refly" from either the office REFLY checkbox or the Map
 // Color already saying so (see mapColors.js MAP_COLOR_NOT_DONE) — same check
@@ -55,6 +56,7 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
   const [clustered, setClustered] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [airspaceOn, setAirspaceOn] = useState(false)
+  const [mapSearch, setMapSearch] = useState('')
   const [mapZoom, setMapZoom] = useState(8) // tracked so the airspace effect can gate on AIRSPACE_MIN_ZOOM without relying solely on esri-leaflet's internal zoom handling
   const airspaceLayerRef = useRef(null) // esri-leaflet FeatureLayer, created lazily on first toggle-on
   // Radar overlay — off by default, pilot-toggled, and deliberately never
@@ -503,9 +505,73 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
     )
   }
 
+  // Map search box — narrows to sites with coordinates using the same field
+  // set as SiteList's search (Site ID, FUZE ID, city, state, sub project,
+  // address), capped so a broad query (e.g. a common city) doesn't dump
+  // hundreds of rows into the dropdown.
+  const trimmedMapSearch = mapSearch.trim().toLowerCase()
+  const mapSearchResults = trimmedMapSearch
+    ? sites.filter(s => s.lat && s.lng && matchesSearch(s, trimmedMapSearch)).slice(0, 8)
+    : []
+
+  // Zooms/pans to the picked site and highlights its pin the same way tapping
+  // it would (amber ring + pinned-open tooltip via applyHighlight) — but
+  // deliberately does NOT call onSelect, so the detail sheet stays closed
+  // (search should just take you there, not also pop the sheet).
+  function handleSearchSelect(site) {
+    const map = mapInstance.current
+    if (map && site.lat && site.lng) {
+      map.setView([site.lat, site.lng], Math.max(map.getZoom(), 16))
+    }
+    applyHighlight(site.id)
+    setMapSearch('')
+  }
+
   return (
     <div ref={wrapperRef} className={`map-wrapper${isFullscreen ? ' map-wrapper-fullscreen' : ''}`}>
       <div ref={mapRef} className="map-container" />
+      <div className="map-search-box">
+        <div className="map-search-input-row">
+          <input
+            type="text"
+            inputMode="search"
+            className="map-search-input"
+            placeholder="Search site ID, FUZE, city…"
+            value={mapSearch}
+            onChange={e => setMapSearch(e.target.value)}
+          />
+          {mapSearch && (
+            <button
+              type="button"
+              className="map-search-clear"
+              onClick={() => setMapSearch('')}
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        {trimmedMapSearch && (
+          <div className="map-search-results">
+            {mapSearchResults.length === 0 && (
+              <div className="map-search-empty">No sites match your search</div>
+            )}
+            {mapSearchResults.map(site => (
+              <button
+                type="button"
+                key={site.id}
+                className="map-search-result"
+                onClick={() => handleSearchSelect(site)}
+              >
+                {site.siteId || 'Site'}
+                <span className="map-search-result-sub">
+                  {[site.fuzeId ? `FUZE ${site.fuzeId}` : '', [site.city, site.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       <button
         className={`map-fullscreen-btn`}
         onClick={toggleFullscreen}

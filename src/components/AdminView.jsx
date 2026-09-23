@@ -7,6 +7,7 @@ import { tileLayerFor } from '../utils/mapLayers'
 import { quadcopterIcon, makeSiteIcon } from '../utils/mapIcons'
 import { sortSites, SORT_OPTIONS } from '../utils/sortSites'
 import { formatDateOnly } from '../utils/formatDate'
+import { matchesSearch } from '../utils/searchSites'
 import AdminSiteDetail from './AdminSiteDetail'
 
 const PILOT_COLORS = ['#3b82f6', '#a855f7', '#14b8a6', '#f59e0b', '#ec4899', '#84cc16', '#06b6d4', '#f43f5e']
@@ -38,17 +39,6 @@ function getSiteStatus(site) {
   return statusBucketForSite(site) || 'none'
 }
 
-// Same fields/logic as SiteList.jsx's matchesSearch — kept as a local copy
-// rather than a shared import since neither file currently imports from the
-// other (matches how isReflySite is duplicated across these files too).
-function matchesSearch(site, query) {
-  const haystack = [site.siteId, site.fuzeId, site.city, site.state, site.subProject, site.address]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
-  return haystack.includes(query)
-}
-
 // Site marker — same shape-per-icon-type as the pilot's own map (utils/mapIcons.js),
 // since the "App Pin Icon" field a pilot sets in SiteDetail is now synced, not local.
 function siteIcon(color, pinIcon, isNew) {
@@ -74,6 +64,11 @@ export default function AdminView() {
   // pilots and admins need to always see each one individually.
   const clusterGroupRef = useRef(null)
   const siteMarkersRef = useRef([])
+  // Keyed lookup of the same markers, built alongside siteMarkersRef during
+  // the rebuild effect below — lets the search box find a specific site's
+  // marker (to zoom to + pop its tooltip open) without needing the fuller
+  // diffed-Map marker architecture the pilot Map tab uses.
+  const siteMarkerByIdRef = useRef(new Map())
   const pilotMarkersRef = useRef([])
   const clusterInitRef = useRef(false) // skips the swap effect on first mount
   const hasFitRef = useRef(false) // fit-to-bounds happens once per view-open, not on every 60s refresh
@@ -90,6 +85,7 @@ export default function AdminView() {
   const [satellite, setSatellite] = useState(false)
   const [clustered, setClustered] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [mapSearch, setMapSearch] = useState('')
   // Radar overlay — same on-demand, pilot/admin-toggled, never-auto-refreshing
   // behavior as the pilot Map tab (see MapView.jsx's identical block): a
   // stale frame nobody asked to refresh is worse than no radar for a go/no-go
@@ -334,6 +330,7 @@ export default function AdminView() {
     if (typeof clusterGroup.clearLayers === 'function') clusterGroup.clearLayers()
     else siteMarkersRef.current.forEach(m => clusterGroup.removeLayer(m))
     siteMarkersRef.current = []
+    siteMarkerByIdRef.current = new Map()
 
     const mapped = visibleSites.filter(s => {
       if (!s.lat || !s.lng) return false
@@ -367,6 +364,7 @@ export default function AdminView() {
       marker.on('click', () => setSelectedSite(site))
       toAdd.push(marker)
       siteMarkersRef.current.push(marker)
+      siteMarkerByIdRef.current.set(site.id, marker)
     })
 
     if (typeof clusterGroup.addLayers === 'function') clusterGroup.addLayers(toAdd)
@@ -562,6 +560,29 @@ export default function AdminView() {
     sortKey
   )
 
+  // Map search box — narrows visibleSites (respects the pilot chip-strip
+  // filter, so a result always corresponds to a marker actually on the map)
+  // using the same field set as the List tab's search above.
+  const trimmedMapSearch = mapSearch.trim().toLowerCase()
+  const mapSearchResults = trimmedMapSearch
+    ? visibleSites.filter(s => s.lat && s.lng && matchesSearch(s, trimmedMapSearch)).slice(0, 8)
+    : []
+
+  // Zooms/pans to the picked site and pops its tooltip open to draw the eye
+  // to it — Admin's markers are a plain rebuilt array/Map rather than the
+  // pilot map's diffed, per-marker-icon-swap structure, so there's no amber
+  // highlight ring here, just the zoom + tooltip. Deliberately doesn't open
+  // AdminSiteDetail (setSelectedSite) — search should just take you there.
+  function handleMapSearchSelect(site) {
+    const map = mapInstance.current
+    if (map && site.lat && site.lng) {
+      map.setView([site.lat, site.lng], Math.max(map.getZoom(), 16))
+    }
+    const marker = siteMarkerByIdRef.current.get(site.id)
+    marker?.openTooltip()
+    setMapSearch('')
+  }
+
   return (
     <div className="admin-view">
       <div className="admin-toolbar">
@@ -656,6 +677,48 @@ export default function AdminView() {
         style={{ display: mode === 'map' ? 'block' : 'none' }}
       >
         <div ref={mapRef} className="map-container" />
+        <div className="map-search-box">
+          <div className="map-search-input-row">
+            <input
+              type="text"
+              inputMode="search"
+              className="map-search-input"
+              placeholder="Search site ID, FUZE, city…"
+              value={mapSearch}
+              onChange={e => setMapSearch(e.target.value)}
+            />
+            {mapSearch && (
+              <button
+                type="button"
+                className="map-search-clear"
+                onClick={() => setMapSearch('')}
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          {trimmedMapSearch && (
+            <div className="map-search-results">
+              {mapSearchResults.length === 0 && (
+                <div className="map-search-empty">No sites match your search</div>
+              )}
+              {mapSearchResults.map(site => (
+                <button
+                  type="button"
+                  key={site.id}
+                  className="map-search-result"
+                  onClick={() => handleMapSearchSelect(site)}
+                >
+                  {site.siteId || 'Site'}
+                  <span className="map-search-result-sub">
+                    {[site.fuzeId ? `FUZE ${site.fuzeId}` : '', [site.city, site.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           className="map-fullscreen-btn"
           onClick={toggleFullscreen}

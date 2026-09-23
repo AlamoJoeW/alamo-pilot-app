@@ -3,6 +3,7 @@ import { statusBucketForSite, isReflySite, needsAccessFormToCollect } from '../u
 import { sortSites, SORT_OPTIONS } from '../utils/sortSites'
 import { formatDateOnly } from '../utils/formatDate'
 import { isAddedToday } from '../utils/centralTime'
+import { matchesSearch } from '../utils/searchSites'
 
 const STATUS_COLORS = {
   collected: '#22c55e',
@@ -81,17 +82,6 @@ function NotesRow({ site, onSave }) {
       <button className="site-row-notes-btn" onClick={() => setEditing(false)} disabled={saving}>✕</button>
     </div>
   )
-}
-
-// Fields a pilot might actually search by — site ID and FUZE ID are the two
-// they'd have written down or been told over the phone; city/state/sub
-// project cover "what's around Fairport" style lookups.
-function matchesSearch(site, query) {
-  const haystack = [site.siteId, site.fuzeId, site.city, site.state, site.subProject, site.address]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
-  return haystack.includes(query)
 }
 
 export default function SiteList({ sites, onSelect, filter, onFilterChange, onBulkUpdate, onNotesSave, canEdit, isOnline }) {
