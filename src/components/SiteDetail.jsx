@@ -38,12 +38,13 @@ function InfoRow({ label, value }) {
 // map and the Admin view. Still tinted by the same status color as the
 // default dot; see mapColors.js / MapView.jsx / utils/mapIcons.js.
 const ICON_TYPES = [
-  { type: null,       label: 'Default' },
-  { type: 'building', label: 'Building' },
-  { type: 'tower',    label: 'Tower' },
-  { type: 'sba',      label: 'SBA' },
-  { type: 'coa',      label: 'COA' },
-  { type: 'laanc',    label: 'LAANC' },
+  { type: null,        label: 'Default' },
+  { type: 'building',  label: 'Building' },
+  { type: 'tower',     label: 'Tower' },
+  { type: 'sba',       label: 'SBA' },
+  { type: 'coa',       label: 'COA' },
+  { type: 'laanc',     label: 'LAANC' },
+  { type: 'siteissue', label: 'Site Issue' },
 ]
 
 function IconPicker({ value, onChange }) {

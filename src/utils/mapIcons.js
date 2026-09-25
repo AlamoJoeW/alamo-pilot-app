@@ -79,6 +79,14 @@ export function siteIconSvg(color, iconType, isNew = false) {
     case 'laanc':
       return `<rect x="1" y="6" width="22" height="12" rx="4" fill="${isNew ? '#000000' : color}" stroke="white" stroke-width="2"/>
         <text x="12" y="15" font-size="7" font-weight="700" fill="white" text-anchor="middle" font-family="sans-serif">${iconType.toUpperCase()}</text>`
+    // Fixed white/black regardless of status color or the isNew black-fill
+    // treatment above (which would otherwise turn this badge invisible —
+    // black background with black text). Joe wants this one to always look
+    // the same so it never blends in with any other pin state — a site
+    // issue should stand out no matter what else is going on with the site.
+    case 'siteissue':
+      return `<rect x="1" y="6" width="22" height="12" rx="4" fill="#ffffff" stroke="#000000" stroke-width="1.5"/>
+        <text x="12" y="15" font-size="8" font-weight="700" fill="#000000" text-anchor="middle" font-family="sans-serif">!!!!</text>`
     // Admin map only (AdminView.jsx) — flags a site with no pilot in its
     // PILOT_APP field. Always solid black regardless of the `color` passed
     // in (status color would otherwise still show through), since the point
