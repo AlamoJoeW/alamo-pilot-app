@@ -2133,7 +2133,7 @@ html, body, #root {
      collided with it on narrower phones. */
   bottom: calc(80px + var(--safe-bottom));
   right: 12px;
-  z-index: 1000;
+  z-index: 10;
   width: 40px;
   height: 40px;
   background: var(--surface);
@@ -2169,7 +2169,7 @@ html, body, #root {
   position: absolute;
   bottom: calc(80px + var(--safe-bottom));
   right: 12px;
-  z-index: 1000;
+  z-index: 10;
   width: 40px;
   height: 40px;
   background: var(--surface);
@@ -2209,7 +2209,7 @@ html, body, #root {
   position: absolute;
   bottom: calc(80px + var(--safe-bottom));
   right: 60px;
-  z-index: 1000;
+  z-index: 10;
   width: 40px;
   height: 40px;
   background: var(--surface);
@@ -2246,7 +2246,7 @@ html, body, #root {
   position: absolute;
   bottom: calc(80px + var(--safe-bottom));
   right: 108px;
-  z-index: 1000;
+  z-index: 10;
   width: 40px;
   height: 40px;
   background: var(--surface);
@@ -2283,7 +2283,7 @@ html, body, #root {
   position: absolute;
   bottom: calc(80px + var(--safe-bottom));
   right: 108px;
-  z-index: 1000;
+  z-index: 10;
   width: 40px;
   height: 40px;
   background: var(--surface);
@@ -2322,7 +2322,7 @@ html, body, #root {
   position: absolute;
   bottom: calc(12px + var(--safe-bottom));
   left: 12px;
-  z-index: 1000;
+  z-index: 10;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -2355,7 +2355,7 @@ html, body, #root {
   position: absolute;
   top: 12px;
   left: 12px;
-  z-index: 1000;
+  z-index: 10;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -2399,7 +2399,9 @@ html, body, #root {
   flex-shrink: 0;
   padding: 8px 60px 8px 12px;
   background: var(--bg);
-  z-index: 1000;
+  /* Must stay below .detail-overlay/.modal-overlay (z >= 100) so the bar
+     doesn't poke through the site detail sheet. */
+  z-index: 10;
 }
 .map-search-box .map-search-results {
   position: absolute;
@@ -2496,7 +2498,7 @@ html, body, #root {
   position: absolute;
   top: 12px;
   right: 12px;
-  z-index: 1000;
+  z-index: 10;
   width: 40px;
   height: 40px;
   background: var(--surface);
@@ -2544,7 +2546,7 @@ html, body, #root {
   position: absolute;
   bottom: calc(128px + var(--safe-bottom));
   right: 12px;
-  z-index: 1000;
+  z-index: 10;
   background: var(--surface);
   border: 1px solid var(--red);
   color: var(--red);
