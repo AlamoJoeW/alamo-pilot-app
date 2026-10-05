@@ -79,6 +79,15 @@ export function siteIconSvg(color, iconType, isNew = false) {
     case 'laanc':
       return `<rect x="1" y="6" width="22" height="12" rx="4" fill="${isNew ? '#000000' : color}" stroke="white" stroke-width="2"/>
         <text x="12" y="15" font-size="7" font-weight="700" fill="white" text-anchor="middle" font-family="sans-serif">${iconType.toUpperCase()}</text>`
+    // FC badge, and FC + checkmark badge. Same treatment as SBA/COA/LAANC
+    // (status color fill, black when new, white lettering).
+    case 'fc':
+      return `<rect x="1" y="6" width="22" height="12" rx="4" fill="${isNew ? '#000000' : color}" stroke="white" stroke-width="2"/>
+        <text x="12" y="15" font-size="8" font-weight="700" fill="white" text-anchor="middle" font-family="sans-serif">FC</text>`
+    case 'fccheck':
+      return `<rect x="1" y="6" width="22" height="12" rx="4" fill="${isNew ? '#000000' : color}" stroke="white" stroke-width="2"/>
+        <text x="8.5" y="15" font-size="7.5" font-weight="700" fill="white" text-anchor="middle" font-family="sans-serif">FC</text>
+        <path d="M14.5 12.2 L16.7 14.4 L20.6 9.8" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`
     // Fixed white/black regardless of status color or the isNew black-fill
     // treatment above (which would otherwise turn this badge invisible —
     // black background with black text). Joe wants this one to always look

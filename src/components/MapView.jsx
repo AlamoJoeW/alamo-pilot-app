@@ -528,7 +528,7 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
   }
 
   return (
-    <div ref={wrapperRef} className={`map-wrapper${isFullscreen ? ' map-wrapper-fullscreen' : ''}`}>
+    <div ref={wrapperRef} className={`map-wrapper map-wrapper-searchbar${isFullscreen ? ' map-wrapper-fullscreen' : ''}`}>
       <div ref={mapRef} className="map-container" />
       <div className="map-search-box">
         <div className="map-search-input-row">

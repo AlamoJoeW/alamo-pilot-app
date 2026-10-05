@@ -82,7 +82,7 @@ export default async function handler(req, res) {
     try {
       await airtablePatch(TABLES.COLLECTION_ASSETS, recordId, {
         [FIELDS.PIN_ICON]: pinIcon === null ? null : PIN_ICON_APP_TO_AIRTABLE[pinIcon],
-      })
+      }, true)
       return res.json({ success: true })
     } catch (err) {
       console.error('update-site pinIcon error:', err)

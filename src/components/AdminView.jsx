@@ -673,8 +673,8 @@ export default function AdminView() {
 
       <div
         ref={wrapperRef}
-        className={`map-wrapper admin-map-wrapper${isFullscreen ? ' map-wrapper-fullscreen' : ''}`}
-        style={{ display: mode === 'map' ? 'block' : 'none' }}
+        className={`map-wrapper map-wrapper-searchbar admin-map-wrapper${isFullscreen ? ' map-wrapper-fullscreen' : ''}`}
+        style={{ display: mode === 'map' ? 'flex' : 'none' }}
       >
         <div ref={mapRef} className="map-container" />
         <div className="map-search-box">

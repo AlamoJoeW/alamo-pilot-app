@@ -45,6 +45,8 @@ const ICON_TYPES = [
   { type: 'coa',       label: 'COA' },
   { type: 'laanc',     label: 'LAANC' },
   { type: 'siteissue', label: 'Site Issue' },
+  { type: 'fc',        label: 'FC' },
+  { type: 'fccheck',   label: 'FC ✓' },
 ]
 
 function IconPicker({ value, onChange }) {

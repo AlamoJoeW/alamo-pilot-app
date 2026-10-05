@@ -2394,11 +2394,27 @@ html, body, #root {
    "search" looks the same everywhere, but as a floating overlay box instead
    of an inline row since it sits on top of the map. */
 .map-search-box {
+  position: relative;
+  order: -1;
+  flex-shrink: 0;
+  padding: 8px 60px 8px 12px;
+  background: var(--bg);
+  z-index: 1000;
+}
+.map-search-box .map-search-results {
   position: absolute;
-  top: 12px;
+  top: calc(100% - 2px);
   left: 12px;
   right: 60px;
-  z-index: 1000;
+}
+.map-wrapper-searchbar {
+  display: flex;
+  flex-direction: column;
+}
+.map-wrapper-searchbar > .map-container {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 
 .map-search-input-row {

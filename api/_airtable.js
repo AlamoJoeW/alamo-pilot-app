@@ -116,10 +116,10 @@ export const SITE_FIELDS = Object.values(FIELDS).filter(id =>
 // (src/utils/mapIcons.js, SiteDetail.jsx's ICON_TYPES). Kept as an explicit
 // map rather than a case transform since SBA/COA/LAANC are acronyms.
 export const PIN_ICON_AIRTABLE_TO_APP = {
-  Building: 'building', Tower: 'tower', SBA: 'sba', COA: 'coa', LAANC: 'laanc', 'Site Issue': 'siteissue',
+  Building: 'building', Tower: 'tower', SBA: 'sba', COA: 'coa', LAANC: 'laanc', 'Site Issue': 'siteissue', FC: 'fc', 'FC ✓': 'fccheck',
 }
 export const PIN_ICON_APP_TO_AIRTABLE = {
-  building: 'Building', tower: 'Tower', sba: 'SBA', coa: 'COA', laanc: 'LAANC', siteissue: 'Site Issue',
+  building: 'Building', tower: 'Tower', sba: 'SBA', coa: 'COA', laanc: 'LAANC', siteissue: 'Site Issue', fc: 'FC', fccheck: 'FC ✓',
 }
 
 export async function airtableGet(table, params = {}) {
@@ -141,7 +141,7 @@ export async function airtableGet(table, params = {}) {
   return res.json()
 }
 
-export async function airtablePatch(table, recordId, fields) {
+export async function airtablePatch(table, recordId, fields, typecast = false) {
   const url = `https://api.airtable.com/v0/${BASE_ID}/${table}/${recordId}`
   const res = await fetch(url, {
     method: 'PATCH',
@@ -149,7 +149,7 @@ export async function airtablePatch(table, recordId, fields) {
       Authorization: `Bearer ${API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ fields }),
+    body: JSON.stringify(typecast ? { fields, typecast: true } : { fields }),
   })
   if (!res.ok) {
     const err = await res.text()
