@@ -101,6 +101,11 @@ export function siteIconSvg(color, iconType, isNew = false) {
       return `<rect x="1" y="6" width="22" height="12" rx="4" fill="${isNew ? '#000000' : color}" stroke="white" stroke-width="2"/>
         <text x="8.5" y="15" font-size="7.5" font-weight="700" fill="white" text-anchor="middle" font-family="sans-serif">FC</text>
         <path d="M14.5 12.2 L16.7 14.4 L20.6 9.8" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`
+    // SBA badge + checkmark — same treatment as COA ✓ / FC ✓.
+    case 'sbacheck':
+      return `<rect x="1" y="6" width="22" height="12" rx="4" fill="${isNew ? '#000000' : color}" stroke="white" stroke-width="2"/>
+        <text x="8.2" y="15" font-size="5.8" font-weight="700" fill="white" text-anchor="middle" font-family="sans-serif">SBA</text>
+        <path d="M16 12.2 L17.9 14.2 L21.3 9.9" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>`
     // COA badge + checkmark — same treatment as the FC ✓ badge above.
     case 'coacheck':
       return `<rect x="1" y="6" width="22" height="12" rx="4" fill="${isNew ? '#000000' : color}" stroke="white" stroke-width="2"/>

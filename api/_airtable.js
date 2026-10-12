@@ -116,10 +116,10 @@ export const SITE_FIELDS = Object.values(FIELDS).filter(id =>
 // (src/utils/mapIcons.js, SiteDetail.jsx's ICON_TYPES). Kept as an explicit
 // map rather than a case transform since SBA/COA/LAANC are acronyms.
 export const PIN_ICON_AIRTABLE_TO_APP = {
-  Building: 'building', Tower: 'tower', SBA: 'sba', COA: 'coa', 'COA ✓': 'coacheck', LAANC: 'laanc', 'Site Issue': 'siteissue', FC: 'fc', 'FC ✓': 'fccheck', Tank: 'tank', WT: 'tank', // 'WT' = legacy choice name, kept so nothing breaks
+  Building: 'building', Tower: 'tower', SBA: 'sba', 'SBA ✓': 'sbacheck', COA: 'coa', 'COA ✓': 'coacheck', LAANC: 'laanc', 'Site Issue': 'siteissue', FC: 'fc', 'FC ✓': 'fccheck', Tank: 'tank', WT: 'tank', // 'WT' = legacy choice name, kept so nothing breaks
 }
 export const PIN_ICON_APP_TO_AIRTABLE = {
-  building: 'Building', tower: 'Tower', sba: 'SBA', coa: 'COA', coacheck: 'COA ✓', laanc: 'LAANC', siteissue: 'Site Issue', fc: 'FC', fccheck: 'FC ✓', tank: 'Tank',
+  building: 'Building', tower: 'Tower', sba: 'SBA', sbacheck: 'SBA ✓', coa: 'COA', coacheck: 'COA ✓', laanc: 'LAANC', siteissue: 'Site Issue', fc: 'FC', fccheck: 'FC ✓', tank: 'Tank',
 }
 
 export async function airtableGet(table, params = {}) {
