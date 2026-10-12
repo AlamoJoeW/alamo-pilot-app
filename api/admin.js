@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { BASE_ID, API_KEY, TABLES, FIELDS, airtableGetAll, fetchAllSiteRecords, fetchCoaRequestByAssetId, PIN_ICON_AIRTABLE_TO_APP, centralDateStr } from './_airtable.js'
+import { BASE_ID, API_KEY, TABLES, FIELDS, airtableGetAll, fetchAllSiteRecords, fetchCoaRequestByAssetId, SITE_FIELDS, PIN_ICON_AIRTABLE_TO_APP, centralDateStr } from './_airtable.js'
 
 // Combined admin endpoint — returns both all-pilot sites and today's pilot locations
 // in a single response. Kept as one file (rather than two) to stay under Vercel's
@@ -34,67 +34,28 @@ function today() {
 const YESTERDAY_VIEWS = ['Collected Yesterday', 'Collected Yesterday UPNY']
 const WEEK_VIEWS      = ['Collected Last 7 Days']
 
-async function fetchCollectedIds(range) {
+// Returns full site objects (same shape as the main Admin list). The main
+// list only holds sites from the 'Verizon vHive All for KMLs' view, which
+// leaves out most already-collected sites — so these buttons load their sites
+// straight from Joe's collected views instead of filtering that list.
+async function fetchCollectedSites(range) {
   const views = range === 'yesterday' ? YESTERDAY_VIEWS : [...WEEK_VIEWS, ...YESTERDAY_VIEWS]
-  const results = await Promise.all(
-    views.map(v => airtableGetAll(TABLES.COLLECTION_ASSETS, null, [FIELDS.SITE_ID], v))
-  )
-  return [...new Set(results.flat().map(r => r.id))]
+  const [pilotRecords, coaByAssetId, ...results] = await Promise.all([
+    fetchAllPilots(),
+    fetchCoaRequestByAssetId(),
+    ...views.map(v => airtableGetAll(TABLES.COLLECTION_ASSETS, null, SITE_FIELDS, v)),
+  ])
+  const pilotNameById = {}
+  pilotRecords.forEach(rec => {
+    const name = (rec.fields[FIELDS.PILOT_DISPLAY_NAME] || rec.fields[FIELDS.PILOT_FIRST_NAME] || '').trim()
+    pilotNameById[rec.id] = name || 'Unassigned'
+  })
+  const byId = new Map()
+  results.flat().forEach(r => byId.set(r.id, r))
+  return [...byId.values()].map(r => mapSite(r, pilotNameById, coaByAssetId))
 }
 
-async function fetchAllPilots() {
-  const records = []
-  let offset = null
-  do {
-    const qs = new URLSearchParams()
-    qs.set('returnFieldsByFieldId', 'true')
-    qs.set('pageSize', '100')
-    qs.append('fields[]', FIELDS.PILOT_FIRST_NAME)
-    qs.append('fields[]', FIELDS.PILOT_DISPLAY_NAME)
-    if (offset) qs.set('offset', offset)
-    const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLES.PILOTS}?${qs}`
-    const r = await fetch(url, { headers: { Authorization: `Bearer ${API_KEY}` } })
-    if (!r.ok) throw new Error(`Airtable GET error ${r.status}: ${await r.text()}`)
-    const data = await r.json()
-    records.push(...data.records)
-    offset = data.offset || null
-  } while (offset)
-  return records
-}
-
-export default async function handler(req, res) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
-
-  try {
-    const pilot = verifyToken(req)
-    if (!pilot.isAdmin) return res.status(403).json({ error: 'Admin access required' })
-
-    // Lightweight mode for the Collected Yesterday / Last 7 Days buttons —
-    // returns just record IDs; the client intersects them with the sites it
-    // already has. Kept in this file to stay under the 12-function cap.
-    const collected = req.query?.collected
-    if (collected === 'yesterday' || collected === 'week') {
-      return res.json({ ids: await fetchCollectedIds(collected) })
-    }
-
-    const [siteRecords, pilotRecords, preflights, coaByAssetId] = await Promise.all([
-      fetchAllSiteRecords(),
-      fetchAllPilots(),
-      airtableGetAll(
-        PREFLIGHT_TABLE,
-        "DATESTR({" + PF.DATE + "})='" + today() + "'",
-        [PF.PILOT, PF.TRAVEL_DAY, PF.START_LAT, PF.START_LNG, PF.LOCATION_UPDATED_AT]
-      ),
-      fetchCoaRequestByAssetId(),
-    ])
-
-    const pilotNameById = {}
-    pilotRecords.forEach(rec => {
-      const name = (rec.fields[FIELDS.PILOT_DISPLAY_NAME] || rec.fields[FIELDS.PILOT_FIRST_NAME] || '').trim()
-      pilotNameById[rec.id] = name || 'Unassigned'
-    })
-
-    const sites = siteRecords.map(r => {
+function mapSite(r, pilotNameById, coaByAssetId) {
       const pilotIds = r.fields[FIELDS.PILOT_APP] || []
       return {
         id: r.id,
@@ -138,7 +99,60 @@ export default async function handler(req, res) {
         coaRequestStatus:       coaByAssetId.get(r.id)?.status || '',
         coaRequestConfirmation: coaByAssetId.get(r.id)?.confirmation || '',
       }
+}
+
+async function fetchAllPilots() {
+  const records = []
+  let offset = null
+  do {
+    const qs = new URLSearchParams()
+    qs.set('returnFieldsByFieldId', 'true')
+    qs.set('pageSize', '100')
+    qs.append('fields[]', FIELDS.PILOT_FIRST_NAME)
+    qs.append('fields[]', FIELDS.PILOT_DISPLAY_NAME)
+    if (offset) qs.set('offset', offset)
+    const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLES.PILOTS}?${qs}`
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${API_KEY}` } })
+    if (!r.ok) throw new Error(`Airtable GET error ${r.status}: ${await r.text()}`)
+    const data = await r.json()
+    records.push(...data.records)
+    offset = data.offset || null
+  } while (offset)
+  return records
+}
+
+export default async function handler(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
+
+  try {
+    const pilot = verifyToken(req)
+    if (!pilot.isAdmin) return res.status(403).json({ error: 'Admin access required' })
+
+    // Lightweight mode for the Collected Yesterday / Last 7 Days buttons —
+    // returns the sites in those Airtable views. Kept in this file to stay under the 12-function cap.
+    const collected = req.query?.collected
+    if (collected === 'yesterday' || collected === 'week') {
+      return res.json({ sites: await fetchCollectedSites(collected) })
+    }
+
+    const [siteRecords, pilotRecords, preflights, coaByAssetId] = await Promise.all([
+      fetchAllSiteRecords(),
+      fetchAllPilots(),
+      airtableGetAll(
+        PREFLIGHT_TABLE,
+        "DATESTR({" + PF.DATE + "})='" + today() + "'",
+        [PF.PILOT, PF.TRAVEL_DAY, PF.START_LAT, PF.START_LNG, PF.LOCATION_UPDATED_AT]
+      ),
+      fetchCoaRequestByAssetId(),
+    ])
+
+    const pilotNameById = {}
+    pilotRecords.forEach(rec => {
+      const name = (rec.fields[FIELDS.PILOT_DISPLAY_NAME] || rec.fields[FIELDS.PILOT_FIRST_NAME] || '').trim()
+      pilotNameById[rec.id] = name || 'Unassigned'
     })
+
+    const sites = siteRecords.map(r => mapSite(r, pilotNameById, coaByAssetId))
 
     const locationByPilotId = {}
     preflights.forEach(rec => {

@@ -272,14 +272,14 @@ export async function saveDailyRoute(route, date) {
 // Sites + pilot locations are served from one combined endpoint (api/admin.js) to
 // stay under Vercel's Hobby-plan 12-serverless-function limit.
 
-export async function fetchCollectedIds(range) {
+export async function fetchCollectedSites(range) {
   const res = await fetch(`${BASE}/api/admin?collected=${encodeURIComponent(range)}`, { headers: authHeaders() })
   if (!res.ok) {
     if (res.status === 401) throw new Error('AUTH_EXPIRED')
     throw new Error('Failed to fetch collected sites')
   }
   const data = await res.json()
-  return data.ids || []
+  return data.sites || []
 }
 
 export async function fetchAdminData() {

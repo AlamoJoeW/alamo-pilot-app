@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { fetchAdminData, fetchCollectedIds, updateSiteNotes } from '../utils/api'
+import { fetchAdminData, fetchCollectedSites, updateSiteNotes } from '../utils/api'
 import { colorForSite, isSiteDone, statusBucketForSite } from '../utils/mapColors'
 import { isMarkedToday, isAddedToday, formatCentralTime } from '../utils/centralTime'
 import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
@@ -86,7 +86,7 @@ export default function AdminView() {
   // "Collected Yesterday" views / the last 7 Central days. Fetched as a set of
   // record IDs from api/admin.js?collected=… and intersected with `sites`.
   const [collectedRange, setCollectedRange] = useState(null)
-  const [collectedIds, setCollectedIds] = useState(null)
+  const [collectedSites, setCollectedSites] = useState([])
   const [collectedLoading, setCollectedLoading] = useState(false)
   const [satellite, setSatellite] = useState(false)
   const [clustered, setClustered] = useState(true)
@@ -116,10 +116,10 @@ export default function AdminView() {
   // the pool down to sites a pilot touched today, and everything downstream
   // (map pins, list rows, chip strip membership + done/total counts) reads from
   // this instead of the raw `sites` list.
-  const visibleSites = sites.filter(s =>
-    (!markedTodayOnly || isMarkedToday(s)) &&
-    (!collectedRange || (collectedIds && collectedIds.has(s.id)))
-  )
+  // Collected buttons swap the whole pool for the sites in Joe's Airtable
+  // collected views (the main list omits most already-collected sites).
+  const basePool = collectedRange ? collectedSites : sites
+  const visibleSites = markedTodayOnly ? basePool.filter(isMarkedToday) : basePool
 
   const load = useCallback(async () => {
     setError('')
@@ -138,11 +138,11 @@ export default function AdminView() {
   // Re-pull the collected-ID set when the range changes and after each 60s
   // refresh (asOf changes), so the filter doesn't go stale while it's on.
   useEffect(() => {
-    if (!collectedRange) { setCollectedIds(null); return }
+    if (!collectedRange) { setCollectedSites([]); return }
     let cancelled = false
     setCollectedLoading(true)
-    fetchCollectedIds(collectedRange)
-      .then(ids => { if (!cancelled) setCollectedIds(new Set(ids)) })
+    fetchCollectedSites(collectedRange)
+      .then(list => { if (!cancelled) setCollectedSites(list) })
       .catch(() => { if (!cancelled) setError('Failed to load collected sites') })
       .finally(() => { if (!cancelled) setCollectedLoading(false) })
     return () => { cancelled = true }
@@ -457,6 +457,7 @@ export default function AdminView() {
   // through since the Admin view isn't offline-first like the pilot app.
   async function handleNotesSave(recordId, notes) {
     setSites(prev => prev.map(s => s.id === recordId ? { ...s, notes } : s))
+    setCollectedSites(prev => prev.map(s => s.id === recordId ? { ...s, notes } : s))
     setSelectedSite(prev => prev?.id === recordId ? { ...prev, notes } : prev)
     await updateSiteNotes(recordId, notes)
   }
