@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchAdminData, fetchCollectedSites, updateSiteNotes } from '../utils/api'
-import { colorForSite, isSiteDone, statusBucketForSite } from '../utils/mapColors'
+import { colorForSite, pinColorForSite, isSiteDone, statusBucketForSite } from '../utils/mapColors'
 import { isMarkedToday, isAddedToday, formatCentralTime } from '../utils/centralTime'
 import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
 import { tileLayerFor } from '../utils/mapLayers'
@@ -368,7 +368,7 @@ export default function AdminView() {
       // they jump out on the admin map as "needs a pilot assigned" — see
       // mapIcons.js siteIconSvg's 'unassigned' case.
       const unassigned = (site.pilotApp || []).length === 0
-      const color = unassigned ? '#000000' : colorForSite(site)
+      const color = unassigned ? '#000000' : pinColorForSite(site)
       const iconType = unassigned ? 'unassigned' : site.pinIcon
       const isNew = isAddedToday(site)
       const marker = L.marker([site.lat, site.lng], { icon: siteIcon(color, iconType, isNew) })

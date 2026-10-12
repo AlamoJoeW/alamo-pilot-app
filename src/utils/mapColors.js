@@ -137,6 +137,26 @@ export function colorForSite(site) {
   return colorForMapColor(site.mapColor) || PILOT_STATUS_COLORS[pilotStatusBucket(site)]
 }
 
+// True when the pin is currently displaying as "Remaining" (the red status):
+// a pilot's in-app update from the last 24h wins (bucket 'none' = not yet
+// collected/partial/MOB), otherwise Airtable's Map Color decides — exactly
+// 'Remaining' only, NOT 'Remaining Further Coordination Required' (orange) —
+// and a site with no Map Color falls back to the pilot checkboxes.
+export function isRemainingSite(site) {
+  if (appOverrideActive(site)) return pilotStatusBucket(site) === 'none'
+  if (site.mapColor) return site.mapColor === 'Remaining'
+  return pilotStatusBucket(site) === 'none'
+}
+
+// Color used when drawing a site's PIN (Map + Admin map). Same as colorForSite
+// except Unicorn pins in Remaining status are pink instead of red — the pilots'
+// request; every other status keeps its normal color.
+const UNICORN_REMAINING_PINK = '#ff69b4'
+export function pinColorForSite(site) {
+  if (site.pinIcon === 'unicorn' && isRemainingSite(site)) return UNICORN_REMAINING_PINK
+  return colorForSite(site)
+}
+
 // ── Route planning eligibility (RouteView.jsx "Plan My Route") ─────────────────
 //
 // Which Map Color statuses a pilot can even consider when self-planning a

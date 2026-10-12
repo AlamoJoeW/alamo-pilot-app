@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { colorForSite } from '../utils/mapColors'
+import { colorForSite, pinColorForSite } from '../utils/mapColors'
 import { tileLayerFor } from '../utils/mapLayers'
 import { makeSiteIcon, quadcopterIcon } from '../utils/mapIcons'
 import { createAirspaceLayer, AIRSPACE_LEGEND, AIRSPACE_MIN_ZOOM } from '../utils/airspaceLayer'
@@ -362,7 +362,7 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
       const toAdd = []
 
       mapped.forEach(site => {
-        const color = colorForSite(site)
+        const color = pinColorForSite(site)
         const isNew = isAddedToday(site)
         const iconSig = `${color}::${site.pinIcon || ''}::${isNew}`
         const tooltipHtml = tooltipHtmlFor(site)
