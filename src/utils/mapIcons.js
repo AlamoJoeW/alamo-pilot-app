@@ -74,6 +74,19 @@ export function siteIconSvg(color, iconType, isNew = false) {
       const truss = segments.map(([x1, y1, x2, y2, w]) => line(x1, y1, x2, y2, w, color)).join('')
       return `${halo}${truss}<circle cx="12" cy="1" r="1.3" fill="white" stroke="${color}" stroke-width="1"/>`
     }
+    case 'wt': {
+      // Water tower: round tank on a braced four-leg stand, "WT" on the tank.
+      // Halo-then-color legs (like the lattice tower) so it reads on any tile;
+      // tank takes the status color (black when new, like the letter badges).
+      const fill = isNew ? '#000000' : color
+      const legs = [[6, 13, 4, 23], [18, 13, 20, 23], [10, 13, 9.5, 23], [14, 13, 14.5, 23], [5.2, 18, 18.8, 18]]
+      const seg = (stroke, w) => legs.map(([x1, y1, x2, y2]) =>
+        `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round"/>`).join('')
+      return `${seg('white', 3.4)}${seg(color, 1.6)}
+        <path d="M3 5.5 L12 0.8 L21 5.5 Z" fill="${fill}" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+        <rect x="2.5" y="5" width="19" height="9" rx="3" fill="${fill}" stroke="white" stroke-width="1.8"/>
+        <text x="12" y="12.2" font-size="7.5" font-weight="700" fill="white" text-anchor="middle" font-family="sans-serif">WT</text>`
+    }
     case 'sba':
     case 'coa':
     case 'laanc':

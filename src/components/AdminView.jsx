@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { fetchAdminData, updateSiteNotes } from '../utils/api'
+import { fetchAdminData, fetchCollectedIds, updateSiteNotes } from '../utils/api'
 import { colorForSite, isSiteDone, statusBucketForSite } from '../utils/mapColors'
 import { isMarkedToday, isAddedToday, formatCentralTime } from '../utils/centralTime'
 import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
@@ -82,6 +82,12 @@ export default function AdminView() {
   const [asOf, setAsOf] = useState(null)
   const [hiddenPilotIds, setHiddenPilotIds] = useState(() => new Set())
   const [markedTodayOnly, setMarkedTodayOnly] = useState(false)
+  // 'yesterday' | 'week' | null — narrows to sites in Joe's Airtable
+  // "Collected Yesterday" views / the last 7 Central days. Fetched as a set of
+  // record IDs from api/admin.js?collected=… and intersected with `sites`.
+  const [collectedRange, setCollectedRange] = useState(null)
+  const [collectedIds, setCollectedIds] = useState(null)
+  const [collectedLoading, setCollectedLoading] = useState(false)
   const [satellite, setSatellite] = useState(false)
   const [clustered, setClustered] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -110,7 +116,10 @@ export default function AdminView() {
   // the pool down to sites a pilot touched today, and everything downstream
   // (map pins, list rows, chip strip membership + done/total counts) reads from
   // this instead of the raw `sites` list.
-  const visibleSites = markedTodayOnly ? sites.filter(isMarkedToday) : sites
+  const visibleSites = sites.filter(s =>
+    (!markedTodayOnly || isMarkedToday(s)) &&
+    (!collectedRange || (collectedIds && collectedIds.has(s.id)))
+  )
 
   const load = useCallback(async () => {
     setError('')
@@ -125,6 +134,19 @@ export default function AdminView() {
       setLoading(false)
     }
   }, [])
+
+  // Re-pull the collected-ID set when the range changes and after each 60s
+  // refresh (asOf changes), so the filter doesn't go stale while it's on.
+  useEffect(() => {
+    if (!collectedRange) { setCollectedIds(null); return }
+    let cancelled = false
+    setCollectedLoading(true)
+    fetchCollectedIds(collectedRange)
+      .then(ids => { if (!cancelled) setCollectedIds(new Set(ids)) })
+      .catch(() => { if (!cancelled) setError('Failed to load collected sites') })
+      .finally(() => { if (!cancelled) setCollectedLoading(false) })
+    return () => { cancelled = true }
+  }, [collectedRange, asOf])
 
   // Initial load + auto-refresh every 60s while this view is open
   useEffect(() => {
@@ -597,6 +619,20 @@ export default function AdminView() {
             title="Show only sites a pilot marked today — pilot chips still filter within that"
           >
             Marked Today
+          </button>
+          <button
+            className={`admin-chip-bulk-btn ${collectedRange === 'yesterday' ? 'active' : ''}`}
+            onClick={() => setCollectedRange(r => (r === 'yesterday' ? null : 'yesterday'))}
+            title="Show only sites in the Airtable 'Collected Yesterday' view"
+          >
+            {collectedLoading && collectedRange === 'yesterday' ? 'Loading…' : 'Collected Yesterday'}
+          </button>
+          <button
+            className={`admin-chip-bulk-btn ${collectedRange === 'week' ? 'active' : ''}`}
+            onClick={() => setCollectedRange(r => (r === 'week' ? null : 'week'))}
+            title="Show only sites in the Airtable 'Collected Last 7 Days' view"
+          >
+            {collectedLoading && collectedRange === 'week' ? 'Loading…' : 'Last 7 Days'}
           </button>
         </div>
         <div className="admin-toolbar-actions">

@@ -41,6 +41,7 @@ const ICON_TYPES = [
   { type: null,        label: 'Default' },
   { type: 'building',  label: 'Building' },
   { type: 'tower',     label: 'Tower' },
+  { type: 'wt',        label: 'WT' },
   { type: 'sba',       label: 'SBA' },
   { type: 'coa',       label: 'COA' },
   { type: 'laanc',     label: 'LAANC' },

@@ -26,6 +26,22 @@ function today() {
   return centralDateStr()
 }
 
+// Airtable views that drive the Admin "Collected Yesterday" / "Last 7 Days"
+// buttons — Joe's own filtered views, used as-is (the view's filter is the
+// source of truth, so changing the view in Airtable changes the button).
+// The UPNY yesterday view is also folded into "Last 7 Days" so yesterday's
+// UPNY sites are never missing from the week.
+const YESTERDAY_VIEWS = ['Collected Yesterday', 'Collected Yesterday UPNY']
+const WEEK_VIEWS      = ['Collected Last 7 Days']
+
+async function fetchCollectedIds(range) {
+  const views = range === 'yesterday' ? YESTERDAY_VIEWS : [...WEEK_VIEWS, ...YESTERDAY_VIEWS]
+  const results = await Promise.all(
+    views.map(v => airtableGetAll(TABLES.COLLECTION_ASSETS, null, [FIELDS.SITE_ID], v))
+  )
+  return [...new Set(results.flat().map(r => r.id))]
+}
+
 async function fetchAllPilots() {
   const records = []
   let offset = null
@@ -52,6 +68,14 @@ export default async function handler(req, res) {
   try {
     const pilot = verifyToken(req)
     if (!pilot.isAdmin) return res.status(403).json({ error: 'Admin access required' })
+
+    // Lightweight mode for the Collected Yesterday / Last 7 Days buttons —
+    // returns just record IDs; the client intersects them with the sites it
+    // already has. Kept in this file to stay under the 12-function cap.
+    const collected = req.query?.collected
+    if (collected === 'yesterday' || collected === 'week') {
+      return res.json({ ids: await fetchCollectedIds(collected) })
+    }
 
     const [siteRecords, pilotRecords, preflights, coaByAssetId] = await Promise.all([
       fetchAllSiteRecords(),
