@@ -143,7 +143,7 @@ export default function AdminSiteDetail({ site, onClose, onNotesSave }) {
               </span>
             </div>
           )}
-          {site.pinIcon === 'coa' && (
+          {(site.pinIcon === 'coa' || site.pinIcon === 'coacheck') && (
             site.coaRequestStatus ? (
               <InfoRow
                 label="COA Request"

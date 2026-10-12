@@ -44,6 +44,7 @@ const ICON_TYPES = [
   { type: 'tank',      label: 'Tank' },
   { type: 'sba',       label: 'SBA' },
   { type: 'coa',       label: 'COA' },
+  { type: 'coacheck',  label: 'COA ✓' },
   { type: 'laanc',     label: 'LAANC' },
   { type: 'siteissue', label: 'Site Issue' },
   { type: 'fc',        label: 'FC' },
@@ -429,7 +430,7 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
               </span>
             </div>
           )}
-          {site.pinIcon === 'coa' && (
+          {(site.pinIcon === 'coa' || site.pinIcon === 'coacheck') && (
             site.coaRequestStatus ? (
               <InfoRow
                 label="COA Request"
