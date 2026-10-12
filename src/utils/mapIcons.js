@@ -74,6 +74,22 @@ export function siteIconSvg(color, iconType, isNew = false) {
       const truss = segments.map(([x1, y1, x2, y2, w]) => line(x1, y1, x2, y2, w, color)).join('')
       return `${halo}${truss}<circle cx="12" cy="1" r="1.3" fill="white" stroke="${color}" stroke-width="1"/>`
     }
+    case 'unicorn': {
+      // Original unicorn-head silhouette (horn, ear, flowing mane, eye) in the
+      // status color (black when new) with a white halo for contrast on any tile.
+      const fill = isNew ? '#000000' : color
+      const shapes = [
+        'M6 22.5 L6.6 12.5 C6.8 9.3 9 7.2 12 7.2 L14.6 8.6 L20.2 14 C21 15 20.5 16.4 19.2 16.6 L16.8 16.9 C15.3 17.1 14.3 18.2 13.9 19.6 L13.4 22.5 Z', // head + neck
+        'M11.6 7.6 L16 0.8 L14.5 8.4 Z',  // horn
+        'M9 7.8 L8.4 3.4 L11.4 6.8 Z',    // ear
+      ]
+      const halo = shapes.map(d => `<path d="${d}" fill="white" stroke="white" stroke-width="3.2" stroke-linejoin="round"/>`).join('')
+      const body = shapes.map(d => `<path d="${d}" fill="${fill}" stroke="${fill}" stroke-width="0.6" stroke-linejoin="round"/>`).join('')
+      return `${halo}${body}
+        <path d="M6.4 10.6 C3.2 10.6 3 14 5.2 14.2 C3 15 3.4 18.2 5.8 18 C4.4 19.2 5.2 21.6 6.8 21.4" fill="${fill}" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+        <circle cx="14" cy="11.4" r="1.15" fill="white"/>
+        <path d="M12.2 7.9 L15.2 3.4" stroke="white" stroke-width="0.8" stroke-linecap="round" opacity=".8"/>`
+    }
     case 'tank': {
       // Water tower: round tank on a braced four-leg stand, "TANK" on the tank.
       // Halo-then-color legs (like the lattice tower) so it reads on any tile;

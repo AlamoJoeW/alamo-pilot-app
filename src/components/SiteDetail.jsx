@@ -42,6 +42,7 @@ const ICON_TYPES = [
   { type: 'building',  label: 'Building' },
   { type: 'tower',     label: 'Tower' },
   { type: 'tank',      label: 'Tank' },
+  { type: 'unicorn',   label: 'Unicorn' },
   { type: 'sba',       label: 'SBA' },
   { type: 'sbacheck',  label: 'SBA ✓' },
   { type: 'coa',       label: 'COA' },
