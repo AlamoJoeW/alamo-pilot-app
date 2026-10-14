@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { fetchAdminData, fetchCollectedSites, updateSiteNotes } from '../utils/api'
-import { colorForSite, pinColorForSite, isSiteDone, statusBucketForSite } from '../utils/mapColors'
+import { colorForSite, pinColorForSite, isSiteDone, statusBucketForSite, urgencyBoostPx } from '../utils/mapColors'
 import { isMarkedToday, isAddedToday, formatCentralTime } from '../utils/centralTime'
 import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
 import { tileLayerFor } from '../utils/mapLayers'
@@ -41,8 +41,8 @@ function getSiteStatus(site) {
 
 // Site marker — same shape-per-icon-type as the pilot's own map (utils/mapIcons.js),
 // since the "App Pin Icon" field a pilot sets in SiteDetail is now synced, not local.
-function siteIcon(color, pinIcon, isNew) {
-  return makeSiteIcon(color, pinIcon, 18, false, isNew)
+function siteIcon(color, pinIcon, isNew, boost = 0) {
+  return makeSiteIcon(color, pinIcon, 18, false, isNew, boost)
 }
 
 // Live pilot location marker — same black quadcopter shape as the pilot's own
@@ -371,7 +371,7 @@ export default function AdminView() {
       const color = unassigned ? '#000000' : pinColorForSite(site)
       const iconType = unassigned ? 'unassigned' : site.pinIcon
       const isNew = isAddedToday(site)
-      const marker = L.marker([site.lat, site.lng], { icon: siteIcon(color, iconType, isNew) })
+      const marker = L.marker([site.lat, site.lng], { icon: siteIcon(color, iconType, isNew, urgencyBoostPx(site)) })
       const pilotNames = (site.pilotNames || []).join(', ') || 'Unassigned'
       const reflyLine = isReflySite(site) && site.reflyNotes
         ? `<br><em>Refly: ${site.reflyNotes}</em>`

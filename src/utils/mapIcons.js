@@ -152,11 +152,13 @@ export function siteIconSvg(color, iconType, isNew = false) {
 // after they close its detail sheet. The ring lives outside the pin's own
 // 0-24 coordinate space, so highlighted icons render on a wider 30x30
 // viewBox (content stays centered) rather than resizing the pin itself.
-export function makeSiteIcon(color, iconType, size = 24, highlighted = false, isNew = false) {
+export function makeSiteIcon(color, iconType, size = 24, highlighted = false, isNew = false, boost = 0) {
   // The shaped pins (building/tower/sba/coa/laanc) render a bit small next to
   // the default status dot at the same nominal size, so bump them up ~35% —
   // the plain dot (no iconType) stays at the base size passed in.
-  const renderSize = iconType ? Math.round(size * 1.35) : size
+  // `boost` = extra px for due-date urgency (mapColors.js urgencyBoostPx), added
+  // after the shape bump so every pin type grows by the same visible amount.
+  const renderSize = (iconType ? Math.round(size * 1.35) : size) + boost
   const boxSize = highlighted ? Math.round(renderSize * 30 / 24) : renderSize
   const viewBox = highlighted ? '-3 -3 30 30' : '0 0 24 24'
   const ring = highlighted

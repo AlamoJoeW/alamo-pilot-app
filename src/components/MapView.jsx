@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { colorForSite, pinColorForSite } from '../utils/mapColors'
+import { colorForSite, pinColorForSite, urgencyBoostPx } from '../utils/mapColors'
 import { tileLayerFor } from '../utils/mapLayers'
 import { makeSiteIcon, quadcopterIcon } from '../utils/mapIcons'
 import { createAirspaceLayer, AIRSPACE_LEGEND, AIRSPACE_MIN_ZOOM } from '../utils/airspaceLayer'
@@ -364,14 +364,15 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
       mapped.forEach(site => {
         const color = pinColorForSite(site)
         const isNew = isAddedToday(site)
-        const iconSig = `${color}::${site.pinIcon || ''}::${isNew}`
+        const boost = urgencyBoostPx(site)
+        const iconSig = `${color}::${site.pinIcon || ''}::${isNew}::${boost}`
         const tooltipHtml = tooltipHtmlFor(site)
         const isHighlighted = highlightedRef.current === site.id
         const existing = markersRef.current.get(site.id)
 
         if (!existing) {
-          const baseIcon = makeSiteIcon(color, site.pinIcon, 24, false, isNew)
-          const highlightIcon = makeSiteIcon(color, site.pinIcon, 24, true, isNew)
+          const baseIcon = makeSiteIcon(color, site.pinIcon, 24, false, isNew, boost)
+          const highlightIcon = makeSiteIcon(color, site.pinIcon, 24, true, isNew, boost)
           const marker = L.marker([site.lat, site.lng], { icon: isHighlighted ? highlightIcon : baseIcon })
           const entry = { marker, baseIcon, highlightIcon, tooltipHtml, iconSig, lat: site.lat, lng: site.lng, currentSite: site }
 
@@ -397,8 +398,8 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
         }
 
         if (existing.iconSig !== iconSig) {
-          existing.baseIcon = makeSiteIcon(color, site.pinIcon, 24, false, isNew)
-          existing.highlightIcon = makeSiteIcon(color, site.pinIcon, 24, true, isNew)
+          existing.baseIcon = makeSiteIcon(color, site.pinIcon, 24, false, isNew, boost)
+          existing.highlightIcon = makeSiteIcon(color, site.pinIcon, 24, true, isNew, boost)
           existing.iconSig = iconSig
           existing.marker.setIcon(isHighlighted ? existing.highlightIcon : existing.baseIcon)
         }

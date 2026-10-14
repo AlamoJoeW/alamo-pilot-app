@@ -6,6 +6,8 @@
 // Choices pulled from Airtable on 2026-07-23. If Joe adds a new "map color" choice
 // in Airtable, add it here too, or it'll fall back to STATUS_FALLBACK_COLOR / grey.
 
+import { daysUntilDateStr } from './centralTime'
+
 export const MAP_COLOR_HEX = {
   'Remaining':                                  '#ef4444', // red
   'Remaining Further Coordination Required':    '#f97316', // orange
@@ -182,4 +184,27 @@ export function isRouteEligible(site) {
   if (statusBucketForSite(site) === 'collected') return false
   if (ROUTE_EXCLUDED_MAP_COLORS.has(site.mapColor)) return false
   return true
+}
+
+// ── Due-date urgency sizing (Map + Admin map pins) ─────────────────────────────
+//
+// Pins grow as a site's Forecast Date approaches so the ones that are about to
+// be due stand out: nothing until 5 days out, then +2px per day (5 days out =
+// +2px ... due day = +12px). Past due stays at the max until the site is
+// collected. Only fully Collected sites stop growing — Partial/MOB sites still
+// need work, so they keep their size. Returns the extra px to add to the pin.
+const URGENCY_WINDOW_DAYS = 5
+const URGENCY_PX_PER_DAY = 2
+
+function isCollectedSite(site) {
+  if (appOverrideActive(site)) return !!site.collectedApp
+  return statusBucketForSite(site) === 'collected'
+}
+
+export function urgencyBoostPx(site) {
+  if (!site || !site.forecastDate || isCollectedSite(site)) return 0
+  const daysLeft = daysUntilDateStr(site.forecastDate)
+  if (daysLeft === null || daysLeft > URGENCY_WINDOW_DAYS) return 0
+  const stepsIn = URGENCY_WINDOW_DAYS - Math.max(daysLeft, 0) + 1
+  return stepsIn * URGENCY_PX_PER_DAY
 }

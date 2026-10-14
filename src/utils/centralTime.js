@@ -70,3 +70,15 @@ export function formatCentralTime(date) {
     minute: '2-digit',
   }).format(date) + ' CT'
 }
+
+// Whole calendar days from today (Central) until a plain YYYY-MM-DD date
+// string. 0 = due today, negative = past due, null = no/invalid date. Pure
+// UTC date-component math on both sides, so DST can't skew the count.
+export function daysUntilDateStr(dateStr) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr || '')
+  if (!m) return null
+  const [ty, tm, td] = centralDateStr().split('-').map(Number)
+  const target = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  const today = Date.UTC(ty, tm - 1, td)
+  return Math.round((target - today) / 86400000)
+}
