@@ -3,6 +3,7 @@ import { fetchAdminData, fetchCollectedSites, updateSiteNotes } from '../utils/a
 import { colorForSite, pinColorForSite, isSiteDone, statusBucketForSite, urgencyBoostPx } from '../utils/mapColors'
 import { isMarkedToday, isAddedToday, formatCentralTime } from '../utils/centralTime'
 import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
+import { createAirspaceLayer, AIRSPACE_LEGEND, AIRSPACE_MIN_ZOOM } from '../utils/airspaceLayer'
 import { tileLayerFor } from '../utils/mapLayers'
 import { quadcopterIcon, makeSiteIcon } from '../utils/mapIcons'
 import { sortSites, SORT_OPTIONS } from '../utils/sortSites'
@@ -100,6 +101,14 @@ export default function AdminView() {
   const [radarStatus, setRadarStatus] = useState('idle') // idle | loading | ready | error
   const [radarTime, setRadarTime] = useState(null)
   const radarLayerRef = useRef(null)
+  // FAA Class B/C/D/Surface-E airspace overlay — same behavior as the pilot
+  // Map tab (MapView.jsx): off by default, esri-leaflet layer created lazily
+  // on first toggle-on, and only attached to the map at/above
+  // AIRSPACE_MIN_ZOOM so a zoomed-out admin view (it opens at zoom 7 over
+  // all of Texas) doesn't try to fetch hundreds of airport polygons.
+  const [airspaceOn, setAirspaceOn] = useState(false)
+  const [mapZoom, setMapZoom] = useState(7)
+  const airspaceLayerRef = useRef(null)
   const [mode, setMode] = useState('map') // 'map' | 'list'
   const [selectedPilotId, setSelectedPilotId] = useState(null)
   const [selectedSite, setSelectedSite] = useState(null)
@@ -198,6 +207,10 @@ export default function AdminView() {
       maxZoom: 19,
     })
     mapInstance.current = map
+
+    // Feeds `mapZoom` so the airspace effect below knows when to add/remove
+    // that layer relative to AIRSPACE_MIN_ZOOM.
+    map.on('zoomend', () => setMapZoom(map.getZoom()))
 
     const clusterGroup = clustered && L.markerClusterGroup
       ? L.markerClusterGroup({ chunkedLoading: true })
@@ -300,6 +313,26 @@ export default function AdminView() {
     const tile = tileLayerFor(satellite)
     tileLayerRef.current = L.tileLayer(tile.url, tile.options).addTo(map)
   }, [satellite])
+
+  // Add/remove the airspace overlay when the toggle flips or the map zoom
+  // crosses AIRSPACE_MIN_ZOOM — identical logic to MapView.jsx's effect. The
+  // layer is created once and just added/removed afterwards, so toggling or
+  // zooming in and out doesn't re-fetch what's already cached.
+  useEffect(() => {
+    const map = mapInstance.current
+    if (!map) return
+
+    const shouldShow = airspaceOn && mapZoom >= AIRSPACE_MIN_ZOOM
+
+    if (shouldShow) {
+      if (!airspaceLayerRef.current) {
+        airspaceLayerRef.current = createAirspaceLayer()
+      }
+      airspaceLayerRef.current?.addTo(map)
+    } else if (airspaceLayerRef.current) {
+      map.removeLayer(airspaceLayerRef.current)
+    }
+  }, [airspaceOn, mapZoom])
 
   // Fetches the latest available radar scan time from NOAA and (re)points
   // the radar layer at it — same function shape as MapView.jsx's version,
@@ -791,7 +824,18 @@ export default function AdminView() {
           </svg>
         </button>
         <button
-          className={`map-radar-btn${radarOn ? ' active' : ''}`}
+          className={`map-airspace-btn${airspaceOn ? ' active' : ''}`}
+          onClick={() => setAirspaceOn(v => !v)}
+          title={airspaceOn ? 'Hide FAA airspace (Class B/C/D/Surface E)' : 'Show FAA airspace (Class B/C/D/Surface E)'}
+          aria-label={airspaceOn ? 'Hide FAA airspace overlay' : 'Show FAA airspace overlay'}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="12 2 21 7.5 21 16.5 12 22 3 16.5 3 7.5" />
+            <circle cx="12" cy="12" r="3.5" />
+          </svg>
+        </button>
+        <button
+          className={`map-radar-btn after-airspace${radarOn ? ' active' : ''}`}
           onClick={() => setRadarOn(v => !v)}
           title={radarOn ? 'Hide radar' : 'Show radar'}
           aria-label={radarOn ? 'Hide radar overlay' : 'Show radar overlay'}
@@ -815,6 +859,19 @@ export default function AdminView() {
             <polyline points="2 12 12 17 22 12" />
           </svg>
         </button>
+        {airspaceOn && mapZoom < AIRSPACE_MIN_ZOOM && (
+          <div className="map-airspace-legend admin-airspace-legend">Zoom in to load airspace</div>
+        )}
+        {airspaceOn && mapZoom >= AIRSPACE_MIN_ZOOM && (
+          <div className="map-airspace-legend admin-airspace-legend">
+            {AIRSPACE_LEGEND.map(item => (
+              <div key={item.key} className="map-airspace-legend-row">
+                <span className={`map-airspace-swatch map-airspace-swatch-${item.key}`} />
+                {item.label}
+              </div>
+            ))}
+          </div>
+        )}
         {radarOn && (
           <button
             type="button"
