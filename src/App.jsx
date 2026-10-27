@@ -545,6 +545,7 @@ export default function App() {
           {!isOnline && <span className="offline-pill">Offline</span>}
           {pendingCount > 0 && <span className="pending-pill">{pendingCount} pending</span>}
         </div>
+        <img className="top-bar-logo" src="/alamo-logo.png" alt="Alamo Airborne" />
         <div className="top-bar-right">
           <button className="icon-btn" onClick={sync} disabled={syncing} title="Sync">
             {syncing ? '⏳' : '⟳'}

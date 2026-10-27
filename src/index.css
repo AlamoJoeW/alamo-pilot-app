@@ -200,6 +200,25 @@ html, body, #root {
   min-height: 52px;
 }
 
+.top-bar { position: relative; }
+
+/* Centered in the bar regardless of how wide the left/right groups are.
+   Brightness bump keeps the logo's blue legible on the dark header. */
+.top-bar-logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  height: 38px;
+  width: auto;
+  pointer-events: none;
+  filter: brightness(1.4) saturate(1.1);
+}
+/* Not enough room between the name/pills and the buttons on small phones. */
+@media (max-width: 380px) {
+  .top-bar-logo { display: none; }
+}
+
 .top-bar-left {
   display: flex;
   align-items: center;
