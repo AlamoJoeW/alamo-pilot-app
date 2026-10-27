@@ -8,6 +8,7 @@ import AdminView from './components/AdminView'
 import ChangePassword from './components/ChangePassword'
 import EODReport from './components/EODReport'
 import { statusBucketForSite } from './utils/mapColors'
+import { exportSitesCsv } from './utils/exportSitesCsv'
 import { centralDateStr } from './utils/centralTime'
 import {
   getPilotInfo,
@@ -533,6 +534,14 @@ export default function App() {
       <header className="top-bar">
         <div className="top-bar-left">
           <span className="pilot-name">{pilot.firstName || pilot.displayName}</span>
+          <button
+            className="icon-btn csv-export-btn"
+            onClick={() => exportSitesCsv(sites, pilot.firstName || pilot.displayName)}
+            disabled={sites.length === 0}
+            title="Export all my sites to CSV"
+          >
+            CSV
+          </button>
           {!isOnline && <span className="offline-pill">Offline</span>}
           {pendingCount > 0 && <span className="pending-pill">{pendingCount} pending</span>}
         </div>
