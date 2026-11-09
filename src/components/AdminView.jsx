@@ -83,6 +83,7 @@ export default function AdminView() {
   const [asOf, setAsOf] = useState(null)
   const [hiddenPilotIds, setHiddenPilotIds] = useState(() => new Set())
   const [markedTodayOnly, setMarkedTodayOnly] = useState(false)
+  const [markedTodaySites, setMarkedTodaySites] = useState([])
   // 'yesterday' | 'week' | null — narrows to sites in Joe's Airtable
   // "Collected Yesterday" views / the last 7 Central days. Fetched as a set of
   // record IDs from api/admin.js?collected=… and intersected with `sites`.
@@ -127,8 +128,17 @@ export default function AdminView() {
   // this instead of the raw `sites` list.
   // Collected buttons swap the whole pool for the sites in Joe's Airtable
   // collected views (the main list omits most already-collected sites).
+  // "Marked Today" also merges in sites queried straight from Airtable by
+  // App Status Set At, so sites that left the main view after the pilot's
+  // EOD (view membership changes) still show up.
   const basePool = collectedRange ? collectedSites : sites
-  const visibleSites = markedTodayOnly ? basePool.filter(isMarkedToday) : basePool
+  const mergedTodayPool = (() => {
+    if (!markedTodayOnly) return basePool
+    const byId = new Map(basePool.map(s => [s.id, s]))
+    markedTodaySites.forEach(s => { if (!byId.has(s.id)) byId.set(s.id, s) })
+    return [...byId.values()]
+  })()
+  const visibleSites = markedTodayOnly ? mergedTodayPool.filter(isMarkedToday) : basePool
 
   const load = useCallback(async () => {
     setError('')
@@ -156,6 +166,17 @@ export default function AdminView() {
       .finally(() => { if (!cancelled) setCollectedLoading(false) })
     return () => { cancelled = true }
   }, [collectedRange, asOf])
+
+  // Marked Today: pull today's marked sites straight from Airtable (not the
+  // view), re-pulled on toggle and each 60s refresh.
+  useEffect(() => {
+    if (!markedTodayOnly) { setMarkedTodaySites([]); return }
+    let cancelled = false
+    fetchCollectedSites('today')
+      .then(list => { if (!cancelled) setMarkedTodaySites(list) })
+      .catch(() => { if (!cancelled) setError('Failed to load marked-today sites') })
+    return () => { cancelled = true }
+  }, [markedTodayOnly, asOf])
 
   // Initial load + auto-refresh every 60s while this view is open
   useEffect(() => {

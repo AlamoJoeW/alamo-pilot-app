@@ -39,11 +39,22 @@ const WEEK_VIEWS      = ['Collected Last 7 Days']
 // leaves out most already-collected sites — so these buttons load their sites
 // straight from Joe's collected views instead of filtering that list.
 async function fetchCollectedSites(range) {
-  const views = range === 'yesterday' ? YESTERDAY_VIEWS : [...WEEK_VIEWS, ...YESTERDAY_VIEWS]
+  // 'today' = the Admin "Marked Today" button. Queries the table directly on
+  // App Status Set At (Central day) instead of reading a view, because a site
+  // can drop out of 'Verizon vHive All for KMLs' once its pilot submits the
+  // EOD, which made it vanish from Marked Today.
+  const sources = range === 'today'
+    ? [airtableGetAll(
+        TABLES.COLLECTION_ASSETS,
+        `IS_SAME(SET_TIMEZONE({${FIELDS.APP_STATUS_SET_AT}}, 'America/Chicago'), SET_TIMEZONE(NOW(), 'America/Chicago'), 'day')`,
+        SITE_FIELDS
+      )]
+    : (range === 'yesterday' ? YESTERDAY_VIEWS : [...WEEK_VIEWS, ...YESTERDAY_VIEWS])
+        .map(v => airtableGetAll(TABLES.COLLECTION_ASSETS, null, SITE_FIELDS, v))
   const [pilotRecords, coaByAssetId, ...results] = await Promise.all([
     fetchAllPilots(),
     fetchCoaRequestByAssetId(),
-    ...views.map(v => airtableGetAll(TABLES.COLLECTION_ASSETS, null, SITE_FIELDS, v)),
+    ...sources,
   ])
   const pilotNameById = {}
   pilotRecords.forEach(rec => {
@@ -131,7 +142,7 @@ export default async function handler(req, res) {
     // Lightweight mode for the Collected Yesterday / Last 7 Days buttons —
     // returns the sites in those Airtable views. Kept in this file to stay under the 12-function cap.
     const collected = req.query?.collected
-    if (collected === 'yesterday' || collected === 'week') {
+    if (collected === 'yesterday' || collected === 'week' || collected === 'today') {
       return res.json({ sites: await fetchCollectedSites(collected) })
     }
 
