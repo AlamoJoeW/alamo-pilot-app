@@ -509,11 +509,13 @@ export default function AdminView() {
   // Notes edit from the Admin detail sheet — same field/save path as the pilot
   // app's NotesEditor (api/update-site.js Notes shape), just written straight
   // through since the Admin view isn't offline-first like the pilot app.
-  async function handleNotesSave(recordId, notes) {
+  async function handleNotesSave(recordId, rawNotes) {
+    // Server appends "- FirstName" and returns the final text; show that.
+    const res = await updateSiteNotes(recordId, rawNotes)
+    const notes = (res && typeof res.notes === 'string') ? res.notes : rawNotes
     setSites(prev => prev.map(s => s.id === recordId ? { ...s, notes } : s))
     setCollectedSites(prev => prev.map(s => s.id === recordId ? { ...s, notes } : s))
     setSelectedSite(prev => prev?.id === recordId ? { ...prev, notes } : prev)
-    await updateSiteNotes(recordId, notes)
   }
 
   function togglePilot(pilotId) {

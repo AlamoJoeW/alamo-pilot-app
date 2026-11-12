@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken'
+import { signNote } from './_notes.js'
 import { airtableGet, airtablePost, airtablePatch, airtableGetAll, centralDateStr } from './_airtable.js'
 
 export const config = { api: { bodyParser: { sizeLimit: '10mb' } } }
@@ -123,7 +124,7 @@ export default async function handler(req, res) {
       if (b.weatherCheck && b.weatherCheck.length) fields[F.WEATHER_CHK] = b.weatherCheck
       if (b.weatherForecast)  fields[F.WEATHER_FCST] = b.weatherForecast
       if (b.airworthy)        fields[F.AIRWORTHY]    = b.airworthy
-      if (b.airworthyNotes)   fields[F.AIRWORTHY_N]  = b.airworthyNotes
+      if (b.airworthyNotes)   fields[F.AIRWORTHY_N]  = signNote(b.airworthyNotes, pilot)
       if (b.airspace && b.airspace.length) fields[F.AIRSPACE]     = b.airspace
       if (b.tfrPresent)       fields[F.TFR]          = b.tfrPresent
       if (b.laancRequired)    fields[F.LAANC_REQ]    = b.laancRequired
@@ -141,7 +142,7 @@ export default async function handler(req, res) {
       if (b.mitigatingFactors) fields[F.MITIGATING]  = b.mitigatingFactors
       if (b.missionOverview != null) fields[F.MISSION_OVW] = !!b.missionOverview
       if (b.goNogo)           fields[F.GO_NOGO]      = b.goNogo
-      if (b.notes)            fields[F.NOTES]        = b.notes
+      if (b.notes)            fields[F.NOTES]        = signNote(b.notes, pilot)
       if (b.startLat != null) fields[F.START_LAT]    = b.startLat
       if (b.startLng != null) fields[F.START_LNG]    = b.startLng
       if (b.startLat != null && b.startLng != null) fields[F.LOCATION_UPDATED_AT] = new Date().toISOString()

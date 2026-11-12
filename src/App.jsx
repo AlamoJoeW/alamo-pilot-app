@@ -397,7 +397,15 @@ export default function App() {
   }, [isOnline])
 
   // Inline Notes edit from the List view.
-  const handleNotesSave = useCallback(async (recordId, notes) => {
+  const handleNotesSave = useCallback(async (recordId, rawNotes) => {
+    // Append "- FirstName" so every note shows who wrote it. The server does the
+    // same (api/_notes.js) and won't double it, so offline-queued notes stay consistent.
+    const first = String(pilot?.firstName || pilot?.displayName || '').trim().split(/\s+/)[0]
+    let notes = rawNotes
+    if (first && rawNotes && rawNotes.trim()) {
+      const sig = `- ${first}`
+      notes = rawNotes.trim().toLowerCase().endsWith(sig.toLowerCase()) ? rawNotes.trim() : `${rawNotes.trim()} ${sig}`
+    }
     await updateSiteLocally(recordId, { notes })
     setSites(prev => prev.map(s => s.id === recordId ? { ...s, notes } : s))
     setSelectedSite(prev => prev?.id === recordId ? { ...prev, notes } : prev)
@@ -413,7 +421,7 @@ export default function App() {
       await queueUpdate({ recordId, notes })
       setPendingCount(n => n + 1)
     }
-  }, [isOnline])
+  }, [isOnline, pilot])
 
   // Opens the detail sheet AND marks the site as the map's persistent
   // highlight — unlike `selectedSite`, this survives closing the sheet, so

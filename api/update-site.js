@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken'
+import { signNote } from './_notes.js'
 import { airtablePatch, TABLES, FIELDS, PIN_ICON_APP_TO_AIRTABLE } from './_airtable.js'
 
 function verifyToken(req) {
@@ -46,8 +47,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
+  let pilot
   try {
-    verifyToken(req)
+    pilot = verifyToken(req)
   } catch (err) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
@@ -63,8 +65,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'notes must be a string' })
     }
     try {
-      await airtablePatch(TABLES.COLLECTION_ASSETS, recordId, { [FIELDS.NOTES]: notes })
-      return res.json({ success: true })
+      await airtablePatch(TABLES.COLLECTION_ASSETS, recordId, { [FIELDS.NOTES]: signNote(notes, pilot) })
+      return res.json({ success: true, notes: signNote(notes, pilot) })
     } catch (err) {
       console.error('update-site notes error:', err)
       return res.status(500).json({ error: err.message || 'Failed to save notes' })

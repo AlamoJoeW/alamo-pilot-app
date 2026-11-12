@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken'
+import { signNote } from './_notes.js'
 import { airtableGet, airtablePost, airtableGetAll, TABLES, FIELDS, centralDateStr } from './_airtable.js'
 import { PREFLIGHT_TABLE, F as PREFLIGHT_FIELDS } from './preflight.js'
 
@@ -132,19 +133,19 @@ export default async function handler(req, res) {
         fields[FIELDS.EOD_REFLYS_COUNT] = Number(eodForm.reflysCount)
       }
       if (eodForm.reflysNotes) {
-        fields[FIELDS.EOD_REFLYS_NOTES] = eodForm.reflysNotes
+        fields[FIELDS.EOD_REFLYS_NOTES] = signNote(eodForm.reflysNotes, pilot)
       }
       if (eodForm.visitedUncollectedYN) {
         fields[FIELDS.EOD_VISITED_UNCOLLECTED_YN] = eodForm.visitedUncollectedYN
       }
       if (eodForm.mobNotes) {
-        fields[FIELDS.EOD_MOB_NOTES] = eodForm.mobNotes
+        fields[FIELDS.EOD_MOB_NOTES] = signNote(eodForm.mobNotes, pilot)
       }
       if (eodForm.zeroCollectionsNotes) {
-        fields[FIELDS.EOD_ZERO_COLLECTIONS_NOTES] = eodForm.zeroCollectionsNotes
+        fields[FIELDS.EOD_ZERO_COLLECTIONS_NOTES] = signNote(eodForm.zeroCollectionsNotes, pilot)
       }
       if (eodForm.generalNotes) {
-        fields[FIELDS.EOD_GENERAL_NOTES] = eodForm.generalNotes
+        fields[FIELDS.EOD_GENERAL_NOTES] = signNote(eodForm.generalNotes, pilot)
       }
       if (eodForm.airdataSynced) {
         fields[FIELDS.EOD_AIRDATA_SYNC] = eodForm.airdataSynced
