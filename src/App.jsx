@@ -7,6 +7,7 @@ import SiteDetail from './components/SiteDetail'
 import AdminView from './components/AdminView'
 import ChangePassword from './components/ChangePassword'
 import EODReport from './components/EODReport'
+import Celebration from './components/Celebration'
 import { statusBucketForSite } from './utils/mapColors'
 import { exportSitesCsv } from './utils/exportSitesCsv'
 import { centralDateStr } from './utils/centralTime'
@@ -57,6 +58,8 @@ export default function App() {
   const [pendingCount, setPendingCount] = useState(0)
   const [syncedAt, setSyncedAt] = useState(null)
   const [showEOD, setShowEOD] = useState(false)
+  // Easter egg: number of sites in the EOD just submitted, when it was more than 4.
+  const [celebrateCount, setCelebrateCount] = useState(0)
   const [projectId, setProjectId] = useState(null)
   // Sites recollected today (marked Collected after being Partial/MOB Fee) —
   // { id, reason: 'partial' | 'mob' } pairs, persisted separately from `sites`
@@ -438,6 +441,14 @@ export default function App() {
   async function handleEODSubmit(payload) {
     await submitEOD(payload)
     setShowEOD(false)
+    // Easter egg — every site visited today counts (full + partial + MOB Fee),
+    // each site once even if it appears in more than one list (e.g. a recollect).
+    const visitedToday = new Set([
+      ...(payload.collectedIds || []),
+      ...(payload.partialIds || []),
+      ...(payload.mobIds || []),
+    ]).size
+    if (visitedToday > 4) setCelebrateCount(visitedToday)
     // Unlocks RouteView's "Tomorrow" tab immediately — no need to wait on a
     // resync or app reopen to re-check Airtable.
     setEodSubmittedToday(true)
@@ -679,6 +690,11 @@ export default function App() {
           onPinIconChange={handlePinIconChange}
           onNotesSave={handleNotesSave}
         />
+      )}
+
+      {/* Easter egg — plays after an EOD covering more than 4 sites */}
+      {celebrateCount > 0 && (
+        <Celebration siteCount={celebrateCount} onClose={() => setCelebrateCount(0)} />
       )}
 
     </div>
