@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { fetchAdminData, fetchCollectedSites, updateSiteNotes } from '../utils/api'
+import { fetchAdminData, fetchCollectedSites, updateSiteNotes, updateSitePinIcon } from '../utils/api'
 import { colorForSite, pinColorForSite, isSiteDone, statusBucketForSite, urgencyBoostPx } from '../utils/mapColors'
 import { isMarkedToday, isAddedToday, formatCentralTime } from '../utils/centralTime'
 import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
@@ -518,6 +518,25 @@ export default function AdminView() {
     setSelectedSite(prev => prev?.id === recordId ? { ...prev, notes } : prev)
   }
 
+  // Pin icon change from the Admin detail sheet — written straight through to the
+  // shared "App Pin Icon" field (same API as the pilot app), so it shows on both
+  // the Admin map and the assigned pilot's map. Reverts the pin if the save fails.
+  async function handlePinIconChange(recordId, pinIcon) {
+    const apply = icon => {
+      setSites(prev => prev.map(s => s.id === recordId ? { ...s, pinIcon: icon } : s))
+      setCollectedSites(prev => prev.map(s => s.id === recordId ? { ...s, pinIcon: icon } : s))
+      setSelectedSite(prev => prev?.id === recordId ? { ...prev, pinIcon: icon } : prev)
+    }
+    const previous = (sites.find(s => s.id === recordId) || collectedSites.find(s => s.id === recordId) || {}).pinIcon ?? null
+    apply(pinIcon)
+    try {
+      await updateSitePinIcon(recordId, pinIcon)
+    } catch (err) {
+      apply(previous)
+      setError(err.message === 'AUTH_EXPIRED' ? 'Session expired — please log in again.' : (err.message || 'Failed to save pin icon'))
+    }
+  }
+
   function togglePilot(pilotId) {
     setHiddenPilotIds(prev => {
       const next = new Set(prev)
@@ -1024,7 +1043,7 @@ export default function AdminView() {
       )}
 
       {selectedSite && (
-        <AdminSiteDetail site={selectedSite} onClose={() => setSelectedSite(null)} onNotesSave={handleNotesSave} />
+        <AdminSiteDetail site={selectedSite} onClose={() => setSelectedSite(null)} onNotesSave={handleNotesSave} onPinIconChange={handlePinIconChange} />
       )}
     </div>
   )

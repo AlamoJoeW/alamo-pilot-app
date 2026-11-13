@@ -53,7 +53,7 @@ const ICON_TYPES = [
   { type: 'fccheck',   label: 'FC ✓' },
 ]
 
-function IconPicker({ value, onChange }) {
+export function IconPicker({ value, onChange }) {
   return (
     <div className="icon-picker">
       <div className="icon-picker-label">Pin icon</div>

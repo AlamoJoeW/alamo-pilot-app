@@ -1,5 +1,5 @@
 import { statusBucketForSite, colorForMapColor } from '../utils/mapColors'
-import { NotesEditor, WeatherCheck } from './SiteDetail'
+import { NotesEditor, WeatherCheck, IconPicker } from './SiteDetail'
 import { formatDateOnly } from '../utils/formatDate'
 
 const COA_REQUEST_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shr5HQ8wN5lUqWFQl'
@@ -31,7 +31,7 @@ function isReflySite(site) {
   return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
 }
 
-export default function AdminSiteDetail({ site, onClose, onNotesSave }) {
+export default function AdminSiteDetail({ site, onClose, onNotesSave, onPinIconChange }) {
   if (!site) return null
 
   const bucket = statusBucketForSite(site)
@@ -99,6 +99,10 @@ export default function AdminSiteDetail({ site, onClose, onNotesSave }) {
               )
             })}
           </div>
+        )}
+
+        {onPinIconChange && (
+          <IconPicker value={site.pinIcon} onChange={type => onPinIconChange(site.id, type)} />
         )}
 
         {onNotesSave ? (
