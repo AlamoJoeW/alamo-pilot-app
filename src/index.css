@@ -2637,6 +2637,32 @@ html, body, #root {
   border-color: var(--accent);
 }
 
+.admin-pilot-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-pilot-row .admin-pilot-strip {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: none;
+}
+
+.admin-pilot-total {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0 12px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+
 .admin-pilot-strip {
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);

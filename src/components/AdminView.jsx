@@ -721,6 +721,7 @@ export default function AdminView() {
       {/* Pilot chip strip — every pilot with at least one site in the "Verizon vHive
           All for KMLs" view, regardless of preflight status. Tap a chip to show/hide
           that pilot's pin + sites on the map; map pins default to everyone visible. */}
+      <div className="admin-pilot-row">
       <div className="filter-tabs admin-pilot-strip" ref={pilotStripRef}>
         {pilots.filter(p => sitesForPilot(p.pilotId).length > 0).map(p => {
           const s = sitesForPilot(p.pilotId)
@@ -741,6 +742,22 @@ export default function AdminView() {
             </button>
           )
         })}
+      </div>
+      {/* Total across the pilots currently selected (chips not dimmed), same done/total
+          format as each chip. Pinned to the right of the chip row. */}
+      {(() => {
+        let doneSum = 0, totalSum = 0
+        pilots.filter(p => sitesForPilot(p.pilotId).length > 0 && !hiddenPilotIds.has(p.pilotId)).forEach(p => {
+          const s = sitesForPilot(p.pilotId)
+          doneSum += s.filter(isSiteDone).length
+          totalSum += s.length
+        })
+        return (
+          <div className="admin-pilot-total" title="Total for selected pilots">
+            Total · {doneSum}/{totalSum}
+          </div>
+        )
+      })()}
       </div>
 
       {/* Custom horizontal slider for the pilot chip strip above — the strip's
