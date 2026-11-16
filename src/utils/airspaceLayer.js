@@ -48,7 +48,7 @@ const CLASS_STYLE = {
   E2: { color: '#06b6d4', dashArray: '6 4', weight: 2.5, fillOpacity: 0.14 },
 }
 
-// Temporary Flight Restrictions — FAA's current TFR polygons via our /api/tfrs
+// Temporary Flight Restrictions — FAA's current TFR polygons via our TFR proxy (api/_tfrs.js)
 // proxy. Not zoom-gated (only ~50 nationwide, tiny payload), drawn above the class
 // layers. Shape/title only: times and altitudes are in the NOTAM, so the popup
 // tells pilots to check it.

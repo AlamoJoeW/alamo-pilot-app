@@ -96,9 +96,9 @@ export async function updateSitesBulk(recordIds, action) {
   return res.json()
 }
 
-// Current FAA TFR polygons (GeoJSON) via our own /api/tfrs proxy — see api/tfrs.js.
+// Current FAA TFR polygons (GeoJSON) via our own proxy (api/aircraft.js ?layer=tfrs -> api/_tfrs.js).
 export async function fetchTfrs() {
-  const res = await fetch(`${BASE}/api/tfrs`, { headers: authHeaders() })
+  const res = await fetch(`${BASE}/api/aircraft?layer=tfrs`, { headers: authHeaders() })
   if (!res.ok) {
     if (res.status === 401) throw new Error('AUTH_EXPIRED')
     throw new Error('TFR data unavailable')

@@ -1,5 +1,9 @@
 import jwt from 'jsonwebtoken'
 
+// (Lives in a file starting with _ so Vercel doesn't count it as its own serverless
+// function — the Hobby plan caps a project at 12. It's served through
+// GET /api/aircraft?layer=tfrs, see api/aircraft.js.)
+//
 // Proxy for FAA's public TFR polygons (tfr.faa.gov's own map feed, GeoJSON via WFS).
 // The browser asks this route instead of the FAA site directly so we don't depend
 // on the FAA allowing cross-origin requests, and so the result can be cached
@@ -21,8 +25,7 @@ function verifyToken(req) {
   return jwt.verify(auth.replace('Bearer ', ''), process.env.JWT_SECRET)
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
+export async function handleTfrs(req, res) {
 
   try {
     verifyToken(req)

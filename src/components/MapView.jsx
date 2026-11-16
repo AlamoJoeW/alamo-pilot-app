@@ -245,7 +245,7 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
   }, [airspaceOn, mapZoom])
 
   // FAA TFR polygons ride along with the airspace toggle (red shapes) at every
-  // zoom level. Loaded once on first toggle-on via /api/tfrs, then just added
+  // zoom level. Loaded once on first toggle-on via the TFR proxy, then just added
   // to / removed from the map.
   useEffect(() => {
     const map = mapInstance.current
