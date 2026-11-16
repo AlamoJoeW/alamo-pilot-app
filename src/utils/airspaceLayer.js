@@ -36,15 +36,52 @@ export const AIRSPACE_WHERE = "CLASS IN ('B','C','D') OR LOCAL_TYPE = 'CLASS_E2'
 // still be useful for a pilot checking their site, small enough to stay fast.
 export const AIRSPACE_MIN_ZOOM = 9
 
-// Colors follow standard VFR sectional chart convention (solid blue = B,
-// solid magenta = C, dashed blue = D, dashed magenta = Surface E) so the
-// overlay reads the same way pilots already know from ForeFlight/paper
-// charts instead of an arbitrary new color scheme.
+// Four clearly different hues (blue / magenta / amber / cyan) so no two classes
+// look alike at a glance — the old sectional-chart scheme used blue for both B
+// and D and magenta for both C and Surface E, which were hard to tell apart.
+// Deliberately NO green anywhere (green would read as "safe/collected" to a pilot),
+// and TFRs below are red so they stand out from every class.
 const CLASS_STYLE = {
-  B:  { color: '#0057b8', dashArray: null,  weight: 2.5, fillOpacity: 0.14 },
-  C:  { color: '#c0007f', dashArray: null,  weight: 2.5, fillOpacity: 0.14 },
-  D:  { color: '#0057b8', dashArray: '6 4', weight: 2,   fillOpacity: 0.09 },
-  E2: { color: '#c0007f', dashArray: '6 4', weight: 2,   fillOpacity: 0.09 },
+  B:  { color: '#2563eb', dashArray: null,  weight: 2.5, fillOpacity: 0.16 },
+  C:  { color: '#d11bd1', dashArray: null,  weight: 2.5, fillOpacity: 0.16 },
+  D:  { color: '#f59e0b', dashArray: '6 4', weight: 2.5, fillOpacity: 0.14 },
+  E2: { color: '#06b6d4', dashArray: '6 4', weight: 2.5, fillOpacity: 0.14 },
+}
+
+// Temporary Flight Restrictions — FAA's current TFR polygons via our /api/tfrs
+// proxy. Not zoom-gated (only ~50 nationwide, tiny payload), drawn above the class
+// layers. Shape/title only: times and altitudes are in the NOTAM, so the popup
+// tells pilots to check it.
+export const TFR_STYLE = { color: '#ef4444', weight: 3, opacity: 0.95, fillColor: '#ef4444', fillOpacity: 0.22 }
+export const TFR_LEGEND_ITEM = { key: 'TFR', label: 'TFR' }
+
+function escapeHtml(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
+function tfrPopupHtml(props) {
+  const title = escapeHtml(props?.TITLE || 'Temporary Flight Restriction')
+  const state = props?.STATE ? ` (${escapeHtml(props.STATE)})` : ''
+  const notam = props?.NOTAM_KEY ? `<br>NOTAM: ${escapeHtml(props.NOTAM_KEY)}` : ''
+  return `<strong>TFR${state}</strong><br>${title}${notam}<br><em>Check the NOTAM for times and altitudes</em>`
+}
+
+// Fetches current TFRs and returns a Leaflet GeoJSON layer (not added to the map),
+// or null if Leaflet isn't ready / the data can't be loaded. Never throws — a
+// failed TFR load should just mean no red shapes, not a broken overlay.
+export async function loadTfrLayer(fetchTfrs) {
+  const L = window.L
+  if (!L) return null
+  try {
+    const data = await fetchTfrs()
+    return L.geoJSON(data, {
+      style: () => TFR_STYLE,
+      onEachFeature: (feature, layer) => layer.bindPopup(tfrPopupHtml(feature.properties)),
+    })
+  } catch (err) {
+    console.warn('TFR layer unavailable:', err)
+    return null
+  }
 }
 
 export const AIRSPACE_LEGEND = [

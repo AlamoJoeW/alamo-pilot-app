@@ -2400,10 +2400,11 @@ html, body, #root {
   flex-shrink: 0;
 }
 
-.map-airspace-swatch-B { background: #0057b8; opacity: 0.55; border: 2px solid #0057b8; }
-.map-airspace-swatch-C { background: #c0007f; opacity: 0.55; border: 2px solid #c0007f; }
-.map-airspace-swatch-D { background: #0057b8; opacity: 0.3; border: 2px dashed #0057b8; }
-.map-airspace-swatch-E2 { background: #c0007f; opacity: 0.3; border: 2px dashed #c0007f; }
+.map-airspace-swatch-B { background: #2563eb; opacity: 0.55; border: 2px solid #2563eb; }
+.map-airspace-swatch-C { background: #d11bd1; opacity: 0.55; border: 2px solid #d11bd1; }
+.map-airspace-swatch-D { background: #f59e0b; opacity: 0.45; border: 2px dashed #f59e0b; }
+.map-airspace-swatch-E2 { background: #06b6d4; opacity: 0.45; border: 2px dashed #06b6d4; }
+.map-airspace-swatch-TFR { background: #ef4444; opacity: 0.6; border: 2px solid #ef4444; }
 
 /* Full screen toggle — top-right corner, clear of Leaflet's zoom control
    (top-left) and the button row along the bottom. */

@@ -96,6 +96,16 @@ export async function updateSitesBulk(recordIds, action) {
   return res.json()
 }
 
+// Current FAA TFR polygons (GeoJSON) via our own /api/tfrs proxy — see api/tfrs.js.
+export async function fetchTfrs() {
+  const res = await fetch(`${BASE}/api/tfrs`, { headers: authHeaders() })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    throw new Error('TFR data unavailable')
+  }
+  return res.json()
+}
+
 export async function updateSiteNotes(recordId, notes) {
   const res = await fetch(`${BASE}/api/update-site`, {
     method: 'POST',

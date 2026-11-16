@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { colorForSite, pinColorForSite, urgencyBoostPx } from '../utils/mapColors'
 import { tileLayerFor } from '../utils/mapLayers'
 import { makeSiteIcon, quadcopterIcon } from '../utils/mapIcons'
-import { createAirspaceLayer, AIRSPACE_LEGEND, AIRSPACE_MIN_ZOOM } from '../utils/airspaceLayer'
+import { createAirspaceLayer, loadTfrLayer, AIRSPACE_LEGEND, TFR_LEGEND_ITEM, AIRSPACE_MIN_ZOOM } from '../utils/airspaceLayer'
 import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
 import { formatCentralTime, isAddedToday } from '../utils/centralTime'
 import { formatDateOnly } from '../utils/formatDate'
 import { matchesSearch } from '../utils/searchSites'
+import { fetchTfrs } from '../utils/api'
 
 // A site is flagged "refly" from either the office REFLY checkbox or the Map
 // Color already saying so (see mapColors.js MAP_COLOR_NOT_DONE) — same check
@@ -59,6 +60,7 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
   const [mapSearch, setMapSearch] = useState('')
   const [mapZoom, setMapZoom] = useState(8) // tracked so the airspace effect can gate on AIRSPACE_MIN_ZOOM without relying solely on esri-leaflet's internal zoom handling
   const airspaceLayerRef = useRef(null) // esri-leaflet FeatureLayer, created lazily on first toggle-on
+  const tfrLayerRef = useRef(null) // Leaflet GeoJSON layer of current FAA TFRs, created lazily on first toggle-on
   // Radar overlay — off by default, pilot-toggled, and deliberately never
   // auto-refreshing (see refreshRadar below): a stale radar frame left on
   // screen without the pilot asking for a new one is worse than no radar at
@@ -241,6 +243,31 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
       map.removeLayer(airspaceLayerRef.current)
     }
   }, [airspaceOn, mapZoom])
+
+  // FAA TFR polygons ride along with the airspace toggle (red shapes) at every
+  // zoom level. Loaded once on first toggle-on via /api/tfrs, then just added
+  // to / removed from the map.
+  useEffect(() => {
+    const map = mapInstance.current
+    if (!map) return
+    let cancelled = false
+
+    if (airspaceOn) {
+      const show = layer => { if (layer && !cancelled) layer.addTo(map) }
+      if (tfrLayerRef.current) {
+        show(tfrLayerRef.current)
+      } else {
+        loadTfrLayer(fetchTfrs).then(layer => {
+          if (!layer) return
+          tfrLayerRef.current = layer
+          show(layer)
+        })
+      }
+    } else if (tfrLayerRef.current) {
+      map.removeLayer(tfrLayerRef.current)
+    }
+    return () => { cancelled = true }
+  }, [airspaceOn])
 
   // Fetches the latest available radar scan time from NOAA and (re)points
   // the radar layer at it — creates the layer lazily on first call, updates
@@ -668,17 +695,20 @@ export default function MapView({ sites, onSelect, highlightedSiteId }) {
       {locateError && (
         <div className="map-locate-error">{locateError}</div>
       )}
-      {airspaceOn && mapZoom < AIRSPACE_MIN_ZOOM && (
-        <div className="map-airspace-legend">Zoom in to load airspace</div>
-      )}
-      {airspaceOn && mapZoom >= AIRSPACE_MIN_ZOOM && (
+      {airspaceOn && (
         <div className="map-airspace-legend">
-          {AIRSPACE_LEGEND.map(item => (
-            <div key={item.key} className="map-airspace-legend-row">
-              <span className={`map-airspace-swatch map-airspace-swatch-${item.key}`} />
-              {item.label}
-            </div>
-          ))}
+          {mapZoom < AIRSPACE_MIN_ZOOM
+            ? <div className="map-airspace-legend-row">Zoom in to load airspace</div>
+            : AIRSPACE_LEGEND.map(item => (
+                <div key={item.key} className="map-airspace-legend-row">
+                  <span className={`map-airspace-swatch map-airspace-swatch-${item.key}`} />
+                  {item.label}
+                </div>
+              ))}
+          <div className="map-airspace-legend-row">
+            <span className={`map-airspace-swatch map-airspace-swatch-${TFR_LEGEND_ITEM.key}`} />
+            {TFR_LEGEND_ITEM.label}
+          </div>
         </div>
       )}
       {radarOn && (

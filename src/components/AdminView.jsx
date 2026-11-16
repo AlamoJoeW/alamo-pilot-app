@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { fetchAdminData, fetchCollectedSites, updateSiteNotes, updateSitePinIcon } from '../utils/api'
+import { fetchAdminData, fetchCollectedSites, updateSiteNotes, updateSitePinIcon, fetchTfrs } from '../utils/api'
 import { colorForSite, pinColorForSite, isSiteDone, statusBucketForSite, urgencyBoostPx } from '../utils/mapColors'
 import { isMarkedToday, isAddedToday, formatCentralTime } from '../utils/centralTime'
 import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
-import { createAirspaceLayer, AIRSPACE_LEGEND, AIRSPACE_MIN_ZOOM } from '../utils/airspaceLayer'
+import { createAirspaceLayer, loadTfrLayer, AIRSPACE_LEGEND, TFR_LEGEND_ITEM, AIRSPACE_MIN_ZOOM } from '../utils/airspaceLayer'
 import { tileLayerFor } from '../utils/mapLayers'
 import { quadcopterIcon, makeSiteIcon } from '../utils/mapIcons'
 import { sortSites, SORT_OPTIONS } from '../utils/sortSites'
@@ -110,6 +110,7 @@ export default function AdminView() {
   const [airspaceOn, setAirspaceOn] = useState(false)
   const [mapZoom, setMapZoom] = useState(7)
   const airspaceLayerRef = useRef(null)
+  const tfrLayerRef = useRef(null) // Leaflet GeoJSON layer of current FAA TFRs, created lazily on first toggle-on
   const [mode, setMode] = useState('map') // 'map' | 'list'
   const [selectedPilotId, setSelectedPilotId] = useState(null)
   const [selectedSite, setSelectedSite] = useState(null)
@@ -354,6 +355,31 @@ export default function AdminView() {
       map.removeLayer(airspaceLayerRef.current)
     }
   }, [airspaceOn, mapZoom])
+
+  // FAA TFR polygons ride along with the airspace toggle (red shapes) at every
+  // zoom level. Loaded once on first toggle-on via /api/tfrs, then just added
+  // to / removed from the map.
+  useEffect(() => {
+    const map = mapInstance.current
+    if (!map) return
+    let cancelled = false
+
+    if (airspaceOn) {
+      const show = layer => { if (layer && !cancelled) layer.addTo(map) }
+      if (tfrLayerRef.current) {
+        show(tfrLayerRef.current)
+      } else {
+        loadTfrLayer(fetchTfrs).then(layer => {
+          if (!layer) return
+          tfrLayerRef.current = layer
+          show(layer)
+        })
+      }
+    } else if (tfrLayerRef.current) {
+      map.removeLayer(tfrLayerRef.current)
+    }
+    return () => { cancelled = true }
+  }, [airspaceOn])
 
   // Fetches the latest available radar scan time from NOAA and (re)points
   // the radar layer at it — same function shape as MapView.jsx's version,
@@ -918,17 +944,20 @@ export default function AdminView() {
             <polyline points="2 12 12 17 22 12" />
           </svg>
         </button>
-        {airspaceOn && mapZoom < AIRSPACE_MIN_ZOOM && (
-          <div className="map-airspace-legend admin-airspace-legend">Zoom in to load airspace</div>
-        )}
-        {airspaceOn && mapZoom >= AIRSPACE_MIN_ZOOM && (
+        {airspaceOn && (
           <div className="map-airspace-legend admin-airspace-legend">
-            {AIRSPACE_LEGEND.map(item => (
-              <div key={item.key} className="map-airspace-legend-row">
-                <span className={`map-airspace-swatch map-airspace-swatch-${item.key}`} />
-                {item.label}
-              </div>
-            ))}
+            {mapZoom < AIRSPACE_MIN_ZOOM
+              ? <div className="map-airspace-legend-row">Zoom in to load airspace</div>
+              : AIRSPACE_LEGEND.map(item => (
+                  <div key={item.key} className="map-airspace-legend-row">
+                    <span className={`map-airspace-swatch map-airspace-swatch-${item.key}`} />
+                    {item.label}
+                  </div>
+                ))}
+            <div className="map-airspace-legend-row">
+              <span className={`map-airspace-swatch map-airspace-swatch-${TFR_LEGEND_ITEM.key}`} />
+              {TFR_LEGEND_ITEM.label}
+            </div>
           </div>
         )}
         {radarOn && (
