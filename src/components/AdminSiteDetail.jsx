@@ -31,7 +31,7 @@ function isReflySite(site) {
   return !!site.refly || site.mapColor === 'Refly' || site.mapColor === 'Refly Further Coordination Required'
 }
 
-export default function AdminSiteDetail({ site, onClose, onNotesSave, onPinIconChange }) {
+export default function AdminSiteDetail({ site, onClose, onNotesSave, onPinIconChange, onAttachmentsChange }) {
   if (!site) return null
 
   const bucket = statusBucketForSite(site)
@@ -106,7 +106,7 @@ export default function AdminSiteDetail({ site, onClose, onNotesSave, onPinIconC
         )}
 
         {onNotesSave ? (
-          <NotesEditor site={site} onSave={onNotesSave} />
+          <NotesEditor site={site} onSave={onNotesSave} onAttachmentsChange={onAttachmentsChange} />
         ) : site.notes && (
           <div className="detail-notes">
             <div className="detail-notes-label">Notes</div>

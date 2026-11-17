@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { FIELDS, PIN_ICON_AIRTABLE_TO_APP, fetchAllSiteRecords, fetchCoaRequestByAssetId } from './_airtable.js'
+import { FIELDS, slimAttachments, PIN_ICON_AIRTABLE_TO_APP, fetchAllSiteRecords, fetchCoaRequestByAssetId } from './_airtable.js'
 
 function verifyToken(req) {
   const auth = req.headers.authorization || ''
@@ -57,6 +57,7 @@ export default async function handler(req, res) {
                               ? (r.fields[FIELDS.REFLY_NOTES].value || '')
                               : (r.fields[FIELDS.REFLY_NOTES] || ''),
       reflyAttachments:    r.fields[FIELDS.REFLY_NOTICE]         || [],
+      noteAttachments:     slimAttachments(r.fields[FIELDS.NOTE_ATTACHMENTS]),
       refly:               r.fields[FIELDS.REFLY]                || false,
       reflyCompleted:      r.fields[FIELDS.REFLY_COMPLETED]      || false,
       pinIcon:             PIN_ICON_AIRTABLE_TO_APP[r.fields[FIELDS.PIN_ICON]] || null,

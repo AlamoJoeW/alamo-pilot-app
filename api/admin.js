@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { BASE_ID, API_KEY, TABLES, FIELDS, airtableGetAll, fetchAllSiteRecords, fetchCoaRequestByAssetId, SITE_FIELDS, PIN_ICON_AIRTABLE_TO_APP, centralDateStr } from './_airtable.js'
+import { BASE_ID, API_KEY, TABLES, FIELDS, slimAttachments, airtableGetAll, fetchAllSiteRecords, fetchCoaRequestByAssetId, SITE_FIELDS, PIN_ICON_AIRTABLE_TO_APP, centralDateStr } from './_airtable.js'
 
 // Combined admin endpoint — returns both all-pilot sites and today's pilot locations
 // in a single response. Kept as one file (rather than two) to stay under Vercel's
@@ -105,6 +105,7 @@ function mapSite(r, pilotNameById, coaByAssetId) {
                                 ? (r.fields[FIELDS.REFLY_NOTES].value || '')
                                 : (r.fields[FIELDS.REFLY_NOTES] || ''),
         reflyAttachments:    r.fields[FIELDS.REFLY_NOTICE]         || [],
+        noteAttachments:     slimAttachments(r.fields[FIELDS.NOTE_ATTACHMENTS]),
         refly:               r.fields[FIELDS.REFLY]                || false,
         reflyCompleted:      r.fields[FIELDS.REFLY_COMPLETED]      || false,
         coaRequestStatus:       coaByAssetId.get(r.id)?.status || '',

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { checkAccessIssue } from '../utils/api'
+import { checkAccessIssue, uploadNoteAttachment, removeNoteAttachment } from '../utils/api'
+import { compressImage } from '../utils/imageCompress'
 import { isReflySite, needsAccessFormToCollect } from '../utils/mapColors'
 import { fetchNwsConditions } from '../utils/weather'
 import { formatCentralTime } from '../utils/centralTime'
@@ -76,7 +77,89 @@ export function IconPicker({ value, onChange }) {
 // List view's inline note button (App.jsx handleNotesSave -> api/update-site.js
 // Notes shape), just shown here too since this sheet opens from both Map and
 // List taps and Joe wants Notes visible/editable wherever a site is opened.
-export function NotesEditor({ site, onSave }) {
+// Photos/screenshots attached to a site's notes (Airtable "App Note Attachments").
+// Shown as thumbnails under the note text; tap one for full size. Adding goes
+// straight to Airtable (needs signal) — onAttachmentsChange lets the parent keep
+// its copy of the site in sync.
+function NoteAttachments({ site, onAttachmentsChange, isOnline = true }) {
+  const [atts, setAtts] = useState(site.noteAttachments || [])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [viewing, setViewing] = useState(null)
+
+  useEffect(() => { setAtts(site.noteAttachments || []) }, [site.id, site.noteAttachments])
+
+  function apply(next) {
+    setAtts(next)
+    onAttachmentsChange?.(site.id, next)
+  }
+
+  async function handleFiles(e) {
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (files.length === 0) return
+    if (!isOnline) { setError('You need signal to attach a photo'); return }
+    setBusy(true)
+    setError('')
+    try {
+      let latest = atts
+      for (const f of files) {
+        const img = await compressImage(f)
+        latest = await uploadNoteAttachment(site.id, img)
+      }
+      apply(latest)
+    } catch (err) {
+      setError(err.message || 'Upload failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleRemove(att) {
+    if (!window.confirm('Remove this image from the notes?')) return
+    setBusy(true)
+    setError('')
+    try {
+      apply(await removeNoteAttachment(site.id, att.id))
+      setViewing(null)
+    } catch (err) {
+      setError(err.message || 'Could not remove image')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="note-atts">
+      {atts.length > 0 && (
+        <div className="note-atts-grid">
+          {atts.map(a => (
+            <button key={a.id} type="button" className="note-att-thumb" onClick={() => setViewing(a)}>
+              <img src={a.thumb || a.url} alt={a.filename || 'Attachment'} loading="lazy" />
+            </button>
+          ))}
+        </div>
+      )}
+      <label className={`note-att-add ${busy ? 'busy' : ''}`}>
+        {busy ? 'Working…' : '📎 Add photo / screenshot'}
+        <input type="file" accept="image/*" multiple onChange={handleFiles} disabled={busy} hidden />
+      </label>
+      {error && <div className="note-att-error">{error}</div>}
+      {viewing && (
+        <div className="note-att-lightbox" onClick={() => setViewing(null)}>
+          <img src={viewing.url} alt={viewing.filename || 'Attachment'} onClick={e => e.stopPropagation()} />
+          <div className="note-att-lightbox-bar" onClick={e => e.stopPropagation()}>
+            <a href={viewing.url} target="_blank" rel="noreferrer">Open full size</a>
+            <button type="button" onClick={() => handleRemove(viewing)} disabled={busy}>Remove</button>
+            <button type="button" onClick={() => setViewing(null)}>Close</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function NotesEditor({ site, onSave, onAttachmentsChange, isOnline }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(site.notes || '')
   const [saving, setSaving] = useState(false)
@@ -96,6 +179,7 @@ export function NotesEditor({ site, onSave }) {
         >
           {site.notes || <span className="detail-notes-placeholder">Tap to add a note…</span>}
         </button>
+        <NoteAttachments site={site} onAttachmentsChange={onAttachmentsChange} isOnline={isOnline} />
       </div>
     )
   }
@@ -126,6 +210,7 @@ export function NotesEditor({ site, onSave }) {
         <button className="btn-check-again" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
         <button className="btn-cancel-pending" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
       </div>
+      <NoteAttachments site={site} onAttachmentsChange={onAttachmentsChange} isOnline={isOnline} />
     </div>
   )
 }
@@ -211,7 +296,7 @@ export function WeatherCheck({ site }) {
   )
 }
 
-export default function SiteDetail({ site, onClose, onUpdate, waitingForm, onStartAccessForm, onCancelAccessForm, onCheckForms, isOnline, pendingCount, canEdit, onPinIconChange, onNotesSave }) {
+export default function SiteDetail({ site, onClose, onUpdate, waitingForm, onStartAccessForm, onCancelAccessForm, onCheckForms, isOnline, pendingCount, canEdit, onPinIconChange, onNotesSave, onAttachmentsChange }) {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState('')
   const [pendingAction, setPendingAction] = useState(null) // null | 'partial' | 'mob' | 'collected'
@@ -391,7 +476,7 @@ export default function SiteDetail({ site, onClose, onUpdate, waitingForm, onSta
         )}
 
         {onNotesSave && (
-          <NotesEditor site={site} onSave={onNotesSave} />
+          <NotesEditor site={site} onSave={onNotesSave} onAttachmentsChange={onAttachmentsChange} isOnline={isOnline} />
         )}
 
         <div className="detail-info">

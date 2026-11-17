@@ -544,6 +544,14 @@ export default function AdminView() {
     setSelectedSite(prev => prev?.id === recordId ? { ...prev, notes } : prev)
   }
 
+  // Keep the in-memory copies of a site in step after photos are added/removed
+  // from its notes (the upload itself already went straight to Airtable).
+  function handleAttachmentsChange(recordId, noteAttachments) {
+    setSites(prev => prev.map(s => s.id === recordId ? { ...s, noteAttachments } : s))
+    setCollectedSites(prev => prev.map(s => s.id === recordId ? { ...s, noteAttachments } : s))
+    setSelectedSite(prev => prev?.id === recordId ? { ...prev, noteAttachments } : prev)
+  }
+
   // Pin icon change from the Admin detail sheet — written straight through to the
   // shared "App Pin Icon" field (same API as the pilot app), so it shows on both
   // the Admin map and the assigned pilot's map. Reverts the pin if the save fails.
@@ -1072,7 +1080,7 @@ export default function AdminView() {
       )}
 
       {selectedSite && (
-        <AdminSiteDetail site={selectedSite} onClose={() => setSelectedSite(null)} onNotesSave={handleNotesSave} onPinIconChange={handlePinIconChange} />
+        <AdminSiteDetail site={selectedSite} onClose={() => setSelectedSite(null)} onNotesSave={handleNotesSave} onPinIconChange={handlePinIconChange} onAttachmentsChange={handleAttachmentsChange} />
       )}
     </div>
   )

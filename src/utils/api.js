@@ -106,6 +106,36 @@ export async function fetchTfrs() {
   return res.json()
 }
 
+// Add an image (already compressed — see utils/imageCompress.js) to a site's note
+// attachments. Resolves to the site's full updated attachment list.
+export async function uploadNoteAttachment(recordId, { contentType, data }) {
+  const res = await fetch(`${BASE}/api/update-site`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ recordId, attachment: { contentType, data } }),
+  })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error || (res.status === 413 ? 'Image is too large' : 'Failed to upload image'))
+  }
+  return (await res.json()).attachments || []
+}
+
+export async function removeNoteAttachment(recordId, attachmentId) {
+  const res = await fetch(`${BASE}/api/update-site`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ recordId, removeAttachmentId: attachmentId }),
+  })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('AUTH_EXPIRED')
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error || 'Failed to remove image')
+  }
+  return (await res.json()).attachments || []
+}
+
 export async function updateSiteNotes(recordId, notes) {
   const res = await fetch(`${BASE}/api/update-site`, {
     method: 'POST',

@@ -593,6 +593,14 @@ export default function App() {
     }
   }, [isOnline, pilot])
 
+  // Photos added/removed on a site's notes — already saved to Airtable by the
+  // upload call; this just keeps the on-screen and cached copy current.
+  const handleAttachmentsChange = useCallback(async (recordId, noteAttachments) => {
+    await updateSiteLocally(recordId, { noteAttachments })
+    setSites(prev => prev.map(s => s.id === recordId ? { ...s, noteAttachments } : s))
+    setSelectedSite(prev => prev?.id === recordId ? { ...prev, noteAttachments } : prev)
+  }, [])
+
   // Opens the detail sheet AND marks the site as the map's persistent
   // highlight — unlike `selectedSite`, this survives closing the sheet, so
   // the pin the pilot just tapped stays visually distinguishable until they
@@ -872,6 +880,7 @@ export default function App() {
           canEdit={canEdit}
           onPinIconChange={handlePinIconChange}
           onNotesSave={handleNotesSave}
+          onAttachmentsChange={handleAttachmentsChange}
         />
       )}
 
