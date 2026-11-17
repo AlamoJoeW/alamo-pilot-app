@@ -2848,3 +2848,20 @@ html, body, #root {
 .celebrate-btn-secondary {
   background: rgba(255, 255, 255, 0.18);
 }
+
+/* Access forms waiting to be confirmed (App.jsx) */
+.forms-waiting-banner {
+  position: fixed; left: 8px; right: 8px; top: calc(env(safe-area-inset-top, 0px) + 8px);
+  z-index: 3000; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: #1e3a8a; color: #fff; border: 1px solid #3b82f6; border-radius: 10px;
+  padding: 8px 12px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.4);
+}
+.forms-waiting-banner button {
+  background: #3b82f6; color: #fff; border: 0; border-radius: 8px; padding: 6px 12px;
+  font-weight: 600; font-size: 13px; white-space: nowrap;
+}
+.forms-waiting-toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 90px);
+  z-index: 3100; background: #166534; color: #fff; border-radius: 20px; padding: 10px 18px;
+  font-size: 14px; font-weight: 600; box-shadow: 0 4px 14px rgba(0,0,0,.4);
+}

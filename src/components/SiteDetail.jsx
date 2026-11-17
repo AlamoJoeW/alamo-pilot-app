@@ -211,7 +211,7 @@ export function WeatherCheck({ site }) {
   )
 }
 
-export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingCount, canEdit, onPinIconChange, onNotesSave }) {
+export default function SiteDetail({ site, onClose, onUpdate, waitingForm, onStartAccessForm, onCancelAccessForm, onCheckForms, isOnline, pendingCount, canEdit, onPinIconChange, onNotesSave }) {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState('')
   const [pendingAction, setPendingAction] = useState(null) // null | 'partial' | 'mob' | 'collected'
@@ -236,48 +236,38 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
   const status = getSiteStatus(site)
   const statusStyle = STATUS_LABELS[status]
 
+  // The access-form handoff itself lives in App.jsx (persisted, so it survives
+  // the phone suspending/reloading the app while the pilot is in the form).
+  // This sheet just mirrors it: show the waiting banner while one exists for
+  // this site, and reset when App confirms or cancels it.
+  useEffect(() => {
+    if (waitingForm) {
+      setPendingAction(waitingForm.action)
+      setPendingRecollectReason(waitingForm.reason || null)
+      setPendingSince(waitingForm.since)
+    } else {
+      setPendingAction(null)
+      setPendingRecollectReason(null)
+      setPendingSince(null)
+      setCheckState('idle')
+    }
+  }, [waitingForm])
+
   const runCheck = useCallback(async () => {
     if (checkState === 'checking' || !pendingAction) return
     setCheckState('checking')
     try {
-      const result = await checkAccessIssue(site.id, pendingSince)
-      if (result.exists) {
-        setLoading(true)
-        try {
-          await onUpdate(site.id, pendingAction, pendingRecollectReason ? { recollected: true, recollectReason: pendingRecollectReason } : undefined)
-          const label = pendingAction === 'partial' ? 'Partial' : pendingAction === 'mob' ? 'MOB Fee' : 'Collected'
-          setPendingAction(null)
-          setPendingRecollectReason(null)
-          setPendingSince(null)
-          setCheckState('idle')
-          setToast(`✓ ${label} confirmed`)
-          setTimeout(() => setToast(''), 3000)
-        } catch (err) {
-          setToast('Error: ' + (err.message || 'Try again'))
-          setTimeout(() => setToast(''), 4000)
-          setCheckState('idle')
-        } finally {
-          setLoading(false)
-        }
-      } else {
-        setCheckState('notFound')
-      }
+      await onCheckForms()
     } catch {
-      setCheckState('notFound')
+      // fall through — banner shows "not found yet"
     }
-  }, [checkState, pendingAction, pendingRecollectReason, pendingSince, site.id, onUpdate])
-
-  // Auto-check when pilot switches back to this tab
-  useEffect(() => {
-    if (!pendingAction) return
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') runCheck()
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [pendingAction, runCheck])
+    // If the form was found, App clears waitingForm and the effect above resets
+    // this state; otherwise we land here still waiting.
+    setCheckState('notFound')
+  }, [checkState, pendingAction, onCheckForms])
 
   function cancelPending() {
+    onCancelAccessForm(site.id)
     setPendingAction(null)
     setPendingRecollectReason(null)
     setPendingSince(null)
@@ -312,17 +302,21 @@ export default function SiteDetail({ site, onClose, onUpdate, isOnline, pendingC
         return
       }
       // window.open is called synchronously in the button onClick
+      const since = new Date().toISOString()
       setPendingAction(newAction)
       setPendingRecollectReason(recollectReason)
-      setPendingSince(new Date().toISOString())
+      setPendingSince(since)
       setCheckState('idle')
+      onStartAccessForm(site.id, newAction, recollectReason, since)
       return
     }
 
     setLoading(true)
     try {
-      await onUpdate(site.id, newAction)
-      setToast(newAction === 'uncollect' ? 'Cleared' : `Marked as ${STATUS_LABELS[action]?.label || action}`)
+      const out = await onUpdate(site.id, newAction)
+      setToast(out && out.saved === false
+        ? 'Saved on this phone — will upload when you have signal'
+        : newAction === 'uncollect' ? 'Cleared' : `Marked as ${STATUS_LABELS[action]?.label || action}`)
       setTimeout(() => setToast(''), 2000)
     } catch (err) {
       setToast('Error: ' + (err.message || 'Try again'))

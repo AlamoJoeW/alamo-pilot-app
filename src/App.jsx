@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Login from './components/Login'
 import MapView from './components/MapView'
 import RouteView from './components/RouteView'
@@ -23,6 +23,7 @@ import {
   updatePreflightLocation,
   submitEOD,
   fetchEODSummary,
+  checkAccessIssue,
 } from './utils/api'
 import {
   saveSites,
@@ -71,6 +72,18 @@ export default function App() {
   // every recollect into Reflys. See handleUpdate below and SiteDetail.jsx's
   // pendingRecollectReason for where this originates.
   const [recollectedSites, setRecollectedSites] = useState([])
+
+  // Access-form handoffs in progress — { siteId, action, reason, since } for each
+  // Partial / MOB Fee / Collected(recollect, refly) tap that opened the access
+  // form but hasn't been confirmed yet. Persisted in IndexedDB ('pendingAccessForms'
+  // meta) so it survives the phone suspending or reloading the app while the pilot
+  // is in the Airtable form — before this lived only in SiteDetail's component
+  // state, and a reload meant the site never got marked even though the form
+  // was filed (see the 617430475 recollect, 11/16).
+  const [waitingForms, setWaitingForms] = useState([])
+  const [appToast, setAppToast] = useState('')
+  const checkingFormsRef = useRef(null)
+  const checkFormsRef = useRef(() => {})
 
   // Preflight state
   const [preflightChecked, setPreflightChecked] = useState(false)
@@ -139,6 +152,11 @@ export default function App() {
     if (at) setSyncedAt(at)
     const pending = await getPendingUpdates()
     setPendingCount(pending.length)
+    const forms = await getMeta('pendingAccessForms')
+    if (Array.isArray(forms)) {
+      const today = centralDateStr()
+      setWaitingForms(forms.filter(f => centralDateStr(new Date(f.since)) === today))
+    }
     const recollected = await getMeta('recollectedToday')
     if (Array.isArray(recollected)) {
       const today = centralDateStr()
@@ -254,13 +272,55 @@ export default function App() {
     return restored.length > 0 ? [...freshSites, ...restored] : freshSites
   }
 
+  // A fresh fetch from Airtable replaces every site with the server's copy. If a
+  // change hasn't reached the server yet (queued offline / failed save), that
+  // would silently revert it on screen and in the cache — which is how a
+  // recollect could vanish before the EOD. This puts local changes that are
+  // still waiting to be saved back on top of the fresh copy, and re-queues any
+  // site recollected today whose Collected status the server doesn't have
+  // (self-heal) so Airtable catches up the next time a flush runs.
+  async function overlayLocalChanges(freshSites) {
+    const byId = new Map(freshSites.map(s => [s.id, { ...s }]))
+    const stamp = new Date().toISOString()
+    const pending = await getPendingUpdates()
+    const statusFor = a => ({
+      collectedApp: a === 'collected',
+      partialCollection: a === 'partial',
+      mobFee: a === 'mob',
+    })
+    const queuedCollected = new Set()
+    for (const { value } of pending) {
+      const site = byId.get(value.recordId)
+      if (!site) continue
+      if (value.action) {
+        Object.assign(site, statusFor(value.action), { appStatusUpdatedAt: new Date(value.queuedAt || Date.now()).toISOString() })
+        if (value.action === 'collected') queuedCollected.add(value.recordId)
+      }
+      if (value.notes !== undefined) site.notes = value.notes
+      if (value.pinIcon !== undefined) site.pinIcon = value.pinIcon
+    }
+    const recollected = (await getMeta('recollectedToday')) || []
+    const today = centralDateStr()
+    for (const e of recollected) {
+      if (centralDateStr(new Date(e.timestamp)) !== today) continue
+      const site = byId.get(e.id)
+      if (!site || site.collectedApp || queuedCollected.has(e.id)) continue
+      // Server doesn't show it Collected and nothing is queued to fix that.
+      Object.assign(site, statusFor('collected'), { appStatusUpdatedAt: e.timestamp })
+      await queueUpdate({ recordId: e.id, action: 'collected' })
+    }
+    const remaining = await getPendingUpdates()
+    setPendingCount(remaining.length)
+    return [...byId.values()]
+  }
+
   async function sync() {
     if (syncing) return
     setSyncing(true)
     setSyncError('')
     try {
       const data = await fetchSites()
-      const merged = await mergeRecollectedSites(data.sites)
+      const merged = await overlayLocalChanges(await mergeRecollectedSites(data.sites))
       await saveSites(merged)
       setSites(merged)
       setSyncedAt(data.syncedAt)
@@ -304,7 +364,7 @@ export default function App() {
       // Re-sync to get fresh data
       const data = await fetchSites().catch(() => null)
       if (data) {
-        const merged = await mergeRecollectedSites(data.sites)
+        const merged = await overlayLocalChanges(await mergeRecollectedSites(data.sites))
         await saveSites(merged)
         setSites(merged)
       }
@@ -352,19 +412,126 @@ export default function App() {
       setRecollectedSites(next.map(e => ({ id: e.id, reason: e.reason })))
     }
 
+    // Marking the site anything other than Collected (Partial, MOB Fee, cleared)
+    // ends any recollect tracking for it.
+    if (action !== 'collected' && !meta?.recollected) {
+      const existing = (await getMeta('recollectedToday')) || []
+      if (existing.some(e => e.id === recordId)) {
+        const next = existing.filter(e => e.id !== recordId)
+        await setMeta('recollectedToday', next)
+        setRecollectedSites(next.map(e => ({ id: e.id, reason: e.reason })))
+      }
+    }
+
+    // Returns { saved: true } once Airtable has it, { saved: false } when it's
+    // only queued locally — callers use this so they never say "confirmed"
+    // for something that hasn't actually been saved yet.
     if (isOnline) {
       try {
         await updateSite(recordId, action)
+        return { saved: true }
       } catch (err) {
         // If network fails, queue it
         await queueUpdate({ recordId, action })
         setPendingCount(n => n + 1)
+        return { saved: false }
       }
     } else {
       await queueUpdate({ recordId, action })
       setPendingCount(n => n + 1)
+      return { saved: false }
     }
   }, [isOnline, selectedSite])
+
+  // ---- Access-form handoff (persisted) ----------------------------------
+  const persistForms = useCallback(async list => {
+    setWaitingForms(list)
+    await setMeta('pendingAccessForms', list)
+  }, [])
+
+  const startAccessForm = useCallback(async (siteId, action, reason, since) => {
+    const existing = (await getMeta('pendingAccessForms')) || []
+    await persistForms([...existing.filter(f => f.siteId !== siteId), { siteId, action, reason, since }])
+  }, [persistForms])
+
+  const cancelAccessForm = useCallback(async siteId => {
+    const existing = (await getMeta('pendingAccessForms')) || []
+    await persistForms(existing.filter(f => f.siteId !== siteId))
+  }, [persistForms])
+
+  function showAppToast(msg) {
+    setAppToast(msg)
+    setTimeout(() => setAppToast(''), 4000)
+  }
+
+  // Looks for a filed access form for every waiting site and, when found,
+  // completes the status change the pilot started. Runs on app open, whenever
+  // the app comes back to the foreground, and every few seconds while visible.
+  function checkWaitingForms() {
+    // Share one in-flight check so a manual "Check now" waits for the same run.
+    if (checkingFormsRef.current) return checkingFormsRef.current
+    if (!navigator.onLine) return Promise.resolve()
+    const p = runWaitingFormsCheck().finally(() => { checkingFormsRef.current = null })
+    checkingFormsRef.current = p
+    return p
+  }
+
+  async function runWaitingFormsCheck() {
+    const list = ((await getMeta('pendingAccessForms')) || [])
+    if (list.length === 0) return
+    {
+      const today = centralDateStr()
+      let current = list.filter(f => centralDateStr(new Date(f.since)) === today)
+      for (const f of list) {
+        if (!current.includes(f)) continue
+        try {
+          const result = await checkAccessIssue(f.siteId, f.since)
+          if (!result.exists) continue
+          const out = await handleUpdate(
+            f.siteId,
+            f.action,
+            f.reason ? { recollected: true, recollectReason: f.reason } : undefined
+          )
+          current = current.filter(x => x.siteId !== f.siteId)
+          await persistForms(current)
+          const label = f.action === 'partial' ? 'Partial' : f.action === 'mob' ? 'MOB Fee' : 'Collected'
+          showAppToast(out?.saved ? `✓ ${label} confirmed` : `${label} recorded — will sync when online`)
+        } catch (err) {
+          if (err.message === 'AUTH_EXPIRED') { handleLogout(); return }
+          // otherwise leave it waiting and try again next time
+        }
+      }
+      if (current.length !== list.length) await persistForms(current)
+    }
+  }
+  checkFormsRef.current = checkWaitingForms
+
+  // Re-check when the app returns to the foreground / regains focus / comes back
+  // from the back-forward cache (iOS PWAs don't reliably fire visibilitychange),
+  // once on open/login, and on a short poll while forms are waiting.
+  useEffect(() => {
+    if (!pilot) return
+    const run = () => { if (document.visibilityState === 'visible') checkFormsRef.current() }
+    document.addEventListener('visibilitychange', run)
+    window.addEventListener('focus', run)
+    window.addEventListener('pageshow', run)
+    window.addEventListener('online', run)
+    run()
+    return () => {
+      document.removeEventListener('visibilitychange', run)
+      window.removeEventListener('focus', run)
+      window.removeEventListener('pageshow', run)
+      window.removeEventListener('online', run)
+    }
+  }, [pilot])
+
+  useEffect(() => {
+    if (!pilot || waitingForms.length === 0) return
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') checkFormsRef.current()
+    }, 6000)
+    return () => clearInterval(id)
+  }, [pilot, waitingForms.length])
 
   // Bulk-select in List view — same status action applied to many sites at once.
   // Partial/MOB access-form gating already happened in SiteList before this is
@@ -678,12 +845,28 @@ export default function App() {
         </button>
       )}
 
+      {/* Access forms still waiting to be confirmed — visible from any tab */}
+      {waitingForms.length > 0 && (
+        <div className="forms-waiting-banner">
+          <span>
+            📋 {waitingForms.length} site{waitingForms.length > 1 ? 's' : ''} waiting for the access form
+            {waitingForms.length > 1 ? 's' : ''} to be confirmed
+          </span>
+          <button onClick={() => checkFormsRef.current()}>Check now</button>
+        </div>
+      )}
+      {appToast && <div className="forms-waiting-toast">{appToast}</div>}
+
       {/* Site detail sheet */}
       {selectedSite && (
         <SiteDetail
           site={selectedSite}
           onClose={() => setSelectedSite(null)}
           onUpdate={handleUpdate}
+          waitingForm={waitingForms.find(f => f.siteId === selectedSite.id) || null}
+          onStartAccessForm={startAccessForm}
+          onCancelAccessForm={cancelAccessForm}
+          onCheckForms={() => checkFormsRef.current()}
           isOnline={isOnline}
           pendingCount={pendingCount}
           canEdit={canEdit}
