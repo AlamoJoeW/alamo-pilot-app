@@ -1,6 +1,7 @@
 import { statusBucketForSite, colorForMapColor } from '../utils/mapColors'
 import { NotesEditor, WeatherCheck, IconPicker } from './SiteDetail'
 import { formatDateOnly } from '../utils/formatDate'
+import SunGlareCheck from './SunGlareCheck'
 
 const COA_REQUEST_FORM_URL = 'https://airtable.com/app3uLCFgt3Y0aPaa/shr5HQ8wN5lUqWFQl'
 
@@ -56,6 +57,7 @@ export default function AdminSiteDetail({ site, onClose, onNotesSave, onPinIconC
         </div>
 
         <WeatherCheck site={site} />
+        <SunGlareCheck site={site} />
 
         {site.mapColor && (
           <div className="detail-airtable-status" style={{ color: mapColorHex || undefined }}>
