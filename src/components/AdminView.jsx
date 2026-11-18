@@ -3,6 +3,10 @@ import { fetchAdminData, fetchCollectedSites, updateSiteNotes, updateSitePinIcon
 import { colorForSite, pinColorForSite, isSiteDone, statusBucketForSite, urgencyBoostPx } from '../utils/mapColors'
 import { isMarkedToday, isAddedToday, formatCentralTime } from '../utils/centralTime'
 import { createRadarLayer, fetchLatestRadarTime } from '../utils/radarLayer'
+import {
+  createSunShadowLayer, SUN_SHADOW_LEGEND, SUN_SLIDER_MIN, SUN_SLIDER_MAX, SUN_SLIDER_STEP,
+  centralDayStartMs, currentSunMinute, sunMinuteLabel,
+} from '../utils/sunShadowLayer'
 import { createAirspaceLayer, loadTfrLayer, AIRSPACE_LEGEND, TFR_LEGEND_ITEM, AIRSPACE_MIN_ZOOM } from '../utils/airspaceLayer'
 import { tileLayerFor } from '../utils/mapLayers'
 import { quadcopterIcon, makeSiteIcon } from '../utils/mapIcons'
@@ -102,6 +106,12 @@ export default function AdminView() {
   const [radarStatus, setRadarStatus] = useState('idle') // idle | loading | ready | error
   const [radarTime, setRadarTime] = useState(null)
   const radarLayerRef = useRef(null)
+  // Sun "shadow" overlay — shades where the sun is bad for level-gimbal
+  // collections at a chosen time today (Admin only, see utils/sunShadowLayer.js).
+  // sunMin = minutes since Central midnight; starts at "now".
+  const [sunOn, setSunOn] = useState(false)
+  const [sunMin, setSunMin] = useState(() => currentSunMinute())
+  const sunLayerRef = useRef(null)
   // FAA Class B/C/D/Surface-E airspace overlay — same behavior as the pilot
   // Map tab (MapView.jsx): off by default, esri-leaflet layer created lazily
   // on first toggle-on, and only attached to the map at/above
@@ -421,6 +431,26 @@ export default function AdminView() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [radarOn])
+
+  // Add/remove the sun shadow layer when the toggle flips, and re-point it
+  // whenever the time slider moves. Created lazily on first toggle-on.
+  useEffect(() => {
+    const map = mapInstance.current
+    if (!map) return
+
+    if (sunOn) {
+      const timeMs = centralDayStartMs() + sunMin * 60000
+      if (sunLayerRef.current) {
+        sunLayerRef.current.setTime(timeMs)
+      } else {
+        sunLayerRef.current = createSunShadowLayer(timeMs)
+        sunLayerRef.current?.addTo(map)
+      }
+    } else if (sunLayerRef.current) {
+      map.removeLayer(sunLayerRef.current)
+      sunLayerRef.current = null
+    }
+  }, [sunOn, sunMin])
 
   // Redraw site markers
   useEffect(() => {
@@ -941,6 +971,24 @@ export default function AdminView() {
           </svg>
         </button>
         <button
+          className={`map-sun-btn${sunOn ? ' active' : ''}`}
+          onClick={() => { if (!sunOn) setSunMin(currentSunMinute()); setSunOn(v => !v) }}
+          title={sunOn ? 'Hide sun check' : 'Show where the sun is bad for level-gimbal collections today'}
+          aria-label={sunOn ? 'Hide sun check overlay' : 'Show sun check overlay'}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="4" />
+            <line x1="12" y1="2" x2="12" y2="4.5" />
+            <line x1="12" y1="19.5" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="4.5" y2="12" />
+            <line x1="19.5" y1="12" x2="22" y2="12" />
+            <line x1="4.9" y1="4.9" x2="6.7" y2="6.7" />
+            <line x1="17.3" y1="17.3" x2="19.1" y2="19.1" />
+            <line x1="4.9" y1="19.1" x2="6.7" y2="17.3" />
+            <line x1="17.3" y1="6.7" x2="19.1" y2="4.9" />
+          </svg>
+        </button>
+        <button
           className={`map-layer-btn${satellite ? ' active' : ''}`}
           onClick={() => setSatellite(v => !v)}
           title={satellite ? 'Switch to street map' : 'Switch to satellite view'}
@@ -965,6 +1013,37 @@ export default function AdminView() {
             <div className="map-airspace-legend-row">
               <span className={`map-airspace-swatch map-airspace-swatch-${TFR_LEGEND_ITEM.key}`} />
               {TFR_LEGEND_ITEM.label}
+            </div>
+          </div>
+        )}
+        {sunOn && (
+          <div className="map-sun-panel">
+            <div className="map-sun-head">
+              <span className="map-sun-title">Sun check · level gimbal</span>
+              <button type="button" className="map-sun-now" onClick={() => setSunMin(currentSunMinute())}>Now</button>
+            </div>
+            <div className="map-sun-slider-row">
+              <input
+                type="range"
+                min={SUN_SLIDER_MIN}
+                max={SUN_SLIDER_MAX}
+                step={SUN_SLIDER_STEP}
+                value={sunMin}
+                onChange={e => setSunMin(Number(e.target.value))}
+                aria-label="Time of day (Central)"
+              />
+              <span className="map-sun-time">{sunMinuteLabel(sunMin)}</span>
+            </div>
+            <div className="map-sun-legend">
+              {SUN_SHADOW_LEGEND.map(item => (
+                <div key={item.key} className="map-sun-legend-row">
+                  <span className="map-sun-swatch" style={{ background: item.swatch }} />
+                  {item.label}
+                </div>
+              ))}
+            </div>
+            <div className="map-sun-note">
+              Shows where the sun hurts level-gimbal photos at this time today. Collection window is sunrise +2 hrs to sunset −2 hrs. Sun only: terrain and clouds aren&apos;t considered.
             </div>
           </div>
         )}
