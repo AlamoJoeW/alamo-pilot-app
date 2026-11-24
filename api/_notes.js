@@ -6,13 +6,28 @@ export function pilotFirstName(pilot) {
   return String(raw).trim().split(/\s+/)[0] || ''
 }
 
+// Today's date as mm/dd/yyyy in Central time (same "today" the rest of the app uses).
+export function signatureDate(date = new Date()) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
+// Signature is "- FirstName mm/dd/yyyy". A note that already ends with this pilot's
+// signature is never doubled: a dated one is left alone (so the client-signed copy that
+// reaches the server isn't re-signed), and an older date-less "- FirstName" is upgraded
+// to the dated form.
 export function signNote(text, pilot) {
   if (typeof text !== 'string') return text
   const trimmed = text.trim()
   if (!trimmed) return text
   const name = pilotFirstName(pilot)
   if (!name) return text
-  const sig = `- ${name}`
-  if (trimmed.toLowerCase().endsWith(sig.toLowerCase())) return trimmed
-  return `${trimmed} ${sig}`
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  if (new RegExp(`-\\s*${esc}\\s+\\d{2}/\\d{2}/\\d{4}$`, 'i').test(trimmed)) return trimmed
+  const base = trimmed.replace(new RegExp(`\\s*-\\s*${esc}$`, 'i'), '').trim()
+  return `${base || trimmed} - ${name} ${signatureDate()}`
 }

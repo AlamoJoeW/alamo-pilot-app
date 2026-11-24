@@ -573,8 +573,15 @@ export default function App() {
     const first = String(pilot?.firstName || pilot?.displayName || '').trim().split(/\s+/)[0]
     let notes = rawNotes
     if (first && rawNotes && rawNotes.trim()) {
-      const sig = `- ${first}`
-      notes = rawNotes.trim().toLowerCase().endsWith(sig.toLowerCase()) ? rawNotes.trim() : `${rawNotes.trim()} ${sig}`
+      const trimmed = rawNotes.trim()
+      const esc = first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      if (new RegExp(`-\\s*${esc}\\s+\\d{2}/\\d{2}/\\d{4}$`, 'i').test(trimmed)) {
+        notes = trimmed
+      } else {
+        const base = trimmed.replace(new RegExp(`\\s*-\\s*${esc}$`, 'i'), '').trim() || trimmed
+        const today = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+        notes = `${base} - ${first} ${today}`
+      }
     }
     await updateSiteLocally(recordId, { notes })
     setSites(prev => prev.map(s => s.id === recordId ? { ...s, notes } : s))
